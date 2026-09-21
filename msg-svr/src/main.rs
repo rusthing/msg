@@ -47,78 +47,70 @@ struct Args {
         long_help = r#"监听信号，支持指令如下:
     start - 默认值，先发送 SIGCONT 信号(kill -0)，检查程序是否已运行，然后启动程序
     restart - 重启程序，向已运行的程序发送 SIGUSR2 信号
-    stop - 停止程序，向已运行的程序发送 SIGTERM 信号
-    kill - 强制停止程序，向已运行的程序发送 SIGKILL 信号
-    "#)]
+    stop/s - 停止程序，向已运行的程序发送 SIGTERM 信号
+    kill/k - 强制停止程序，向已运行的程序发送 SIGKILL 信号
+    "#
+    )]
     signal: String,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 解析命令行参数
-    let args = Args::parse();
+    let Args {
+        signal,
+        config_file: config_file_path,
+        port,
+    } = Args::parse();
 
     // 初始化环境变量
-    init_env();
+    init_env()?;
+    let log_watcher = LogWatcher::new().await?;
+    init_dao()?;
 
-    // 处理信号
-    let signal_manager = SignalManager::new("msg-svr".to_string());
-    if let Err(e) = signal_manager.handle_signal(args.signal.clone()).await {
-        if args.signal != "start" {
-            return Err(anyhow!("signal error: {}", e));
-        }
-    }
+    let (mut signal_manager, old_pid) = SignalManager::new(signal)?;
 
-    // 加载配置
-    let config_file = args.config_file.unwrap_or_else(|| {
-        std::env::var("MSG_CONFIG_FILE").unwrap_or_else(|_| "msg-svr.toml".to_string())
-    });
-    let app_config = AppWatcher::<AppConfig>::new(&config_file)
-        .expect("init config error")
-        .get_config();
+    let app_watcher: AppWatcher<AppConfig> = AppWatcher::new(
+        config_file_path,
+        log_watcher.config_changed_tx.clone(),
+        move |app_config: Arc<AppConfig>, changed| async move {
+            let changed = Some(changed);
+            setup(&app_config, &changed, port, old_pid).await?;
+            info!("重新加载配置成功");
+            Ok(())
+        },
+    )
+    .await?;
 
-    info!("Starting msg-svr with config file: {}", config_file);
+    let changed = None;
+    setup(&app_watcher.app_config, &changed, port, old_pid).await?;
 
-    // 初始化 ID Worker
-    setup_id_worker(&app_config.id_worker)?;
+    register_micro_svc().await;
 
-    // 初始化数据库连接
-    let db_conn = setup_db_conn(&app_config.db)
-        .await
-        .expect("setup db error");
+    let signal_receiver = signal_manager.watch_signal()?;
+    Ok(wait_app_exit(signal_receiver, || async move {
+        drop_hub_client().await;
+        stop_web_service().await.expect("无法停止旧的Web服务");
+        Ok(())
+    })
+    .await?)
+}
 
-    // 执行数据库迁移
-    db_migrate!();
+/// # 初始化或更新应用配置
+#[log_call]
+async fn setup(
+    app_config: &Arc<AppConfig>,
+    changed: &Option<HashMap<String, Value>>,
+    port: Option<u16>,
+    old_pid: Option<u32>,
+) -> Result<(), anyhow::Error> {
+    let db_url = app_config.db.get_url();
+    db_migrate!(db_url);
 
-    // 初始化 DAO
-    init_dao(db_conn).await;
+    setup_id_worker(app_config.id_worker.clone(), &changed)?;
+    setup_db_conn(app_config.db.clone(), &changed).await?;
 
-    // 初始化 Redis 连接
-    if let Some(redis_config) = &app_config.redis {
-        setup_redis_conn(redis_config).await.expect("setup redis error");
-    }
+    setup_web_server(app_config.web.clone(), port, old_pid, &changed).await?;
 
-    // 注册微服务到 Consul
-    if let Err(e) = register_micro_svc(&config_file).await {
-        info!("Register micro service error (ignored): {}", e);
-    }
-
-    // 启动 Web 服务
-    let web_server = setup_web_server(app_config.web.port).await?;
-
-    // 初始化日志监听
-    LogWatcher::init(&config_file)?;
-
-    info!("MSG server started successfully on port {}", app_config.web.port);
-
-    // 等待退出信号
-    wait_app_exit().await;
-
-    // 优雅关闭
-    info!("Shutting down MSG server...");
-    stop_web_service(web_server).await;
-    drop_hub_client().await;
-
-    info!("MSG server stopped");
     Ok(())
 }
