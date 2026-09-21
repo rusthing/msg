@@ -1,0 +1,21 @@
+profile = "dev"
+
+#[micro-msg.consul]
+#base-url = "http://consul:8500"
+#config.file-format = "toml"
+#config.common-configs = "log.toml"
+#[micro-msg.consul.registry]
+#sub-net = "192.168.1.0/24"
+
+
+[msg]
+
+[redis]
+url = "redis://:xxxxxxxx@redis:6379"
+
+[db]
+url = "postgres://msg:msg@pgsql:5432/msg"
+#url = "mysql://msg:msg@mysql:3306/msg"
+
+[web]
+port = 9002
