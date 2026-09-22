@@ -24,8 +24,8 @@ pub enum DeliverTargetStatus {
     Delivering = 0,
     /// 投递成功
     Success = 1,
-    /// 投递超时
-    Timeout = 2,
+    /// 投递失败
+    Failed = 2,
     /// 目标已读
     Read = 3,
 }
@@ -45,7 +45,7 @@ impl DeliverTargetStatus {
         match value {
             0 => Some(DeliverTargetStatus::Delivering),
             1 => Some(DeliverTargetStatus::Success),
-            2 => Some(DeliverTargetStatus::Timeout),
+            2 => Some(DeliverTargetStatus::Failed),
             3 => Some(DeliverTargetStatus::Read),
             _ => None,
         }
