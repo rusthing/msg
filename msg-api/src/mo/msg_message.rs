@@ -19,7 +19,6 @@ pub struct Model {
     pub title_template: String,
     pub content_template: String,
     pub remark: Option<String>,
-    pub persisted: bool,
     pub enabled: bool,
     pub creator_id: i64,
     pub create_ms: i64,
@@ -32,7 +31,7 @@ pub struct Model {
         on_update = "Restrict",
         on_delete = "Restrict"
     )]
-    pub msg_message_level: BelongsTo<super::msg_message_level::Entity>,
+    pub msg_message_queue: BelongsTo<super::msg_message_queue::Entity>,
     #[sea_orm(has_many)]
     pub msg_message_channels: HasMany<super::msg_message_channel::Entity>,
     #[sea_orm(has_many)]

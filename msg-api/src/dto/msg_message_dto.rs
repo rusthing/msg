@@ -4,7 +4,7 @@ use robotech::macros::crud_dto;
 pub struct MsgMessageDto {
     /// 消息类别ID
     pub category_id: Option<i64>,
-    /// 消息级别ID
+    /// 消息队列ID
     pub mes_id: i64,
     /// 消息来源ID
     pub source_id: Option<i64>,
@@ -18,9 +18,6 @@ pub struct MsgMessageDto {
     pub content_template: String,
     /// 备注
     pub remark: Option<String>,
-    /// 是否持久化
-    #[db_default]
-    pub persisted: bool,
     /// 启用
     #[db_default]
     pub enabled: bool,

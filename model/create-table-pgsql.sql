@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/22 11:26:15                           */
+/* Created on:     2026/9/22 17:15:59                           */
 /*==============================================================*/
 
 
@@ -307,7 +307,7 @@ comment on column msg_delivery_target.deliver_target_status is
 '投递状态
 0: 投递中
 1: 投递成功
-2: 投递超时
+2: 投递失败
 3: 目标已读';
 
 comment on column msg_delivery_target.creator_id is
@@ -356,7 +356,6 @@ create table msg_message (
    title_template       VARCHAR(150)         not null,
    content_template     TEXT                 not null,
    remark               VARCHAR(50)          null,
-   persisted            BOOL                 not null default true,
    enabled              BOOL                 not null default true,
    creator_id           INT8                 not null,
    create_ms            INT8                 not null,
@@ -377,7 +376,7 @@ comment on column msg_message.category_id is
 '消息类别ID';
 
 comment on column msg_message.mes_id is
-'消息级别ID';
+'消息队列ID';
 
 comment on column msg_message.source_id is
 '消息来源ID';
@@ -396,9 +395,6 @@ comment on column msg_message.content_template is
 
 comment on column msg_message.remark is
 '备注';
-
-comment on column msg_message.persisted is
-'是否持久化';
 
 comment on column msg_message.enabled is
 '启用';
@@ -553,54 +549,58 @@ channel_id
 );
 
 /*==============================================================*/
-/* Table: msg_message_level                                     */
+/* Table: msg_message_queue                                     */
 /*==============================================================*/
-create table msg_message_level (
+create table msg_message_queue (
    id                   INT8                 not null,
    code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
+   persisted            BOOL                 not null default true,
    remark               VARCHAR(50)          null,
    creator_id           INT8                 not null,
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_MESSAGE_LEVEL primary key (id),
-   constraint AK_CODE_MSG_MESSAGE_LEVEL unique (code),
-   constraint AK_NAME_MSG_MESSAGE_LEVEL unique (name)
+   constraint PK_MSG_MESSAGE_QUEUE primary key (id),
+   constraint AK_CODE_MSG_MESSAGE_QUEUE unique (code),
+   constraint AK_NAME_MSG_MESSAGE_QUEUE unique (name)
 );
 
-comment on table msg_message_level is
-'消息级别';
+comment on table msg_message_queue is
+'消息队列';
 
-comment on column msg_message_level.id is
+comment on column msg_message_queue.id is
 'ID';
 
-comment on column msg_message_level.code is
+comment on column msg_message_queue.code is
 '编码
-用于消息队列的名称';
+用于订阅消息中间件队列的名称';
 
-comment on column msg_message_level.name is
+comment on column msg_message_queue.name is
 '名称';
 
-comment on column msg_message_level.remark is
+comment on column msg_message_queue.persisted is
+'是否持久化';
+
+comment on column msg_message_queue.remark is
 '备注';
 
-comment on column msg_message_level.creator_id is
+comment on column msg_message_queue.creator_id is
 '创建人的用户ID';
 
-comment on column msg_message_level.create_ms is
+comment on column msg_message_queue.create_ms is
 '创建时间戳';
 
-comment on column msg_message_level.updator_id is
+comment on column msg_message_queue.updator_id is
 '修改人的用户ID';
 
-comment on column msg_message_level.update_ms is
+comment on column msg_message_queue.update_ms is
 '修改时间戳';
 
 /*==============================================================*/
-/* Index: msg_message_level_PK                                  */
+/* Index: msg_message_queue_PK                                  */
 /*==============================================================*/
-create unique index msg_message_level_PK on msg_message_level (
+create unique index msg_message_queue_PK on msg_message_queue (
 id
 );
 
@@ -807,8 +807,8 @@ alter table msg_message
       on delete restrict on update restrict;
 
 alter table msg_message
-   add constraint fk_mes_id__from__msg_message_level foreign key (mes_id)
-      references msg_message_level (id)
+   add constraint fk_mes_id__from__msg_message_queue foreign key (mes_id)
+      references msg_message_queue (id)
       on delete restrict on update restrict;
 
 alter table msg_message_channel

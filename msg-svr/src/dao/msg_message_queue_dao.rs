@@ -1,6 +1,6 @@
 use robotech::macros::dao;
 
-/// 消息级别
+/// 消息队列
 #[dao(
     unique_keys: [
         ("code", "编码"),
@@ -12,4 +12,4 @@ use robotech::macros::dao;
         Column::Remark,
     ],
 )]
-pub struct MsgMessageLevelDao;
+pub struct MsgMessageQueueDao;

@@ -6,7 +6,7 @@ pub struct MsgMessageVo {
     pub id: i64,
     /// 消息类别ID
     pub category_id: Option<i64>,
-    /// 消息级别ID
+    /// 消息队列ID
     pub mes_id: i64,
     /// 消息来源ID
     pub source_id: Option<i64>,
@@ -20,8 +20,6 @@ pub struct MsgMessageVo {
     pub content_template: String,
     /// 备注
     pub remark: Option<String>,
-    /// 是否持久化
-    pub persisted: bool,
     /// 启用
     pub enabled: bool,
     /// 创建者ID

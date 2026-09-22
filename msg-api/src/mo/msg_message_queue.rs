@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
-#[sea_orm(table_name = "msg_message_level")]
+#[sea_orm(table_name = "msg_message_queue")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: i64,
@@ -13,6 +13,7 @@ pub struct Model {
     pub code: String,
     #[sea_orm(unique)]
     pub name: String,
+    pub persisted: bool,
     pub remark: Option<String>,
     pub creator_id: i64,
     pub create_ms: i64,

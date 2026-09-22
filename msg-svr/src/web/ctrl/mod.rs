@@ -6,7 +6,7 @@ pub mod msg_delivery_target_ctrl;
 pub mod msg_message_category_ctrl;
 pub mod msg_message_channel_ctrl;
 pub mod msg_message_ctrl;
-pub mod msg_message_level_ctrl;
+pub mod msg_message_queue_ctrl;
 pub mod msg_message_source_ctrl;
 pub mod msg_message_target_ctrl;
 pub mod msg_target_category_ctrl;
