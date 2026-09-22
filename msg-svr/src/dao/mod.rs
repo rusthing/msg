@@ -1,1 +1,25 @@
-// TODO: 添加数据访问层模块
+mod msg_channel_dao;
+mod msg_delivery_channel_dao;
+mod msg_delivery_channel_log_dao;
+mod msg_delivery_dao;
+mod msg_delivery_target_dao;
+mod msg_message_category_dao;
+mod msg_message_channel_dao;
+mod msg_message_dao;
+mod msg_message_level_dao;
+mod msg_message_source_dao;
+mod msg_message_target_dao;
+mod msg_target_category_dao;
+
+pub use msg_channel_dao::*;
+pub use msg_delivery_channel_dao::*;
+pub use msg_delivery_channel_log_dao::*;
+pub use msg_delivery_dao::*;
+pub use msg_delivery_target_dao::*;
+pub use msg_message_category_dao::*;
+pub use msg_message_channel_dao::*;
+pub use msg_message_dao::*;
+pub use msg_message_level_dao::*;
+pub use msg_message_source_dao::*;
+pub use msg_message_target_dao::*;
+pub use msg_target_category_dao::*;

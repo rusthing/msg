@@ -1,0 +1,14 @@
+//! `SeaORM` Entity prelude
+
+pub use super::msg_channel::Entity as MsgChannel;
+pub use super::msg_delivery::Entity as MsgDelivery;
+pub use super::msg_delivery_channel::Entity as MsgDeliveryChannel;
+pub use super::msg_delivery_channel_log::Entity as MsgDeliveryChannelLog;
+pub use super::msg_delivery_target::Entity as MsgDeliveryTarget;
+pub use super::msg_message::Entity as MsgMessage;
+pub use super::msg_message_category::Entity as MsgMessageCategory;
+pub use super::msg_message_channel::Entity as MsgMessageChannel;
+pub use super::msg_message_level::Entity as MsgMessageLevel;
+pub use super::msg_message_source::Entity as MsgMessageSource;
+pub use super::msg_message_target::Entity as MsgMessageTarget;
+pub use super::msg_target_category::Entity as MsgTargetCategory;

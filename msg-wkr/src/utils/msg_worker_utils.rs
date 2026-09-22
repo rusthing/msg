@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use crate::config::get_msg_worker_config;
+use tracing::info;
 
 /// 消息处理 trait
 ///
@@ -14,6 +16,11 @@ pub trait MsgMessageHandler: Send + Sync {
 pub async fn setup_msg_worker(
     _handler: std::sync::Arc<dyn MsgMessageHandler>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: 实现 Worker 初始化逻辑
+    let worker_config = get_msg_worker_config()?;
+    info!(
+        "MSG Worker initialized: code={}, key={}",
+        worker_config.worker_code, worker_config.worker_key
+    );
+    // TODO: 实现 Worker 初始化逻辑，从 Redis Stream 订阅消息并分发给 handler
     Ok(())
 }

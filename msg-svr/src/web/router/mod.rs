@@ -1,1 +1,12 @@
-// TODO: 添加路由模块
+mod msg_channel_router;
+mod msg_delivery_channel_log_router;
+mod msg_delivery_channel_router;
+mod msg_delivery_router;
+mod msg_delivery_target_router;
+mod msg_message_category_router;
+mod msg_message_channel_router;
+mod msg_message_level_router;
+mod msg_message_router;
+mod msg_message_source_router;
+mod msg_message_target_router;
+mod msg_target_category_router;

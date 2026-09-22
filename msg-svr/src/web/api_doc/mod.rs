@@ -1,1 +1,12 @@
-// TODO: 添加 API 文档模块
+mod msg_channel_api_doc;
+mod msg_delivery_api_doc;
+mod msg_delivery_channel_api_doc;
+mod msg_delivery_channel_log_api_doc;
+mod msg_delivery_target_api_doc;
+mod msg_message_api_doc;
+mod msg_message_category_api_doc;
+mod msg_message_channel_api_doc;
+mod msg_message_level_api_doc;
+mod msg_message_source_api_doc;
+mod msg_message_target_api_doc;
+mod msg_target_category_api_doc;
