@@ -1,6 +1,7 @@
 use crate::config::MsgConfig;
 use idworker::IdWorkerConfig;
 use robotech::db::DbConnConfig;
+use robotech::mq::nats::NatsConfig;
 use robotech::redis::RedisConfig;
 use robotech::web::WebServerConfig;
 use serde::Deserialize;
@@ -21,4 +22,6 @@ pub struct AppConfig {
     pub id_worker: IdWorkerConfig,
     /// redis
     pub redis: Option<RedisConfig>,
+    /// nats
+    pub nats: Option<NatsConfig>,
 }

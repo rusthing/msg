@@ -23,7 +23,7 @@
 use arc_swap::ArcSwapOption;
 use config::Value;
 use robotech::db::{get_db_conn, DB_CONN_CONFIG_KEY};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::{error, info};
 use wheel_rs::config_utils::has_config_changed;
@@ -41,6 +41,7 @@ use crate::svc::{
 use crate::vo::{
     MsgChannelVo, MsgMessageChannelVo, MsgMessageExVo, MsgMessageTargetVo,
 };
+use crate::mq::sync_queue_subscriptions;
 
 /// # 消息缓存配置中心版本键
 ///
@@ -96,7 +97,7 @@ pub struct CachedMessage {
 }
 
 /// # 缓存的消息队列
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CachedQueue {
     /// 队列 ID
     pub id: i64,
@@ -379,11 +380,22 @@ pub async fn refresh_msg_cache() -> Result<(), Box<dyn std::error::Error + Send 
         })
         .collect();
 
+    // ── 提取队列信息（在 messages 被 move 之前） ──
+
+    let unique_queues: HashSet<CachedQueue> = messages
+        .values()
+        .map(|m| m.queue.clone())
+        .collect();
+
     // ── 原子替换 ──
 
     let cache = MsgCache { messages };
 
     MSG_CACHE.store(Some(Arc::new(cache)));
+
+    // ── 同步队列订阅 ──
+
+    sync_queue_subscriptions(&unique_queues).await;
 
     Ok(())
 }
