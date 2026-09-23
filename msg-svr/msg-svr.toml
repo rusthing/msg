@@ -1,12 +1,10 @@
 profile = "dev"
 
-#[micro-msg.consul]
-#base-url = "http://consul:8500"
-#config.file-format = "toml"
-#config.common-configs = "log.toml"
-#[micro-msg.consul.registry]
-#sub-net = "192.168.1.0/24"
-
+[micro-svc.consul]
+base-url = "http://consul:8500"
+config.file-format = "toml"
+config.common-configs = "log.toml"
+[micro-svc.consul.registry]
 
 [msg]
 
