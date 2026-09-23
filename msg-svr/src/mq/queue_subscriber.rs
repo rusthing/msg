@@ -1,18 +1,21 @@
 //! # 队列订阅管理
 //!
-//! 维护当前活跃的消息队列订阅句柄，在缓存刷新时根据最新的队列信息
+//! 维护当前活跃的消息队列订阅句柄，在队列缓存刷新时根据最新的队列信息
 //! 同步订阅状态：新增队列则启动新订阅，移除的队列则停止旧的订阅线程。
 //!
 //! ## 数据流
 //!
 //! ```text
-//! refresh_msg_cache
+//! refresh_msg_queue_cache
+//!   → 从 DB 加载所有 msg_message_queue
 //!   → 提取所有 CachedQueue
 //!   → sync_queue_subscriptions(queues)
 //!     → 对比旧订阅：新增 / 保留 / 移除
 //!     → 调用 NATS subscribe 启动新线程
 //!     → 停止不再需要的订阅线程
 //! ```
+//!
+//! 注意：消息模板缓存（`refresh_msg_message_cache`）不会触发队列重新订阅。
 
 use arc_swap::ArcSwapOption;
 use robotech::mq::nats;

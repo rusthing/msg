@@ -31,28 +31,43 @@ use wheel_rs::config_utils::has_config_changed;
 // ── SVC 引用 ──
 use crate::dto::{
     MsgChannelQueryDto, MsgMessageCategoryQueryDto, MsgMessageChannelQueryDto,
-    MsgMessageQueryDto, MsgMessageSourceQueryDto, MsgMessageTargetQueryDto,
-    MsgTargetCategoryQueryDto,
+    MsgMessageQueryDto, MsgMessageQueueQueryDto, MsgMessageSourceQueryDto,
+    MsgMessageTargetQueryDto, MsgTargetCategoryQueryDto,
 };
 use crate::svc::{
-    MsgChannelSvc, MsgMessageCategorySvc, MsgMessageChannelSvc, MsgMessageSourceSvc,
-    MsgMessageSvc, MsgMessageTargetSvc, MsgTargetCategorySvc,
+    MsgChannelSvc, MsgMessageCategorySvc, MsgMessageChannelSvc, MsgMessageQueueSvc,
+    MsgMessageSourceSvc, MsgMessageSvc, MsgMessageTargetSvc, MsgTargetCategorySvc,
 };
 use crate::vo::{
-    MsgChannelVo, MsgMessageChannelVo, MsgMessageExVo, MsgMessageTargetVo,
+    MsgChannelVo, MsgMessageChannelVo, MsgMessageExVo, MsgMessageQueueVo,
+    MsgMessageTargetVo,
 };
 use crate::mq::sync_queue_subscriptions;
 
 /// # 消息缓存配置中心版本键
 ///
 /// 配置中心中 `refresh-scope.msg-message` 的值变化时，
-/// 说明消息数据有更新，需要刷新缓存。
+/// 说明消息数据有更新，需要刷新消息缓存（不会触发队列重新订阅）。
 const MSG_MESSAGE_CACHE_CONFIG_KEY: &str = "refresh-scope.msg-message";
+
+/// # 消息队列缓存配置中心版本键
+///
+/// 配置中心中 `refresh-scope.msg-message-queue` 的值变化时，
+/// 说明消息队列数据有更新，需要刷新队列缓存并触发重新订阅。
+const MSG_MESSAGE_QUEUE_CACHE_CONFIG_KEY: &str = "refresh-scope.msg-message-queue";
 
 /// # 全局消息缓存
 ///
 /// 使用 [`ArcSwapOption`] 存储，无锁读取；`const_empty` 保证启动时可用。
 static MSG_CACHE: ArcSwapOption<MsgCache> = ArcSwapOption::const_empty();
+
+/// # 全局消息队列缓存
+///
+/// 独立于消息缓存的队列缓存，用于订阅管理。
+/// key = `queue.code`，value = [`CachedQueue`]。
+/// 使用 [`ArcSwapOption`] 存储，无锁读取。
+static MSG_QUEUE_CACHE: ArcSwapOption<HashMap<String, CachedQueue>> =
+    ArcSwapOption::const_empty();
 
 // ═══════════════════════════════════════════════════════════════
 //  数据结构
@@ -171,25 +186,62 @@ pub fn get_msg_cache() -> Arc<MsgCache> {
         .unwrap_or_else(|| Arc::new(MsgCache::default()))
 }
 
+/// # 获取全局消息队列缓存快照
+///
+/// 返回当前队列缓存的只读引用。若缓存尚未初始化，返回空的默认 map。
+///
+/// ## 返回值
+///
+/// [`Arc<HashMap<String, CachedQueue>>`] — 当下的队列缓存快照
+pub fn get_queue_cache() -> Arc<HashMap<String, CachedQueue>> {
+    MSG_QUEUE_CACHE
+        .load_full()
+        .unwrap_or_else(|| Arc::new(HashMap::new()))
+}
+
 /// # 初始化或热更新消息缓存
 ///
-/// 通常由 `bootstrap!` 的 `setup()` 回调调用。当 `changed` 为 `None`
-/// （首次加载）或 `"db"` 配置变更（DB 重连）时，全量从 DB 刷新缓存。
+/// 根据配置变更情况，分别刷新消息队列缓存和消息缓存：
+/// - `msg-message-queue` 变更 → 刷新队列缓存并触发队列重新订阅
+/// - `msg-message` 变更 → 仅刷新消息缓存，不触发重新订阅
+/// - `db` 配置变更（DB 重连）→ 两者均刷新
 ///
 /// ## 参数
 ///
 /// - `changed`: 配置变更集合，`None` 表示首次加载
 pub async fn setup_msg_cache(changed: &Option<HashMap<String, Value>>) {
-    if changed
+    let db_changed = changed
         .as_ref()
-        .map(|c| {
-            has_config_changed(DB_CONN_CONFIG_KEY, c)
-                || has_config_changed(MSG_MESSAGE_CACHE_CONFIG_KEY, c)
-        })
-        .unwrap_or(true)
-    {
+        .map(|c| has_config_changed(DB_CONN_CONFIG_KEY, c))
+        .unwrap_or(true);
+
+    let queue_changed = db_changed
+        || changed
+            .as_ref()
+            .map(|c| has_config_changed(MSG_MESSAGE_QUEUE_CACHE_CONFIG_KEY, c))
+            .unwrap_or(false);
+
+    let message_changed = db_changed
+        || changed
+            .as_ref()
+            .map(|c| has_config_changed(MSG_MESSAGE_CACHE_CONFIG_KEY, c))
+            .unwrap_or(false);
+
+    // ── 刷新消息队列缓存（会触发队列重新订阅） ──
+
+    if queue_changed {
+        info!("刷新消息队列缓存...");
+        match refresh_msg_queue_cache().await {
+            Ok(()) => info!("消息队列缓存刷新完成"),
+            Err(e) => error!("刷新消息队列缓存失败: {e}"),
+        }
+    }
+
+    // ── 刷新消息缓存（不会触发队列重新订阅） ──
+
+    if message_changed {
         info!("刷新消息缓存...");
-        match refresh_msg_cache().await {
+        match refresh_msg_message_cache().await {
             Ok(()) => info!("消息缓存刷新完成"),
             Err(e) => error!("刷新消息缓存失败: {e}"),
         }
@@ -201,10 +253,13 @@ pub async fn setup_msg_cache(changed: &Option<HashMap<String, Value>>) {
 /// 从数据库加载消息、渠道、队列、来源、类别、目标类别、消息-渠道关联、
 /// 消息-目标关联，组装为 [`MsgCache`] 并通过 [`ArcSwap`] 原子替换。
 ///
+/// 注意：本函数不会触发队列重新订阅。如需重新订阅，请调用
+/// [`refresh_msg_queue_cache`]。
+///
 /// ## 返回值
 ///
 /// 刷新成功返回 `Ok(())`；数据库错误返回 `Err`
-pub async fn refresh_msg_cache() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let db = get_db_conn()?;
 
     // ── 通过 SVC 分表查询，禁用数据不查出 ──
@@ -380,20 +435,54 @@ pub async fn refresh_msg_cache() -> Result<(), Box<dyn std::error::Error + Send 
         })
         .collect();
 
-    // ── 提取队列信息（在 messages 被 move 之前） ──
-
-    let unique_queues: HashSet<CachedQueue> = messages
-        .values()
-        .map(|m| m.queue.clone())
-        .collect();
-
     // ── 原子替换 ──
 
     let cache = MsgCache { messages };
 
     MSG_CACHE.store(Some(Arc::new(cache)));
 
-    // ── 同步队列订阅 ──
+    Ok(())
+}
+
+/// # 全量刷新消息队列缓存
+///
+/// 从数据库加载所有消息队列，更新队列缓存，并触发队列重新订阅。
+/// 若队列有新增或移除，将自动同步 NATS 订阅状态。
+///
+/// ## 返回值
+///
+/// 刷新成功返回 `Ok(())`；数据库错误返回 `Err`
+pub async fn refresh_msg_queue_cache() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let db = get_db_conn()?;
+
+    let queues: Vec<MsgMessageQueueVo> = MsgMessageQueueSvc::list_by_query_dto(
+        MsgMessageQueueQueryDto::default(),
+        Some(db.as_ref()),
+    )
+    .await?
+    .extra
+    .unwrap_or_default();
+
+    let queue_map: HashMap<String, CachedQueue> = queues
+        .into_iter()
+        .map(|q| {
+            (
+                q.code.clone(),
+                CachedQueue {
+                    id: q.id,
+                    code: q.code,
+                    name: q.name,
+                    persisted: q.persisted,
+                },
+            )
+        })
+        .collect();
+
+    let unique_queues: HashSet<CachedQueue> = queue_map.values().cloned().collect();
+
+    MSG_QUEUE_CACHE.store(Some(Arc::new(queue_map)));
+
+    // ── 同步队列订阅（队列变更时重新订阅） ──
 
     sync_queue_subscriptions(&unique_queues).await;
 
