@@ -23,7 +23,7 @@
 
 use arc_swap::ArcSwapOption;
 use config::Value;
-use robotech::db::get_db_conn;
+use robotech::db::{get_db_conn, DB_CONN_CONFIG_KEY};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -34,11 +34,11 @@ use wheel_rs::config_utils::has_config_changed;
 use msg_api::mo::prelude::*;
 use msg_api::mo::{msg_channel, msg_message};
 
-/// # 消息缓存键前缀
+/// # 消息缓存配置中心版本键
 ///
-/// 用于在 `changed` Map 中判断是否需要刷新缓存；
-/// 缓存数据来源于数据库，此处绑定到 `"db"` 键，DB 重连时自动刷新。
-const MSG_CACHE_KEY_PREFIX: &str = "db";
+/// 配置中心中 `micro-svc.cache-keys.msg-message` 的值变化时，
+/// 说明消息数据有更新，需要刷新缓存。
+const MSG_MESSAGE_CACHE_CONFIG_KEY: &str = "micro-svc.cache-keys.msg-message";
 
 /// # 全局消息缓存
 ///
@@ -188,7 +188,10 @@ pub fn get_msg_cache() -> Arc<MsgCache> {
 pub async fn setup_msg_cache(changed: &Option<HashMap<String, Value>>) {
     if changed
         .as_ref()
-        .map(|c| has_config_changed(MSG_CACHE_KEY_PREFIX, c))
+        .map(|c| {
+            has_config_changed(DB_CONN_CONFIG_KEY, c)
+                || has_config_changed(MSG_MESSAGE_CACHE_CONFIG_KEY, c)
+        })
         .unwrap_or(true)
     {
         info!("刷新消息缓存...");
@@ -310,7 +313,9 @@ pub async fn refresh_msg_cache() -> Result<(), Box<dyn std::error::Error + Send 
         let mut map: HashMap<i64, Vec<String>> = HashMap::new();
         for link in links {
             if let Some(ch_code) = channel_map.get(&link.channel_id) {
-                map.entry(link.message_id).or_default().push(ch_code.clone());
+                map.entry(link.message_id)
+                    .or_default()
+                    .push(ch_code.clone());
             }
         }
         map
@@ -348,12 +353,12 @@ pub async fn refresh_msg_cache() -> Result<(), Box<dyn std::error::Error + Send 
         .into_iter()
         .filter_map(|m| {
             let queue = queues.get(&m.mes_id)?.clone();
-            let category = m.category_id.and_then(|cid| {
-                categories.values().find(|v| v.id == cid).map(|v| v.clone())
-            });
-            let source = m.source_id.and_then(|sid| {
-                sources.values().find(|v| v.id == sid).map(|v| v.clone())
-            });
+            let category = m
+                .category_id
+                .and_then(|cid| categories.values().find(|v| v.id == cid).map(|v| v.clone()));
+            let source = m
+                .source_id
+                .and_then(|sid| sources.values().find(|v| v.id == sid).map(|v| v.clone()));
             let channel_codes = message_channels.get(&m.id).cloned().unwrap_or_default();
             let targets = message_targets.get(&m.id).cloned().unwrap_or_default();
 
