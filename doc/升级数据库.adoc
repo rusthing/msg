@@ -43,7 +43,7 @@ sqlx migrate add <版本名称> --source migrations/pgsql
 
 [source,bash]
 ----
-sea-orm-cli generate entity --entity-format dense --model-extra-derives Default --with-serde both --ignore-tables _sqlx_migrations --database-url postgres://msg:msg@pgsql/msg -o src/mo
+sea-orm-cli generate entity --entity-format dense --model-extra-derives Default --with-serde both --ignore-tables _sqlx_migrations --database-url postgres://msgrs:msgrs@pgsql/msgrs -o src/mo
 ----
 
 - model-extra-derives: 模型文件添加的 trait，例如 `Default`
