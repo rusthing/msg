@@ -7,11 +7,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_delivery_channel_log")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     pub delivery_channel_id: i64,
     pub deliver_channel_status: i16,
     pub address: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
     pub detail: Option<String>,
     pub creator_id: i64,
     pub create_ms: i64,

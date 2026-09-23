@@ -7,22 +7,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_message_channel")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
+    #[sea_orm(unique_key = "ak_msg_and_channel_msg_message_channel")]
     pub message_id: i64,
+    #[sea_orm(unique_key = "ak_msg_and_channel_msg_message_channel")]
     pub channel_id: i64,
     pub creator_id: i64,
     pub create_ms: i64,
     pub updator_id: i64,
     pub update_ms: i64,
-    #[sea_orm(
-        belongs_to,
-        from = "message_id",
-        to = "id",
-        on_update = "Restrict",
-        on_delete = "Restrict"
-    )]
-    pub msg_message: BelongsTo<super::msg_message::Entity>,
     #[sea_orm(
         belongs_to,
         from = "channel_id",
@@ -31,6 +25,14 @@ pub struct Model {
         on_delete = "Restrict"
     )]
     pub msg_channel: BelongsTo<super::msg_channel::Entity>,
+    #[sea_orm(
+        belongs_to,
+        from = "message_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_message: BelongsTo<super::msg_message::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

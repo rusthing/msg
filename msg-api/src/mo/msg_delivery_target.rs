@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_delivery_target")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     pub delivery_id: i64,
     pub target_category_id: i64,
@@ -25,6 +25,8 @@ pub struct Model {
         on_delete = "Restrict"
     )]
     pub msg_delivery: BelongsTo<super::msg_delivery::Entity>,
+    #[sea_orm(has_many)]
+    pub msg_delivery_channels: HasMany<super::msg_delivery_channel::Entity>,
     #[sea_orm(
         belongs_to,
         from = "target_category_id",
@@ -33,8 +35,6 @@ pub struct Model {
         on_delete = "Restrict"
     )]
     pub msg_target_category: BelongsTo<super::msg_target_category::Entity>,
-    #[sea_orm(has_many)]
-    pub msg_delivery_channels: HasMany<super::msg_delivery_channel::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

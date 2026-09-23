@@ -7,19 +7,22 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_delivery")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     pub message_id: i64,
     #[sea_orm(unique)]
-    pub business_id: i64,
+    pub finger_print: i64,
     pub deliver_status: i16,
     pub title: String,
+    #[sea_orm(column_type = "Text")]
     pub content: String,
     pub remark: Option<String>,
     pub creator_id: i64,
     pub create_ms: i64,
     pub updator_id: i64,
     pub update_ms: i64,
+    #[sea_orm(has_many)]
+    pub msg_delivery_targets: HasMany<super::msg_delivery_target::Entity>,
     #[sea_orm(
         belongs_to,
         from = "message_id",
@@ -28,8 +31,6 @@ pub struct Model {
         on_delete = "Restrict"
     )]
     pub msg_message: BelongsTo<super::msg_message::Entity>,
-    #[sea_orm(has_many)]
-    pub msg_delivery_targets: HasMany<super::msg_delivery_target::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

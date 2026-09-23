@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_target_category")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     pub code: String,
     pub name: String,
@@ -17,9 +17,9 @@ pub struct Model {
     pub updator_id: i64,
     pub update_ms: i64,
     #[sea_orm(has_many)]
-    pub msg_message_targets: HasMany<super::msg_message_target::Entity>,
-    #[sea_orm(has_many)]
     pub msg_delivery_targets: HasMany<super::msg_delivery_target::Entity>,
+    #[sea_orm(has_many)]
+    pub msg_message_targets: HasMany<super::msg_message_target::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

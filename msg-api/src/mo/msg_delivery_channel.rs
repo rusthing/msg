@@ -7,9 +7,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_delivery_channel")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
+    #[sea_orm(unique_key = "ak_delivery_target_and_channel_msg_delivery_channel")]
     pub deliver_target_id: i64,
+    #[sea_orm(unique_key = "ak_delivery_target_and_channel_msg_delivery_channel")]
     pub channel_id: i64,
     pub deliver_channel_status: i16,
     pub address: Option<String>,
@@ -17,14 +19,6 @@ pub struct Model {
     pub create_ms: i64,
     pub updator_id: i64,
     pub update_ms: i64,
-    #[sea_orm(
-        belongs_to,
-        from = "deliver_target_id",
-        to = "id",
-        on_update = "Restrict",
-        on_delete = "Restrict"
-    )]
-    pub msg_delivery_target: BelongsTo<super::msg_delivery_target::Entity>,
     #[sea_orm(
         belongs_to,
         from = "channel_id",
@@ -35,6 +29,14 @@ pub struct Model {
     pub msg_channel: BelongsTo<super::msg_channel::Entity>,
     #[sea_orm(has_many)]
     pub msg_delivery_channel_logs: HasMany<super::msg_delivery_channel_log::Entity>,
+    #[sea_orm(
+        belongs_to,
+        from = "deliver_target_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_delivery_target: BelongsTo<super::msg_delivery_target::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

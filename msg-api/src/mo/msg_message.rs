@@ -7,16 +7,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_message")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     pub category_id: Option<i64>,
     pub mes_id: i64,
     pub source_id: Option<i64>,
     #[sea_orm(unique)]
-    pub code: String,
-    #[sea_orm(unique)]
     pub name: String,
+    #[sea_orm(unique)]
+    pub event_code: String,
     pub title_template: String,
+    #[sea_orm(column_type = "Text")]
     pub content_template: String,
     pub remark: Option<String>,
     pub enabled: bool,
@@ -24,6 +25,18 @@ pub struct Model {
     pub create_ms: i64,
     pub updator_id: i64,
     pub update_ms: i64,
+    #[sea_orm(has_many)]
+    pub msg_deliveries: HasMany<super::msg_delivery::Entity>,
+    #[sea_orm(
+        belongs_to,
+        from = "category_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_message_category: BelongsTo<Option<super::msg_message_category::Entity>>,
+    #[sea_orm(has_many)]
+    pub msg_message_channels: HasMany<super::msg_message_channel::Entity>,
     #[sea_orm(
         belongs_to,
         from = "mes_id",
@@ -32,12 +45,16 @@ pub struct Model {
         on_delete = "Restrict"
     )]
     pub msg_message_queue: BelongsTo<super::msg_message_queue::Entity>,
-    #[sea_orm(has_many)]
-    pub msg_message_channels: HasMany<super::msg_message_channel::Entity>,
+    #[sea_orm(
+        belongs_to,
+        from = "source_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_message_source: BelongsTo<Option<super::msg_message_source::Entity>>,
     #[sea_orm(has_many)]
     pub msg_message_targets: HasMany<super::msg_message_target::Entity>,
-    #[sea_orm(has_many)]
-    pub msg_deliveries: HasMany<super::msg_delivery::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

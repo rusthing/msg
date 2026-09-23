@@ -7,11 +7,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "msg_channel")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
-    #[sea_orm(unique)]
-    pub code: String,
     pub name: String,
+    #[sea_orm(column_type = "Text", nullable)]
     pub options: Option<String>,
     pub remark: Option<String>,
     pub enabled: bool,
@@ -20,9 +19,9 @@ pub struct Model {
     pub updator_id: i64,
     pub update_ms: i64,
     #[sea_orm(has_many)]
-    pub msg_message_channels: HasMany<super::msg_message_channel::Entity>,
-    #[sea_orm(has_many)]
     pub msg_delivery_channels: HasMany<super::msg_delivery_channel::Entity>,
+    #[sea_orm(has_many)]
+    pub msg_message_channels: HasMany<super::msg_message_channel::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
