@@ -8,8 +8,8 @@ pub struct MsgMessageDto {
     pub mes_id: i64,
     /// 消息来源ID
     pub source_id: Option<i64>,
-    /// 编码
-    pub code: String,
+    /// 事件编码（在应用中定义，事件触发时传递出来）
+    pub event_code: String,
     /// 名称
     pub name: String,
     /// 标题模板

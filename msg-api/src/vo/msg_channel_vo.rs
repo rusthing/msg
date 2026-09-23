@@ -4,8 +4,6 @@ use robotech::macros::vo;
 pub struct MsgChannelVo {
     /// ID
     pub id: i64,
-    /// 编码
-    pub code: String,
     /// 名称
     pub name: String,
     /// 配置

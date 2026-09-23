@@ -62,7 +62,7 @@ static MSG_CACHE: ArcSwapOption<MsgCache> = ArcSwapOption::const_empty();
 /// 刷新时分表查询、组装时全量内嵌，运行时只需一个 `messages` 字典。
 #[derive(Debug, Clone, Default)]
 pub struct MsgCache {
-    /// 消息模板，key = `msg_message.code`
+    /// 消息模板，key = `msg_message.event_code`
     pub messages: HashMap<String, CachedMessage>,
 }
 
@@ -73,8 +73,8 @@ pub struct MsgCache {
 pub struct CachedMessage {
     /// 消息 ID
     pub id: i64,
-    /// 编码，唯一标识
-    pub code: String,
+    /// 事件编码，唯一标识
+    pub event_code: String,
     /// 名称
     pub name: String,
     /// 标题模板
@@ -135,8 +135,6 @@ pub struct CachedCategory {
 pub struct CachedChannel {
     /// 渠道 ID
     pub id: i64,
-    /// 编码
-    pub code: String,
     /// 名称
     pub name: String,
     /// 渠道选项（JSON 字符串）
@@ -311,7 +309,6 @@ pub async fn refresh_msg_cache() -> Result<(), Box<dyn std::error::Error + Send 
             if let Some(ch) = channels_by_id.get(&link.channel_id) {
                 map.entry(link.message_id).or_default().push(CachedChannel {
                     id: ch.id,
-                    code: ch.code.clone(),
                     name: ch.name.clone(),
                     options: ch.options.clone(),
                     remark: ch.remark.clone(),
@@ -364,10 +361,10 @@ pub async fn refresh_msg_cache() -> Result<(), Box<dyn std::error::Error + Send 
             let targets = message_targets.get(&m.id).cloned().unwrap_or_default();
 
             (
-                m.code.clone(),
+                m.event_code.clone(),
                 CachedMessage {
                     id: m.id,
-                    code: m.code,
+                    event_code: m.event_code,
                     name: m.name,
                     title_template: m.title_template,
                     content_template: m.content_template,

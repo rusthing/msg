@@ -11,7 +11,7 @@ pub struct Model {
     pub id: i64,
     pub message_id: i64,
     #[sea_orm(unique)]
-    pub finger_print: i64,
+    pub business_id: i64,
     pub deliver_status: i16,
     pub title: String,
     #[sea_orm(column_type = "Text")]

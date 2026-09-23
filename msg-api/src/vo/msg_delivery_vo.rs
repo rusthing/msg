@@ -7,7 +7,7 @@ pub struct MsgDeliveryVo {
     pub id: i64,
     /// 消息ID
     pub message_id: i64,
-    /// 业务ID，用于幂等去重，避免多次投递
+    /// 指纹，可由业务触发时生成ID或直接采用业务ID，用于幂等去重
     pub business_id: i64,
     /// 投递状态
     pub deliver_status: DeliverStatus,

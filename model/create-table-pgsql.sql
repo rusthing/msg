@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/22 17:15:59                           */
+/* Created on:     2026/9/23 16:33:08                           */
 /*==============================================================*/
 
 
@@ -9,7 +9,6 @@
 /*==============================================================*/
 create table msg_channel (
    id                   INT8                 not null,
-   code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
    options              TEXT                 null,
    remark               VARCHAR(50)          null,
@@ -26,9 +25,6 @@ comment on table msg_channel is
 
 comment on column msg_channel.id is
 'ID';
-
-comment on column msg_channel.code is
-'编码';
 
 comment on column msg_channel.name is
 '名称';
@@ -91,7 +87,7 @@ comment on column msg_delivery.message_id is
 
 comment on column msg_delivery.business_id is
 '业务ID
-用于幂等去重，避免多次投递';
+可以由业务触发时生成ID或者直接采用业务ID，用于幂等去重，避免多次投递';
 
 comment on column msg_delivery.deliver_status is
 '投递状态
@@ -351,8 +347,8 @@ create table msg_message (
    category_id          INT8                 null,
    mes_id               INT8                 not null,
    source_id            INT8                 null,
-   code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
+   event_code           VARCHAR(50)          not null,
    title_template       VARCHAR(150)         not null,
    content_template     TEXT                 not null,
    remark               VARCHAR(50)          null,
@@ -362,8 +358,8 @@ create table msg_message (
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE primary key (id),
-   constraint AK_CODE_MSG_MESSAGE unique (code),
-   constraint AK_NAME_MSG_MESSAGE unique (name)
+   constraint AK_NAME_MSG_MESSAGE unique (name),
+   constraint AK_EVENT_CODE_MSG_MESSAGE unique (event_code)
 );
 
 comment on table msg_message is
@@ -381,11 +377,12 @@ comment on column msg_message.mes_id is
 comment on column msg_message.source_id is
 '消息来源ID';
 
-comment on column msg_message.code is
-'编码';
-
 comment on column msg_message.name is
 '名称';
+
+comment on column msg_message.event_code is
+'事件编码
+在应用中定义，事件触发时传递出来';
 
 comment on column msg_message.title_template is
 '标题模板';

@@ -2,8 +2,6 @@ use robotech::macros::crud_dto;
 
 #[crud_dto]
 pub struct MsgChannelDto {
-    /// 编码
-    pub code: String,
     /// 名称
     pub name: String,
     /// 配置
