@@ -601,7 +601,7 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:GradientFillMode>65</a:GradientFillMode>
 <a:CustomPictureType>4</a:CustomPictureType>
 <a:CustomTextMode>1</a:CustomTextMode>
-<a:CustomPictureID>7930DF19-8DDF-4456-B7C7-51B348C7449A</a:CustomPictureID>
+<a:CustomPictureID>F903BBFF-FB6C-4351-9E8C-932B85DEC2D2</a:CustomPictureID>
 <a:GradientEndColor>16777215</a:GradientEndColor>
 <a:KeepAspect>1</a:KeepAspect>
 <c:Object>
@@ -623,7 +623,7 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:GradientFillMode>65</a:GradientFillMode>
 <a:CustomPictureType>4</a:CustomPictureType>
 <a:CustomTextMode>1</a:CustomTextMode>
-<a:CustomPictureID>66FC2951-6404-4F4E-B0A8-0B9324209227</a:CustomPictureID>
+<a:CustomPictureID>121576D5-615A-41BF-A0AC-D1A19C009FB9</a:CustomPictureID>
 <a:GradientEndColor>16777215</a:GradientEndColor>
 <a:KeepAspect>1</a:KeepAspect>
 <c:Object>
@@ -660,7 +660,7 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:Code>msg</a:Code>
 <a:CreationDate>1789977043</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1790047494</a:ModificationDate>
+<a:ModificationDate>1790068534</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Location>file:///%[PRJ_ROOT_DIR]%/msg.ldm</a:Location>
 <a:Extension>ldm</a:Extension>

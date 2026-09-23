@@ -1,3 +1,4 @@
+use crate::mo::msg_message_queue;
 use robotech::macros::dao;
 
 /// 消息
@@ -13,5 +14,6 @@ use robotech::macros::dao;
         Column::ContentTemplate,
         Column::Remark,
     ],
+    related_table: ["msg_message_queue"],
 )]
 pub struct MsgMessageDao;

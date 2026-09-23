@@ -30,4 +30,6 @@ pub struct MsgMessageVo {
     pub updator_id: i64,
     /// 更新时间戳
     pub update_ms: i64,
+    /// 消息队列
+    pub msg_message_queue: MsgMessageQueueVo,
 }
