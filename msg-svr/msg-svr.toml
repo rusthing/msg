@@ -12,7 +12,7 @@ config.common-configs = "log.toml"
 url = "redis://:xxxxxxxx@redis:6379"
 
 [db]
-url = "postgres://msg:msg@pgsql:5432/msg"
+url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
 #url = "mysql://msg:msg@mysql:3306/msg"
 
 [web]

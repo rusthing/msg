@@ -36,9 +36,9 @@ use msg_api::mo::{msg_channel, msg_message};
 
 /// # 消息缓存配置中心版本键
 ///
-/// 配置中心中 `micro-svc.cache-keys.msg-message` 的值变化时，
+/// 配置中心中 `refresh-scope.msg-message` 的值变化时，
 /// 说明消息数据有更新，需要刷新缓存。
-const MSG_MESSAGE_CACHE_CONFIG_KEY: &str = "micro-svc.cache-keys.msg-message";
+const MSG_MESSAGE_CACHE_CONFIG_KEY: &str = "refresh-scope.msg-message";
 
 /// # 全局消息缓存
 ///
