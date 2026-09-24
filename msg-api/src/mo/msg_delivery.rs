@@ -13,6 +13,10 @@ pub struct Model {
     #[sea_orm(unique)]
     pub business_id: i64,
     pub deliver_status: i16,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub labels: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub annotations: Option<String>,
     pub title: String,
     #[sea_orm(column_type = "Text")]
     pub content: String,

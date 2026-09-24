@@ -11,13 +11,11 @@ use tracing::{error, info, warn};
 
 use crate::cache::{get_msg_cache, CachedMessage};
 use crate::dto::{
-    MsgDeliveryChannelAddDto, MsgDeliveryTargetAddDto, MsgDeliveryAddDto,
-    MsgDeliveryQueryDto,
+    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto,
+    MsgDeliveryTargetAddDto,
 };
 use crate::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
-use crate::svc::{
-    MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc,
-};
+use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc};
 use idworker::next_id;
 use robotech::api::U64;
 use robotech::db::get_db_conn;
@@ -31,9 +29,22 @@ pub struct IncomingMessage {
     pub event_code: String,
     /// 业务 ID，用于幂等去重（`msg_delivery.business_id` 唯一约束）
     pub business_id: i64,
-    /// 模板变量，用于替换 `title_template` / `content_template` 中的 `{key}` 占位符
+    /// 路由标签
+    ///
+    /// 一组结构化的 key-value，所有规则匹配、分组、路由、静默、
+    /// 维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，
+    /// 不碰任何自由文本。
+    /// 同时用于模板变量替换（`title_template` / `content_template` 中的 `{key}` 占位符）。
     #[serde(default)]
-    pub variables: HashMap<String, String>,
+    pub labels: HashMap<String, String>,
+    /// 标注
+    ///
+    /// 放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，
+    /// 只用于通知渲染和界面展示。
+    /// 当 `title_template` 为 null 时，取 `annotations.title` 作为标题；
+    /// 当 `content_template` 为 null 时，取 `annotations.content` 作为内容。
+    #[serde(default)]
+    pub annotations: HashMap<String, String>,
 }
 
 /// 匹配 `{variable_name}` 形式的占位符
@@ -47,9 +58,9 @@ static TEMPLATE_VAR_RE: LazyLock<Regex> =
 /// 1. 解析 JSON 负载
 /// 2. 从缓存查找消息模板（按 `event_code`）
 /// 3. 校验队列匹配
-/// 4. 渲染标题和内容模板
+/// 4. 渲染标题和内容（模板用 labels 替换；若模板为 null 则从 annotations 取）
 /// 5. 幂等检查（`business_id` 唯一约束）
-/// 6. 创建 `msg_delivery` 投递记录
+/// 6. 创建 `msg_delivery` 投递记录（含 labels / annotations JSON）
 /// 7. 为每个目标创建 `msg_delivery_target`
 /// 8. 为每个（目标 × 渠道）组合创建 `msg_delivery_channel`
 ///
@@ -68,8 +79,7 @@ pub async fn process_message(
     let incoming: IncomingMessage = serde_json::from_slice(payload).map_err(|e| {
         NatsError::Handle(format!(
             "消息负载 JSON 解析失败 [{}]: {}",
-            subject,
-            e
+            subject, e
         ))
     })?;
 
@@ -100,12 +110,35 @@ pub async fn process_message(
         )));
     }
 
-    // ── 4. 渲染模板 ──
+    // ── 4. 渲染标题和内容 ──
+    //
+    //   title_template 不为 null → 用 labels 做变量替换，替换 title_template
+    //   title_template 为 null    → 取 annotations["title"]
+    //
+    //   content_template 不为 null → 用 labels 做变量替换，替换 content_template
+    //   content_template 为 null    → 取 annotations["content"]
 
-    let title = render_template(&msg.title_template, &incoming.variables);
-    let content = render_template(&msg.content_template, &incoming.variables);
+    let title = match &msg.title_template {
+        Some(tpl) => render_template(tpl, &incoming.labels),
+        None => incoming.annotations.get("title").cloned().unwrap_or_default(),
+    };
 
-    info!("模板渲染完成: title={title}");
+    let content = match &msg.content_template {
+        Some(tpl) => render_template(tpl, &incoming.labels),
+        None => incoming
+            .annotations
+            .get("content")
+            .cloned()
+            .unwrap_or_default(),
+    };
+
+    if title.is_empty() && content.is_empty() {
+        return Err(NatsError::Handle(
+            "标题和内容均为空，无法投递".into(),
+        ));
+    }
+
+    info!("内容渲染完成: title={title}");
 
     // ── 5. 幂等检查 ──
 
@@ -140,11 +173,29 @@ pub async fn process_message(
     let delivery_id = next_id()
         .map_err(|e| NatsError::Handle(format!("生成投递ID失败: {e}")))?;
 
+    let labels_json = if incoming.labels.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(&incoming.labels).map_err(|e| {
+            NatsError::Handle(format!("labels 序列化失败: {e}"))
+        })?)
+    };
+
+    let annotations_json = if incoming.annotations.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(&incoming.annotations).map_err(|e| {
+            NatsError::Handle(format!("annotations 序列化失败: {e}"))
+        })?)
+    };
+
     let delivery_add = MsgDeliveryAddDto {
         id: Some(U64(delivery_id)),
         message_id: Some(msg.id),
         business_id: Some(incoming.business_id),
         deliver_status: Some(DeliverStatus::Delivering),
+        labels: Some(labels_json),
+        annotations: Some(annotations_json),
         title: Some(title),
         content: Some(content),
         remark: None,
@@ -247,15 +298,17 @@ pub async fn process_message(
     Ok(())
 }
 
-/// 渲染模板字符串，将 `{key}` 替换为 `variables` 中对应的值
-fn render_template(template: &str, variables: &HashMap<String, String>) -> String {
+/// 渲染模板字符串，将 `{key}` 替换为 `labels` 中对应的值
+///
+/// 未提供的 key 保留原占位符并 warn。
+fn render_template(template: &str, labels: &HashMap<String, String>) -> String {
     TEMPLATE_VAR_RE
         .replace_all(template, |caps: &regex::Captures| {
             let key = &caps[1];
-            match variables.get(key) {
+            match labels.get(key) {
                 Some(v) => v.clone(),
                 None => {
-                    warn!("模板变量未提供: {{{key}}}，保留占位符");
+                    warn!("模板变量 labels 未提供: {{{key}}}，保留占位符");
                     caps[0].to_owned()
                 }
             }
@@ -270,35 +323,35 @@ mod tests {
     #[test]
     fn test_render_template_with_all_variables() {
         let template = "你好 {name}，你的订单 {order_id} 已发货";
-        let mut vars = HashMap::new();
-        vars.insert("name".to_string(), "张三".to_string());
-        vars.insert("order_id".to_string(), "ORD-001".to_string());
-        let result = render_template(template, &vars);
+        let mut labels = HashMap::new();
+        labels.insert("name".to_string(), "张三".to_string());
+        labels.insert("order_id".to_string(), "ORD-001".to_string());
+        let result = render_template(template, &labels);
         assert_eq!(result, "你好 张三，你的订单 ORD-001 已发货");
     }
 
     #[test]
     fn test_render_template_with_missing_variable() {
         let template = "你好 {name}，你的订单 {order_id} 已发货";
-        let vars = HashMap::new();
-        let result = render_template(template, &vars);
+        let labels = HashMap::new();
+        let result = render_template(template, &labels);
         assert_eq!(result, "你好 {name}，你的订单 {order_id} 已发货");
     }
 
     #[test]
     fn test_render_template_with_partial_variables() {
         let template = "你好 {name}，你的订单 {order_id} 已发货";
-        let mut vars = HashMap::new();
-        vars.insert("name".to_string(), "李四".to_string());
-        let result = render_template(template, &vars);
+        let mut labels = HashMap::new();
+        labels.insert("name".to_string(), "李四".to_string());
+        let result = render_template(template, &labels);
         assert_eq!(result, "你好 李四，你的订单 {order_id} 已发货");
     }
 
     #[test]
     fn test_render_template_no_placeholders() {
         let template = "系统通知：服务已重启";
-        let vars = HashMap::new();
-        let result = render_template(template, &vars);
+        let labels = HashMap::new();
+        let result = render_template(template, &labels);
         assert_eq!(result, "系统通知：服务已重启");
     }
 }

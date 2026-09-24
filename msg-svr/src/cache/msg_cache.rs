@@ -95,10 +95,10 @@ pub struct CachedMessage {
     pub event_code: String,
     /// 名称
     pub name: String,
-    /// 标题模板
-    pub title_template: String,
-    /// 内容模板
-    pub content_template: String,
+    /// 标题模板（为 null 的话从 annotations 中取 title 设置为标题）
+    pub title_template: Option<String>,
+    /// 内容模板（为 null 的话从 annotations 中取 content 设置为内容）
+    pub content_template: Option<String>,
     /// 备注
     pub remark: Option<String>,
     /// 关联的消息队列

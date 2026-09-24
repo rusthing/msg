@@ -58,8 +58,16 @@ pub async fn publish(
         message.id, message.name, message.event_code
     );
 
-    let title = render_template(&message.title_template, &params);
-    let content = render_template(&message.content_template, &params);
+    let title = message
+        .title_template
+        .as_deref()
+        .map(|t| render_template(t, &params))
+        .unwrap_or_default();
+    let content = message
+        .content_template
+        .as_deref()
+        .map(|t| render_template(t, &params))
+        .unwrap_or_default();
 
     debug!(
         "模板渲染完成: title={}",

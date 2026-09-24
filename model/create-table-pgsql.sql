@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/23 16:33:08                           */
+/* Created on:     2026/9/24 16:38:05                           */
 /*==============================================================*/
 
 
@@ -65,6 +65,8 @@ create table msg_delivery (
    message_id           INT8                 not null,
    business_id          INT8                 not null,
    deliver_status       INT2                 not null default 0,
+   labels               TEXT                 null,
+   annotations          TEXT                 null,
    title                VARCHAR(150)         not null,
    content              TEXT                 not null,
    remark               VARCHAR(50)          null,
@@ -96,6 +98,14 @@ comment on column msg_delivery.deliver_status is
 2: 投递全部成功
 3: 投递全部失败
 ';
+
+comment on column msg_delivery.labels is
+'路由标签
+一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本';
+
+comment on column msg_delivery.annotations is
+'标注
+放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示';
 
 comment on column msg_delivery.title is
 '标题';
@@ -349,8 +359,8 @@ create table msg_message (
    source_id            INT8                 null,
    name                 VARCHAR(50)          not null,
    event_code           VARCHAR(50)          not null,
-   title_template       VARCHAR(150)         not null,
-   content_template     TEXT                 not null,
+   title_template       VARCHAR(150)         null,
+   content_template     TEXT                 null,
    remark               VARCHAR(50)          null,
    enabled              BOOL                 not null default true,
    creator_id           INT8                 not null,
@@ -385,10 +395,12 @@ comment on column msg_message.event_code is
 在应用中定义，事件触发时传递出来';
 
 comment on column msg_message.title_template is
-'标题模板';
+'标题模板
+为null的话从annotations中取title设置为标题';
 
 comment on column msg_message.content_template is
-'内容模板';
+'内容模板
+为null的话从annotations中取content设置为内容';
 
 comment on column msg_message.remark is
 '备注';
