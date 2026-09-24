@@ -1,0 +1,23 @@
+[package]
+name = "msg-pub"
+version = "1.0.0"
+edition = "2024"
+authors = ["zbz"]
+license = "MIT"
+keywords = ["msg", "publisher", "client"]
+description = "Message publisher library for MSG"
+categories = ["web-programming::http-client"]
+homepage = "https://github.com/rusthing/msg"
+repository = "https://github.com/rusthing/msg"
+readme = "README.md"
+
+[dependencies]
+tracing = { workspace = true }
+arc-swap = { workspace = true }
+config = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["time"] }
+
+wheel-rs = { workspace = true }
+robotech = { workspace = true, features = ["feign", "macros", "api-client"] }
+msg-api-client = { workspace = true }

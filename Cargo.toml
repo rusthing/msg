@@ -1,5 +1,5 @@
 [workspace]
-members = ["msg-api", "msg-api-client", "msg-svr", "msg-wkr"]
+members = ["msg-api", "msg-api-client", "msg-svr", "msg-pub"]
 resolver = "3"
 
 [workspace.dependencies]
