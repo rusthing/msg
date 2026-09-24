@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/24 16:38:05                           */
+/* Created on:     2026/9/24 21:02:11                           */
 /*==============================================================*/
 
 
@@ -9,6 +9,7 @@
 /*==============================================================*/
 create table msg_channel (
    id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
    options              TEXT                 null,
    remark               VARCHAR(50)          null,
@@ -17,14 +18,19 @@ create table msg_channel (
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_CHANNEL primary key (id)
+   constraint PK_MSG_CHANNEL primary key (id),
+   constraint AK_CODE_MSG_CHANNEL unique (code)
 );
 
 comment on table msg_channel is
-'渠道';
+'渠道
+有websocket/短信/邮箱';
 
 comment on column msg_channel.id is
 'ID';
+
+comment on column msg_channel.code is
+'编码';
 
 comment on column msg_channel.name is
 '名称';
@@ -64,6 +70,7 @@ create table msg_delivery (
    id                   INT8                 not null,
    message_id           INT8                 not null,
    business_id          INT8                 not null,
+   business_trigger_ms  INT8                 not null,
    deliver_status       INT2                 not null default 0,
    labels               TEXT                 null,
    annotations          TEXT                 null,
@@ -75,7 +82,7 @@ create table msg_delivery (
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY primary key (id),
-   constraint AK_BUSINESS_ID_MSG_DELIVERY unique (business_id)
+   constraint AK_BUSINESS_ID_AND_BUSINESS_TRIGG_MSG_DELIVERY unique (business_id, business_trigger_ms)
 );
 
 comment on table msg_delivery is
@@ -89,7 +96,11 @@ comment on column msg_delivery.message_id is
 
 comment on column msg_delivery.business_id is
 '业务ID
-可以由业务触发时生成ID或者直接采用业务ID，用于幂等去重，避免多次投递';
+可以由业务触发时生成ID或者直接采用业务ID，与业务触发时间戳组合唯一约束，用于幂等去重，避免多次投递';
+
+comment on column msg_delivery.business_trigger_ms is
+'业务触发时间戳
+与业务ID组合唯一约束，用于幂等去重，避免多次投递';
 
 comment on column msg_delivery.deliver_status is
 '投递状态
@@ -498,66 +509,6 @@ id
 );
 
 /*==============================================================*/
-/* Table: msg_message_channel                                   */
-/*==============================================================*/
-create table msg_message_channel (
-   id                   INT8                 not null,
-   message_id           INT8                 not null,
-   channel_id           INT8                 not null,
-   creator_id           INT8                 not null,
-   create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
-   update_ms            INT8                 not null,
-   constraint PK_MSG_MESSAGE_CHANNEL primary key (id),
-   constraint AK_MSG_AND_CHANNEL_MSG_MESSAGE_CHANNEL unique (message_id, channel_id)
-);
-
-comment on table msg_message_channel is
-'消息渠道';
-
-comment on column msg_message_channel.id is
-'ID';
-
-comment on column msg_message_channel.message_id is
-'消息ID';
-
-comment on column msg_message_channel.channel_id is
-'渠道ID';
-
-comment on column msg_message_channel.creator_id is
-'创建人的用户ID';
-
-comment on column msg_message_channel.create_ms is
-'创建时间戳';
-
-comment on column msg_message_channel.updator_id is
-'修改人的用户ID';
-
-comment on column msg_message_channel.update_ms is
-'修改时间戳';
-
-/*==============================================================*/
-/* Index: msg_message_channel_PK                                */
-/*==============================================================*/
-create unique index msg_message_channel_PK on msg_message_channel (
-id
-);
-
-/*==============================================================*/
-/* Index: Relationship_5_FK                                     */
-/*==============================================================*/
-create  index Relationship_5_FK on msg_message_channel (
-message_id
-);
-
-/*==============================================================*/
-/* Index: Relationship_6_FK                                     */
-/*==============================================================*/
-create  index Relationship_6_FK on msg_message_channel (
-channel_id
-);
-
-/*==============================================================*/
 /* Table: msg_message_queue                                     */
 /*==============================================================*/
 create table msg_message_queue (
@@ -742,7 +693,8 @@ create table msg_target_category (
 );
 
 comment on table msg_target_category is
-'目标类别';
+'目标类别
+有用户/角色/分组或自定义如大屏';
 
 comment on column msg_target_category.id is
 'ID';
@@ -773,6 +725,65 @@ comment on column msg_target_category.update_ms is
 /*==============================================================*/
 create unique index msg_target_category_PK on msg_target_category (
 id
+);
+
+/*==============================================================*/
+/* Table: msg_target_category_channel                           */
+/*==============================================================*/
+create table msg_target_category_channel (
+   id                   INT8                 not null,
+   target_category_id   INT8                 not null,
+   channel_id           INT8                 not null,
+   creator_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updator_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_TARGET_CATEGORY_CHANNEL primary key (id)
+);
+
+comment on table msg_target_category_channel is
+'目标类别渠道';
+
+comment on column msg_target_category_channel.id is
+'ID';
+
+comment on column msg_target_category_channel.target_category_id is
+'目标类别ID';
+
+comment on column msg_target_category_channel.channel_id is
+'渠道ID';
+
+comment on column msg_target_category_channel.creator_id is
+'创建人的用户ID';
+
+comment on column msg_target_category_channel.create_ms is
+'创建时间戳';
+
+comment on column msg_target_category_channel.updator_id is
+'修改人的用户ID';
+
+comment on column msg_target_category_channel.update_ms is
+'修改时间戳';
+
+/*==============================================================*/
+/* Index: msg_target_category_channel_PK                        */
+/*==============================================================*/
+create unique index msg_target_category_channel_PK on msg_target_category_channel (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_14_FK                                    */
+/*==============================================================*/
+create  index Relationship_14_FK on msg_target_category_channel (
+target_category_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_15_FK                                    */
+/*==============================================================*/
+create  index Relationship_15_FK on msg_target_category_channel (
+channel_id
 );
 
 alter table msg_delivery
@@ -820,16 +831,6 @@ alter table msg_message
       references msg_message_queue (id)
       on delete restrict on update restrict;
 
-alter table msg_message_channel
-   add constraint fk_message_id__from__msg_message foreign key (message_id)
-      references msg_message (id)
-      on delete restrict on update restrict;
-
-alter table msg_message_channel
-   add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
-      references msg_channel (id)
-      on delete restrict on update restrict;
-
 alter table msg_message_target
    add constraint fk_target_category_id__from__msg_target_category foreign key (target_category_id)
       references msg_target_category (id)
@@ -838,5 +839,15 @@ alter table msg_message_target
 alter table msg_message_target
    add constraint fk_message_id__from__msg_message foreign key (message_id)
       references msg_message (id)
+      on delete restrict on update restrict;
+
+alter table msg_target_category_channel
+   add constraint fk_target_category_id__from__msg_target_category foreign key (target_category_id)
+      references msg_target_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_target_category_channel
+   add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
+      references msg_channel (id)
       on delete restrict on update restrict;
 
