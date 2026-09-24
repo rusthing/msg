@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/24 21:02:11                           */
+/* Created on:     2026/9/24 21:23:46                           */
 /*==============================================================*/
 
 
@@ -361,13 +361,62 @@ target_category_id
 );
 
 /*==============================================================*/
+/* Table: msg_event_source                                      */
+/*==============================================================*/
+create table msg_event_source (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   remark               VARCHAR(50)          null,
+   creator_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updator_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_EVENT_SOURCE primary key (id)
+);
+
+comment on table msg_event_source is
+'事件来源';
+
+comment on column msg_event_source.id is
+'ID';
+
+comment on column msg_event_source.code is
+'编码';
+
+comment on column msg_event_source.name is
+'名称';
+
+comment on column msg_event_source.remark is
+'备注';
+
+comment on column msg_event_source.creator_id is
+'创建人的用户ID';
+
+comment on column msg_event_source.create_ms is
+'创建时间戳';
+
+comment on column msg_event_source.updator_id is
+'修改人的用户ID';
+
+comment on column msg_event_source.update_ms is
+'修改时间戳';
+
+/*==============================================================*/
+/* Index: msg_event_source_PK                                   */
+/*==============================================================*/
+create unique index msg_event_source_PK on msg_event_source (
+id
+);
+
+/*==============================================================*/
 /* Table: msg_message                                           */
 /*==============================================================*/
 create table msg_message (
    id                   INT8                 not null,
    category_id          INT8                 null,
    mes_id               INT8                 not null,
-   source_id            INT8                 null,
+   event_source_id      INT8                 not null,
    name                 VARCHAR(50)          not null,
    event_code           VARCHAR(50)          not null,
    title_template       VARCHAR(150)         null,
@@ -395,8 +444,8 @@ comment on column msg_message.category_id is
 comment on column msg_message.mes_id is
 '消息队列ID';
 
-comment on column msg_message.source_id is
-'消息来源ID';
+comment on column msg_message.event_source_id is
+'事件来源ID';
 
 comment on column msg_message.name is
 '名称';
@@ -456,7 +505,7 @@ mes_id
 /* Index: Relationship_13_FK                                    */
 /*==============================================================*/
 create  index Relationship_13_FK on msg_message (
-source_id
+event_source_id
 );
 
 /*==============================================================*/
@@ -561,55 +610,6 @@ comment on column msg_message_queue.update_ms is
 /* Index: msg_message_queue_PK                                  */
 /*==============================================================*/
 create unique index msg_message_queue_PK on msg_message_queue (
-id
-);
-
-/*==============================================================*/
-/* Table: msg_message_source                                    */
-/*==============================================================*/
-create table msg_message_source (
-   id                   INT8                 not null,
-   code                 VARCHAR(50)          not null,
-   name                 VARCHAR(50)          not null,
-   remark               VARCHAR(50)          null,
-   creator_id           INT8                 not null,
-   create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
-   update_ms            INT8                 not null,
-   constraint PK_MSG_MESSAGE_SOURCE primary key (id)
-);
-
-comment on table msg_message_source is
-'消息来源';
-
-comment on column msg_message_source.id is
-'ID';
-
-comment on column msg_message_source.code is
-'编码';
-
-comment on column msg_message_source.name is
-'名称';
-
-comment on column msg_message_source.remark is
-'备注';
-
-comment on column msg_message_source.creator_id is
-'创建人的用户ID';
-
-comment on column msg_message_source.create_ms is
-'创建时间戳';
-
-comment on column msg_message_source.updator_id is
-'修改人的用户ID';
-
-comment on column msg_message_source.update_ms is
-'修改时间戳';
-
-/*==============================================================*/
-/* Index: msg_message_source_PK                                 */
-/*==============================================================*/
-create unique index msg_message_source_PK on msg_message_source (
 id
 );
 
@@ -822,8 +822,8 @@ alter table msg_message
       on delete restrict on update restrict;
 
 alter table msg_message
-   add constraint fk_source_id__from__msg_message_source foreign key (source_id)
-      references msg_message_source (id)
+   add constraint fk_event_source_id__from__msg_event_source foreign key (event_source_id)
+      references msg_event_source (id)
       on delete restrict on update restrict;
 
 alter table msg_message
@@ -850,4 +850,5 @@ alter table msg_target_category_channel
    add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
       references msg_channel (id)
       on delete restrict on update restrict;
+
 
