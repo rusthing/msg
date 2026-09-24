@@ -80,6 +80,8 @@ static MSG_QUEUE_CACHE: ArcSwapOption<HashMap<String, CachedQueue>> =
 pub struct MsgCache {
     /// 消息模板，key = `msg_message.event_code`
     pub messages: HashMap<String, CachedMessage>,
+    /// 目标类别 code → id 映射，用于消息处理时快速查找
+    pub target_categories: HashMap<String, i64>,
 }
 
 /// # 缓存的单条消息
@@ -435,9 +437,19 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
         })
         .collect();
 
+    // ── 目标类别 code → id 映射 ──
+
+    let target_categories_map: HashMap<String, i64> = target_categories
+        .values()
+        .map(|tc| (tc.code.clone(), tc.id))
+        .collect();
+
     // ── 原子替换 ──
 
-    let cache = MsgCache { messages };
+    let cache = MsgCache {
+        messages,
+        target_categories: target_categories_map,
+    };
 
     MSG_CACHE.store(Some(Arc::new(cache)));
 

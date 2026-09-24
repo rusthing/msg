@@ -25,6 +25,7 @@ use tokio::task::JoinHandle;
 use tracing::{error, info};
 
 use crate::cache::CachedQueue;
+use crate::mq::process_message;
 
 /// # 全局队列订阅句柄
 ///
@@ -140,8 +141,7 @@ async fn start_subscription_for_queue(
                         subj,
                         String::from_utf8_lossy(&msg.payload)
                     );
-                    // TODO: 实际消息处理（解析、分发、投递）
-                    Ok(())
+                    process_message(&subj, &msg.payload).await
                 }
             },
         )
@@ -161,8 +161,7 @@ async fn start_subscription_for_queue(
                         subj,
                         String::from_utf8_lossy(&msg.payload)
                     );
-                    // TODO: 实际消息处理（解析、分发、投递）
-                    Ok(())
+                    process_message(&subj, &msg.payload).await
                 }
             },
         )
