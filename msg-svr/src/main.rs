@@ -23,18 +23,18 @@ async fn setup(
     let db_url = app_config.db.get_url();
     db_migrate!(db_url);
 
-    setup_id_worker(app_config.id_worker.clone(), &changed)?;
-    setup_db_conn(app_config.db.clone(), &changed).await?;
+    setup_id_worker(app_config.id_worker.clone(), changed)?;
+    setup_db_conn(app_config.db.clone(), changed).await?;
 
     // NATS 消息中间件连接
     if let Some(ref nats_config) = app_config.nats {
-        setup_nats_client(nats_config.clone(), &changed).await?;
+        setup_nats_client(nats_config.clone(), changed).await?;
     }
 
     // 消息缓存：DB 重连后自动热更新
-    setup_msg_cache(&changed).await;
+    setup_msg_cache(changed).await;
 
-    setup_web_server(app_config.web.clone(), port, old_pid, &changed).await?;
+    setup_web_server(app_config.web.clone(), port, old_pid, changed).await?;
 
     Ok(())
 }
