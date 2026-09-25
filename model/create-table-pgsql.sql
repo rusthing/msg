@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/24 21:23:46                           */
+/* Created on:     2026/9/25 8:43:24                            */
 /*==============================================================*/
 
 
@@ -24,7 +24,7 @@ create table msg_channel (
 
 comment on table msg_channel is
 '渠道
-有websocket/短信/邮箱';
+目前支持websocket/短信/邮箱';
 
 comment on column msg_channel.id is
 'ID';
@@ -376,7 +376,8 @@ create table msg_event_source (
 );
 
 comment on table msg_event_source is
-'事件来源';
+'事件来源
+由客户端启动时自动注册上来';
 
 comment on column msg_event_source.id is
 'ID';
@@ -414,7 +415,7 @@ id
 /*==============================================================*/
 create table msg_message (
    id                   INT8                 not null,
-   category_id          INT8                 null,
+   category_id          INT8                 not null,
    mes_id               INT8                 not null,
    event_source_id      INT8                 not null,
    name                 VARCHAR(50)          not null,
@@ -520,11 +521,13 @@ create table msg_message_category (
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_MESSAGE_CATEGORY primary key (id)
+   constraint PK_MSG_MESSAGE_CATEGORY primary key (id),
+   constraint AK_CODE_MSG_MESSAGE_CATEGORY unique (code)
 );
 
 comment on table msg_message_category is
-'消息类别';
+'消息类别
+由客户端启动时自动注册上来';
 
 comment on column msg_message_category.id is
 'ID';
@@ -576,7 +579,8 @@ create table msg_message_queue (
 );
 
 comment on table msg_message_queue is
-'消息队列';
+'消息队列
+由客户端启动时自动注册上来，消息中心自动热更新订阅这些队列';
 
 comment on column msg_message_queue.id is
 'ID';
@@ -850,5 +854,4 @@ alter table msg_target_category_channel
    add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
       references msg_channel (id)
       on delete restrict on update restrict;
-
 
