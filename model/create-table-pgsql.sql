@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/25 8:43:24                            */
+/* Created on:     2026/9/25 10:47:56                           */
 /*==============================================================*/
 
 
@@ -68,7 +68,10 @@ id
 /*==============================================================*/
 create table msg_delivery (
    id                   INT8                 not null,
+   event_code           VARCHAR(50)          not null,
    message_id           INT8                 not null,
+   event_source_id      INT8                 not null,
+   message_category_id  INT8                 not null,
    business_id          INT8                 not null,
    business_trigger_ms  INT8                 not null,
    deliver_status       INT2                 not null default 0,
@@ -82,7 +85,7 @@ create table msg_delivery (
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY primary key (id),
-   constraint AK_BUSINESS_ID_AND_BUSINESS_TRIGG_MSG_DELIVERY unique (business_id, business_trigger_ms)
+   constraint AK_EVENT_CODE_AND_BUSINESS_ID_AND_MSG_DELIVERY unique (event_code, business_id, business_trigger_ms)
 );
 
 comment on table msg_delivery is
@@ -91,8 +94,18 @@ comment on table msg_delivery is
 comment on column msg_delivery.id is
 'ID';
 
+comment on column msg_delivery.event_code is
+'事件编码
+在应用中定义，事件触发时传递出来';
+
 comment on column msg_delivery.message_id is
 '消息ID';
+
+comment on column msg_delivery.event_source_id is
+'事件来源ID';
+
+comment on column msg_delivery.message_category_id is
+'消息类别ID';
 
 comment on column msg_delivery.business_id is
 '业务ID
@@ -151,6 +164,20 @@ id
 /*==============================================================*/
 create  index Relationship_3_FK on msg_delivery (
 message_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_16_FK                                    */
+/*==============================================================*/
+create  index Relationship_16_FK on msg_delivery (
+event_source_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_17_FK                                    */
+/*==============================================================*/
+create  index Relationship_17_FK on msg_delivery (
+message_category_id
 );
 
 /*==============================================================*/
@@ -296,13 +323,14 @@ create table msg_delivery_target (
    id                   INT8                 not null,
    delivery_id          INT8                 not null,
    target_category_id   INT8                 not null,
-   target_id            INT8                 null,
+   target_id            INT8                 not null,
    deliver_target_status INT2                 not null default 0,
    creator_id           INT8                 not null,
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_DELIVERY_TARGET primary key (id)
+   constraint PK_MSG_DELIVERY_TARGET primary key (id),
+   constraint AK_DELIVERY_AND_TARGET_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
 );
 
 comment on table msg_delivery_target is
@@ -372,7 +400,9 @@ create table msg_event_source (
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_EVENT_SOURCE primary key (id)
+   constraint PK_MSG_EVENT_SOURCE primary key (id),
+   constraint AK_CODE_MSG_EVENT_SOURCE unique (code),
+   constraint AK_NAME_MSG_EVENT_SOURCE unique (name)
 );
 
 comment on table msg_event_source is
@@ -416,7 +446,7 @@ id
 create table msg_message (
    id                   INT8                 not null,
    category_id          INT8                 not null,
-   mes_id               INT8                 not null,
+   message_queue_id     INT8                 not null,
    event_source_id      INT8                 not null,
    name                 VARCHAR(50)          not null,
    event_code           VARCHAR(50)          not null,
@@ -442,7 +472,7 @@ comment on column msg_message.id is
 comment on column msg_message.category_id is
 '消息类别ID';
 
-comment on column msg_message.mes_id is
+comment on column msg_message.message_queue_id is
 '消息队列ID';
 
 comment on column msg_message.event_source_id is
@@ -499,7 +529,7 @@ category_id
 /* Index: Relationship_2_FK                                     */
 /*==============================================================*/
 create  index Relationship_2_FK on msg_message (
-mes_id
+message_queue_id
 );
 
 /*==============================================================*/
@@ -522,7 +552,8 @@ create table msg_message_category (
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE_CATEGORY primary key (id),
-   constraint AK_CODE_MSG_MESSAGE_CATEGORY unique (code)
+   constraint AK_CODE_MSG_MESSAGE_CATEGORY unique (code),
+   constraint AK_NAME_MSG_MESSAGE_CATEGORY unique (name)
 );
 
 comment on table msg_message_category is
@@ -624,7 +655,7 @@ create table msg_message_target (
    id                   INT8                 not null,
    message_id           INT8                 not null,
    target_category_id   INT8                 not null,
-   target_id            INT8                 null,
+   target_id            INT8                 not null,
    creator_id           INT8                 not null,
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
@@ -693,7 +724,9 @@ create table msg_target_category (
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_TARGET_CATEGORY primary key (id)
+   constraint PK_MSG_TARGET_CATEGORY primary key (id),
+   constraint AK_CODE_MSG_TARGET_CATEGORY unique (code),
+   constraint AK_NAME_MSG_TARGET_CATEGORY unique (name)
 );
 
 comment on table msg_target_category is
@@ -742,7 +775,8 @@ create table msg_target_category_channel (
    create_ms            INT8                 not null,
    updator_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_TARGET_CATEGORY_CHANNEL primary key (id)
+   constraint PK_MSG_TARGET_CATEGORY_CHANNEL primary key (id),
+   constraint AK_CHANNEL_AND_TARGET_CATEGORY_MSG_TARGET_CATEGORY_CHANNEL unique (channel_id, target_category_id)
 );
 
 comment on table msg_target_category_channel is
@@ -791,6 +825,16 @@ channel_id
 );
 
 alter table msg_delivery
+   add constraint fk_event_source_id__from__msg_event_source foreign key (event_source_id)
+      references msg_event_source (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery
+   add constraint fk_message_category_id__from__msg_message_category foreign key (message_category_id)
+      references msg_message_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery
    add constraint fk_message_id__from__msg_message foreign key (message_id)
       references msg_message (id)
       on delete restrict on update restrict;
@@ -831,7 +875,7 @@ alter table msg_message
       on delete restrict on update restrict;
 
 alter table msg_message
-   add constraint fk_mes_id__from__msg_message_queue foreign key (mes_id)
+   add constraint fk_message_queue_id__from__msg_message_queue foreign key (message_queue_id)
       references msg_message_queue (id)
       on delete restrict on update restrict;
 
