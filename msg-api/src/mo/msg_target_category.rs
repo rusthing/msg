@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
+    #[sea_orm(unique)]
     pub code: String,
+    #[sea_orm(unique)]
     pub name: String,
     pub remark: Option<String>,
     pub creator_id: i64,
@@ -20,6 +22,8 @@ pub struct Model {
     pub msg_delivery_targets: HasMany<super::msg_delivery_target::Entity>,
     #[sea_orm(has_many)]
     pub msg_message_targets: HasMany<super::msg_message_target::Entity>,
+    #[sea_orm(has_many)]
+    pub msg_target_category_channels: HasMany<super::msg_target_category_channel::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

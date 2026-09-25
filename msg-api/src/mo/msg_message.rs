@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
-    pub category_id: Option<i64>,
-    pub mes_id: i64,
-    pub source_id: Option<i64>,
+    pub category_id: i64,
+    pub message_queue_id: i64,
+    pub event_source_id: i64,
     #[sea_orm(unique)]
     pub name: String,
     #[sea_orm(unique)]
@@ -29,30 +29,28 @@ pub struct Model {
     pub msg_deliveries: HasMany<super::msg_delivery::Entity>,
     #[sea_orm(
         belongs_to,
+        from = "event_source_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_event_source: BelongsTo<super::msg_event_source::Entity>,
+    #[sea_orm(
+        belongs_to,
         from = "category_id",
         to = "id",
         on_update = "Restrict",
         on_delete = "Restrict"
     )]
-    pub msg_message_category: BelongsTo<Option<super::msg_message_category::Entity>>,
-    #[sea_orm(has_many)]
-    pub msg_message_channels: HasMany<super::msg_message_channel::Entity>,
+    pub msg_message_category: BelongsTo<super::msg_message_category::Entity>,
     #[sea_orm(
         belongs_to,
-        from = "mes_id",
+        from = "message_queue_id",
         to = "id",
         on_update = "Restrict",
         on_delete = "Restrict"
     )]
     pub msg_message_queue: BelongsTo<super::msg_message_queue::Entity>,
-    #[sea_orm(
-        belongs_to,
-        from = "source_id",
-        to = "id",
-        on_update = "Restrict",
-        on_delete = "Restrict"
-    )]
-    pub msg_message_source: BelongsTo<Option<super::msg_message_source::Entity>>,
     #[sea_orm(has_many)]
     pub msg_message_targets: HasMany<super::msg_message_target::Entity>,
 }

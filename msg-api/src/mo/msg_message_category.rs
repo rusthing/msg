@@ -9,13 +9,17 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
+    #[sea_orm(unique)]
     pub code: String,
+    #[sea_orm(unique)]
     pub name: String,
     pub remark: Option<String>,
     pub creator_id: i64,
     pub create_ms: i64,
     pub updator_id: i64,
     pub update_ms: i64,
+    #[sea_orm(has_many)]
+    pub msg_deliveries: HasMany<super::msg_delivery::Entity>,
     #[sea_orm(has_many)]
     pub msg_messages: HasMany<super::msg_message::Entity>,
 }

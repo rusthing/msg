@@ -14,7 +14,7 @@ pub struct Model {
     #[sea_orm(unique_key = "ak_message_and_target_category_an_msg_message_target")]
     pub target_category_id: i64,
     #[sea_orm(unique_key = "ak_message_and_target_category_an_msg_message_target")]
-    pub target_id: Option<i64>,
+    pub target_id: i64,
     pub creator_id: i64,
     pub create_ms: i64,
     pub updator_id: i64,

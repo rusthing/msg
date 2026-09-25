@@ -9,9 +9,15 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
+    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_msg_delivery")]
+    pub event_code: String,
     pub message_id: i64,
-    #[sea_orm(unique)]
+    pub event_source_id: i64,
+    pub message_category_id: i64,
+    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_msg_delivery")]
     pub business_id: i64,
+    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_msg_delivery")]
+    pub business_trigger_ms: i64,
     pub deliver_status: i16,
     #[sea_orm(column_type = "Text", nullable)]
     pub labels: Option<String>,
@@ -29,12 +35,28 @@ pub struct Model {
     pub msg_delivery_targets: HasMany<super::msg_delivery_target::Entity>,
     #[sea_orm(
         belongs_to,
+        from = "event_source_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_event_source: BelongsTo<super::msg_event_source::Entity>,
+    #[sea_orm(
+        belongs_to,
         from = "message_id",
         to = "id",
         on_update = "Restrict",
         on_delete = "Restrict"
     )]
     pub msg_message: BelongsTo<super::msg_message::Entity>,
+    #[sea_orm(
+        belongs_to,
+        from = "message_category_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_message_category: BelongsTo<super::msg_message_category::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
