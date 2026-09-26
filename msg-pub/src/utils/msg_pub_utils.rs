@@ -75,7 +75,14 @@ pub async fn publish(
     );
 
     // 创建投递记录
-    let delivery = create_delivery(base_url, message.id, business_id, &title, &content).await?;
+    let delivery = create_delivery(
+        base_url,
+        &message,
+        business_id,
+        &title,
+        &content,
+    )
+    .await?;
 
     info!(
         "消息发送成功: delivery_id={}, event_code={}, business_id={}",
@@ -166,7 +173,7 @@ fn render_template(template: &str, params: &HashMap<String, String>) -> String {
 /// 通过 feign 客户端创建投递记录
 async fn create_delivery(
     base_url: &str,
-    message_id: i64,
+    message: &msg_api_client::vo::MsgMessageVo,
     business_id: i64,
     title: &str,
     content: &str,
@@ -174,9 +181,15 @@ async fn create_delivery(
     let client = build_feign_client(base_url).await;
     let api = MsgDeliveryApiClient::new(client);
 
+    let now_ms = chrono::Utc::now().timestamp_millis();
+
     let add_dto = MsgDeliveryAddDto::builder()
-        .message_id(message_id)
+        .event_code(message.event_code.clone())
+        .message_id(message.id)
+        .event_source_id(message.event_source_id)
+        .message_category_id(message.category_id)
         .business_id(business_id)
+        .business_trigger_ms(now_ms)
         .title(title.to_string())
         .content(content.to_string())
         ._current_user_id(U64(0))

@@ -1,11 +1,8 @@
 use robotech::macros::crud_dto;
 
 #[crud_dto]
-pub struct MsgChannelDto {
+pub struct MsgEventSourceDto {
     pub code: String,
     pub name: String,
-    pub options: Option<String>,
     pub remark: Option<String>,
-    #[db_default]
-    pub enabled: bool,
 }

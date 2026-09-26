@@ -25,24 +25,11 @@ use robotech::mq::nats::NatsError;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IncomingMessage {
-    /// 事件编码，用于匹配消息模板
     pub event_code: String,
-    /// 业务 ID，用于幂等去重（`msg_delivery.business_id` 唯一约束）
     pub business_id: i64,
-    /// 路由标签
-    ///
-    /// 一组结构化的 key-value，所有规则匹配、分组、路由、静默、
-    /// 维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，
-    /// 不碰任何自由文本。
-    /// 同时用于模板变量替换（`title_template` / `content_template` 中的 `{key}` 占位符）。
+    pub business_trigger_ms: Option<i64>,
     #[serde(default)]
     pub labels: HashMap<String, String>,
-    /// 标注
-    ///
-    /// 放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，
-    /// 只用于通知渲染和界面展示。
-    /// 当 `title_template` 为 null 时，取 `annotations.title` 作为标题；
-    /// 当 `content_template` 为 null 时，取 `annotations.content` 作为内容。
     #[serde(default)]
     pub annotations: HashMap<String, String>,
 }
@@ -191,8 +178,12 @@ pub async fn process_message(
 
     let delivery_add = MsgDeliveryAddDto {
         id: Some(U64(delivery_id)),
+        event_code: Some(msg.event_code.clone()),
         message_id: Some(msg.id),
+        event_source_id: Some(msg.source.as_ref().map(|s| s.id).unwrap_or(0)),
+        message_category_id: Some(msg.category.as_ref().map(|c| c.id).unwrap_or(0)),
         business_id: Some(incoming.business_id),
+        business_trigger_ms: Some(incoming.business_trigger_ms.unwrap_or_else(|| now_ms as i64)),
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
         annotations: Some(annotations_json),

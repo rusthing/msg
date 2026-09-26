@@ -30,17 +30,17 @@ use wheel_rs::config_utils::has_config_changed;
 
 // ── SVC 引用 ──
 use crate::dto::{
-    MsgChannelQueryDto, MsgMessageCategoryQueryDto, MsgMessageChannelQueryDto,
-    MsgMessageQueryDto, MsgMessageQueueQueryDto, MsgMessageSourceQueryDto,
-    MsgMessageTargetQueryDto, MsgTargetCategoryQueryDto,
+    MsgChannelQueryDto, MsgEventSourceQueryDto, MsgMessageCategoryQueryDto,
+    MsgMessageQueryDto, MsgMessageQueueQueryDto, MsgMessageTargetQueryDto,
+    MsgTargetCategoryChannelQueryDto, MsgTargetCategoryQueryDto,
 };
 use crate::svc::{
-    MsgChannelSvc, MsgMessageCategorySvc, MsgMessageChannelSvc, MsgMessageQueueSvc,
-    MsgMessageSourceSvc, MsgMessageSvc, MsgMessageTargetSvc, MsgTargetCategorySvc,
+    MsgChannelSvc, MsgEventSourceSvc, MsgMessageCategorySvc, MsgMessageQueueSvc,
+    MsgMessageSvc, MsgMessageTargetSvc, MsgTargetCategoryChannelSvc, MsgTargetCategorySvc,
 };
 use crate::vo::{
-    MsgChannelVo, MsgMessageChannelVo, MsgMessageExVo, MsgMessageQueueVo,
-    MsgMessageTargetVo,
+    MsgChannelVo, MsgMessageExVo, MsgMessageQueueVo, MsgMessageTargetVo,
+    MsgTargetCategoryChannelVo,
 };
 use crate::mq::sync_queue_subscriptions;
 
@@ -105,7 +105,7 @@ pub struct CachedMessage {
     pub queue: CachedQueue,
     /// 关联的消息类别（`category_id` 可能为空）
     pub category: Option<CachedCategory>,
-    /// 关联的消息来源（`source_id` 可能为空）
+    /// 关联的消息事件来源（`event_source_id` 可能为空）
     pub source: Option<CachedSource>,
     /// 该消息绑定的渠道列表（含完整配置，刷新时组装）
     pub channels: Vec<CachedChannel>,
@@ -164,10 +164,8 @@ pub struct CachedChannel {
 /// # 缓存的消息目标
 #[derive(Debug, Clone)]
 pub struct CachedTarget {
-    /// 目标类别 code
     pub target_category_code: String,
-    /// 目标 ID（`None` 表示该类别下的所有目标）
-    pub target_id: Option<i64>,
+    pub target_id: i64,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -279,8 +277,8 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
     let channels_by_id: HashMap<i64, &MsgChannelVo> =
         channels_all.iter().map(|c| (c.id, c)).collect();
 
-    let sources: HashMap<i64, CachedSource> = MsgMessageSourceSvc::list_by_query_dto(
-        MsgMessageSourceQueryDto::default(),
+    let sources: HashMap<i64, CachedSource> = MsgEventSourceSvc::list_by_query_dto(
+        MsgEventSourceQueryDto::default(),
         Some(db.as_ref()),
     )
     .await?
@@ -352,11 +350,30 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
     .extra
     .unwrap_or_default();
 
-    // ── 消息-渠道关联（复用 channels_by_id，直接组装完整渠道） ──
+    // ── 目标类别-渠道关联（用于推导消息的可用渠道） ──
+
+    let target_category_channels: HashMap<i64, Vec<i64>> = {
+        let links: Vec<MsgTargetCategoryChannelVo> = MsgTargetCategoryChannelSvc::list_by_query_dto(
+            MsgTargetCategoryChannelQueryDto::default(),
+            Some(db.as_ref()),
+        )
+        .await?
+        .extra
+        .unwrap_or_default();
+        let mut map: HashMap<i64, Vec<i64>> = HashMap::new();
+        for link in links {
+            map.entry(link.target_category_id)
+                .or_default()
+                .push(link.channel_id);
+        }
+        map
+    };
+
+    // ── 消息-渠道关联（通过消息目标 → 目标类别 → 渠道推导） ──
 
     let message_channels: HashMap<i64, Vec<CachedChannel>> = {
-        let links: Vec<MsgMessageChannelVo> = MsgMessageChannelSvc::list_by_query_dto(
-            MsgMessageChannelQueryDto::default(),
+        let links: Vec<MsgMessageTargetVo> = MsgMessageTargetSvc::list_by_query_dto(
+            MsgMessageTargetQueryDto::default(),
             Some(db.as_ref()),
         )
         .await?
@@ -364,13 +381,21 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
         .unwrap_or_default();
         let mut map: HashMap<i64, Vec<CachedChannel>> = HashMap::new();
         for link in links {
-            if let Some(ch) = channels_by_id.get(&link.channel_id) {
-                map.entry(link.message_id).or_default().push(CachedChannel {
-                    id: ch.id,
-                    name: ch.name.clone(),
-                    options: ch.options.clone(),
-                    remark: ch.remark.clone(),
-                });
+            if let Some(channel_ids) = target_category_channels.get(&link.target_category_id) {
+                for ch_id in channel_ids {
+                    if let Some(ch) = channels_by_id.get(ch_id) {
+                        let cached = CachedChannel {
+                            id: ch.id,
+                            name: ch.name.clone(),
+                            options: ch.options.clone(),
+                            remark: ch.remark.clone(),
+                        };
+                        let entry = map.entry(link.message_id).or_default();
+                        if !entry.iter().any(|c| c.id == ch.id) {
+                            entry.push(cached);
+                        }
+                    }
+                }
             }
         }
         map
@@ -409,12 +434,8 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
                 name: m.msg_message_queue.name.clone(),
                 persisted: m.msg_message_queue.persisted,
             };
-            let category = m
-                .category_id
-                .and_then(|cid| categories.get(&cid).cloned());
-            let source = m
-                .source_id
-                .and_then(|sid| sources.get(&sid).cloned());
+            let category = categories.get(&m.category_id).cloned();
+            let source = sources.get(&m.event_source_id).cloned();
             let channels = message_channels.get(&m.id).cloned().unwrap_or_default();
             let targets = message_targets.get(&m.id).cloned().unwrap_or_default();
 

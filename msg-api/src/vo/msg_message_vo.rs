@@ -5,11 +5,11 @@ pub struct MsgMessageVo {
     /// ID
     pub id: i64,
     /// 消息类别ID
-    pub category_id: Option<i64>,
+    pub category_id: i64,
     /// 消息队列ID
-    pub mes_id: i64,
+    pub message_queue_id: i64,
     /// 消息来源ID
-    pub source_id: Option<i64>,
+    pub event_source_id: i64,
     /// 事件编码（在应用中定义，事件触发时传递出来）
     pub event_code: String,
     /// 名称
