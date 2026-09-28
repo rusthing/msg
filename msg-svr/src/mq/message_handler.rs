@@ -10,29 +10,16 @@ use std::sync::LazyLock;
 use tracing::{error, info, warn};
 
 use crate::cache::{get_msg_cache, CachedMessage};
-use crate::dto::{
-    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto,
-    MsgDeliveryTargetAddDto,
-};
 use crate::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
+use crate::dto::{
+    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto, MsgDeliveryTargetAddDto,
+};
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc};
 use idworker::next_id;
+use msg_api::mqo::message_mqo::MessageMqo;
 use robotech::api::U64;
 use robotech::db::get_db_conn;
 use robotech::mq::nats::NatsError;
-
-/// 从 NATS 收到的消息负载
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IncomingMessage {
-    pub event_code: String,
-    pub business_id: i64,
-    pub business_trigger_ms: Option<i64>,
-    #[serde(default)]
-    pub labels: HashMap<String, String>,
-    #[serde(default)]
-    pub annotations: HashMap<String, String>,
-}
 
 /// 匹配 `{variable_name}` 形式的占位符
 static TEMPLATE_VAR_RE: LazyLock<Regex> =
@@ -57,36 +44,26 @@ static TEMPLATE_VAR_RE: LazyLock<Regex> =
 /// - `Err(NatsError)`：处理失败
 ///
 /// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递。
-pub async fn process_message(
-    subject: &str,
-    payload: &[u8],
-) -> Result<(), NatsError> {
+pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsError> {
     // ── 1. 解析消息负载 ──
 
-    let incoming: IncomingMessage = serde_json::from_slice(payload).map_err(|e| {
-        NatsError::Handle(format!(
-            "消息负载 JSON 解析失败 [{}]: {}",
-            subject, e
-        ))
-    })?;
+    let message_mqo: MessageMqo = serde_json::from_slice(payload)
+        .map_err(|e| NatsError::Handle(format!("消息负载 JSON 解析失败 [{}]: {}", subject, e)))?;
 
     info!(
         "收到消息: event_code={}, business_id={}, subject={}",
-        incoming.event_code, incoming.business_id, subject
+        message_mqo.event_code, message_mqo.business_id, subject
     );
 
     // ── 2. 查找消息模板 ──
 
     let cache = get_msg_cache();
-    let msg: &CachedMessage = cache
-        .messages
-        .get(&incoming.event_code)
-        .ok_or_else(|| {
-            NatsError::Handle(format!(
-                "未找到事件编码对应的消息模板: {}",
-                incoming.event_code
-            ))
-        })?;
+    let msg: &CachedMessage = cache.messages.get(&message_mqo.event_code).ok_or_else(|| {
+        NatsError::Handle(format!(
+            "未找到事件编码对应的消息模板: {}",
+            message_mqo.event_code
+        ))
+    })?;
 
     // ── 3. 校验队列匹配 ──
 
@@ -106,13 +83,17 @@ pub async fn process_message(
     //   content_template 为 null    → 取 annotations["content"]
 
     let title = match &msg.title_template {
-        Some(tpl) => render_template(tpl, &incoming.labels),
-        None => incoming.annotations.get("title").cloned().unwrap_or_default(),
+        Some(tpl) => render_template(tpl, &message_mqo.labels),
+        None => message_mqo
+            .annotations
+            .get("title")
+            .cloned()
+            .unwrap_or_default(),
     };
 
     let content = match &msg.content_template {
-        Some(tpl) => render_template(tpl, &incoming.labels),
-        None => incoming
+        Some(tpl) => render_template(tpl, &message_mqo.labels),
+        None => message_mqo
             .annotations
             .get("content")
             .cloned()
@@ -120,9 +101,7 @@ pub async fn process_message(
     };
 
     if title.is_empty() && content.is_empty() {
-        return Err(NatsError::Handle(
-            "标题和内容均为空，无法投递".into(),
-        ));
+        return Err(NatsError::Handle("标题和内容均为空，无法投递".into()));
     }
 
     info!("内容渲染完成: title={title}");
@@ -133,7 +112,7 @@ pub async fn process_message(
 
     let existing = MsgDeliverySvc::get_by_query_dto(
         MsgDeliveryQueryDto {
-            business_id: Some(incoming.business_id),
+            business_id: Some(message_mqo.business_id),
             ..Default::default()
         },
         Some(db.as_ref()),
@@ -142,10 +121,7 @@ pub async fn process_message(
 
     match existing {
         Ok(ro) if ro.extra.is_some() => {
-            info!(
-                "消息已投递，幂等跳过: business_id={}",
-                incoming.business_id
-            );
+            info!("消息已投递，幂等跳过: business_id={}", message_mqo.business_id);
             return Ok(());
         }
         Ok(_) => {}
@@ -157,23 +133,24 @@ pub async fn process_message(
     // ── 6. 创建投递记录 ──
 
     let now_ms = chrono::Utc::now().timestamp_millis() as u64;
-    let delivery_id = next_id()
-        .map_err(|e| NatsError::Handle(format!("生成投递ID失败: {e}")))?;
+    let delivery_id = next_id().map_err(|e| NatsError::Handle(format!("生成投递ID失败: {e}")))?;
 
-    let labels_json = if incoming.labels.is_empty() {
+    let labels_json = if message_mqo.labels.is_empty() {
         None
     } else {
-        Some(serde_json::to_string(&incoming.labels).map_err(|e| {
-            NatsError::Handle(format!("labels 序列化失败: {e}"))
-        })?)
+        Some(
+            serde_json::to_string(&message_mqo.labels)
+                .map_err(|e| NatsError::Handle(format!("labels 序列化失败: {e}")))?,
+        )
     };
 
-    let annotations_json = if incoming.annotations.is_empty() {
+    let annotations_json = if message_mqo.annotations.is_empty() {
         None
     } else {
-        Some(serde_json::to_string(&incoming.annotations).map_err(|e| {
-            NatsError::Handle(format!("annotations 序列化失败: {e}"))
-        })?)
+        Some(
+            serde_json::to_string(&message_mqo.annotations)
+                .map_err(|e| NatsError::Handle(format!("annotations 序列化失败: {e}")))?,
+        )
     };
 
     let delivery_add = MsgDeliveryAddDto {
@@ -182,8 +159,12 @@ pub async fn process_message(
         message_id: Some(msg.id),
         event_source_id: Some(msg.source.as_ref().map(|s| s.id).unwrap_or(0)),
         message_category_id: Some(msg.category.as_ref().map(|c| c.id).unwrap_or(0)),
-        business_id: Some(incoming.business_id),
-        business_trigger_ms: Some(incoming.business_trigger_ms.unwrap_or_else(|| now_ms as i64)),
+        business_id: Some(message_mqo.business_id),
+        business_trigger_ms: Some(
+            message_mqo
+                .business_trigger_ms
+                .unwrap_or_else(|| now_ms as i64),
+        ),
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
         annotations: Some(annotations_json),
@@ -199,11 +180,14 @@ pub async fn process_message(
         .map_err(|e| {
             NatsError::Handle(format!(
                 "创建投递记录失败 (business_id={}): {e}",
-                incoming.business_id
+                message_mqo.business_id
             ))
         })?;
 
-    info!("投递记录已创建: delivery_id={delivery_id}, message_id={}", msg.id);
+    info!(
+        "投递记录已创建: delivery_id={delivery_id}, message_id={}",
+        msg.id
+    );
 
     // ── 7. 创建投递目标 ──
 
@@ -219,8 +203,8 @@ pub async fn process_message(
             }
         };
 
-        let target_id_val = next_id()
-            .map_err(|e| NatsError::Handle(format!("生成投递目标ID失败: {e}")))?;
+        let target_id_val =
+            next_id().map_err(|e| NatsError::Handle(format!("生成投递目标ID失败: {e}")))?;
 
         let target_add = MsgDeliveryTargetAddDto {
             id: Some(U64(target_id_val)),
@@ -243,9 +227,8 @@ pub async fn process_message(
                 // ── 8. 为每个渠道创建投递渠道记录 ──
 
                 for channel in &msg.channels {
-                    let channel_id_val = next_id().map_err(|e| {
-                        NatsError::Handle(format!("生成投递渠道ID失败: {e}"))
-                    })?;
+                    let channel_id_val = next_id()
+                        .map_err(|e| NatsError::Handle(format!("生成投递渠道ID失败: {e}")))?;
 
                     let channel_add = MsgDeliveryChannelAddDto {
                         id: Some(U64(channel_id_val)),
@@ -257,8 +240,7 @@ pub async fn process_message(
                         _current_user_id: U64(0),
                     };
 
-                    if let Err(e) =
-                        MsgDeliveryChannelSvc::add(channel_add, Some(db.as_ref())).await
+                    if let Err(e) = MsgDeliveryChannelSvc::add(channel_add, Some(db.as_ref())).await
                     {
                         error!(
                             "创建投递渠道失败: target_id={}, channel_id={}, error={e}",
@@ -283,7 +265,7 @@ pub async fn process_message(
 
     info!(
         "消息处理完成: event_code={}, business_id={}",
-        incoming.event_code, incoming.business_id
+        message_mqo.event_code, message_mqo.business_id
     );
 
     Ok(())
