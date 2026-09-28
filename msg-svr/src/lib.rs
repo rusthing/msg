@@ -4,6 +4,6 @@ pub mod utils;
 pub mod svc;
 pub mod web;
 pub mod cache;
-pub mod mq;
+pub mod sub;
 
 pub use msg_api::*;

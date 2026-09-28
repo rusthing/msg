@@ -1,29 +1,177 @@
-//! # 消息处理
+//! # 队列订阅管理
 //!
-//! 从 NATS 收到消息后，解析负载、匹配消息模板、渲染内容、
-//! 创建投递记录及关联的投递目标和投递渠道。
+//! 维护当前活跃的消息队列订阅句柄，在队列缓存刷新时根据最新的队列信息
+//! 同步订阅状态：新增队列则启动新订阅，移除的队列则停止旧的订阅线程。
+//!
+//! ## 数据流
+//!
+//! ```text
+//! refresh_msg_queue_cache
+//!   → 从 DB 加载所有 msg_message_queue
+//!   → 提取所有 CachedQueue
+//!   → sync_queue_subscriptions(queues)
+//!     → 对比旧订阅：新增 / 保留 / 移除
+//!     → 调用 NATS subscribe 启动新线程
+//!     → 停止不再需要的订阅线程
+//! ```
+//!
+//! 注意：消息模板缓存（`refresh_msg_message_cache`）不会触发队列重新订阅。
 
-use regex::Regex;
-use serde::Deserialize;
-use std::collections::HashMap;
-use std::sync::LazyLock;
-use tracing::{error, info, warn};
-
-use crate::cache::{get_msg_cache, CachedMessage};
-use crate::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
-use crate::dto::{
+use crate::cache::{get_msg_cache, MessageCache, QueueCache};
+use crate::sub::render_template;
+use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc};
+use arc_swap::ArcSwapOption;
+use idworker::next_id;
+use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
+use msg_api::dto::{
     MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto, MsgDeliveryTargetAddDto,
 };
-use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc};
-use idworker::next_id;
 use msg_api::mqo::message_mqo::MessageMqo;
 use robotech::api::U64;
 use robotech::db::get_db_conn;
+use robotech::mq::nats;
 use robotech::mq::nats::NatsError;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use tokio::task::JoinHandle;
+use tracing::{error, info, warn};
 
-/// 匹配 `{variable_name}` 形式的占位符
-static TEMPLATE_VAR_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{(\w+)}").expect("模板正则表达式编译失败"));
+/// # 全局队列订阅句柄
+///
+/// key = `queue.code`（即 NATS subject），value = 订阅线程句柄。
+/// 使用 [`ArcSwapOption`] 实现无锁热替换。
+static QUEUE_SUBSCRIBERS: ArcSwapOption<HashMap<String, Arc<JoinHandle<()>>>> =
+    ArcSwapOption::const_empty();
+
+/// # 同步队列订阅
+///
+/// 根据给定的队列集合，对比当前活跃订阅：
+/// - 队列 `code` 不存在于当前订阅 → 启动新订阅
+/// - 队列 `code` 已存在 → 保留（跳过）
+/// - 当前订阅中的 `code` 不在 `queues` 中 → 停止
+///
+/// 每个队列根据 `persisted` 字段自动选择 Core NATS（`false`）或
+/// JetStream Push（`true`）订阅模式。
+///
+/// ## 参数
+///
+/// - `queues`: 从当前缓存中提取的所有唯一消息队列列表
+pub async fn sync_queue_subscriptions(queues: &HashSet<QueueCache>) {
+    let current = QUEUE_SUBSCRIBERS
+        .load_full()
+        .unwrap_or_else(|| Arc::new(HashMap::new()));
+
+    let current_codes: HashSet<String> = current.keys().cloned().collect();
+    let new_codes: HashSet<String> = queues.iter().map(|q| q.code.clone()).collect();
+
+    // ── 停止已移除的队列订阅 ──
+
+    let removed: HashSet<&String> = current_codes.difference(&new_codes).collect();
+    let mut next = HashMap::new();
+
+    for (code, handle) in current.iter() {
+        if removed.contains(code) {
+            info!("停止队列订阅: {code}");
+            handle.abort();
+        } else {
+            next.insert(code.clone(), Arc::clone(handle));
+        }
+    }
+
+    // ── 启动新增的队列订阅 ──
+
+    let added: HashSet<&String> = new_codes.difference(&current_codes).collect();
+
+    for &code in &added {
+        // 默认不持久化（Core NATS）
+        let persisted = queues
+            .iter()
+            .find(|q| q.code == *code)
+            .map(|q| q.persisted)
+            .unwrap_or(false);
+
+        let handle = match start_subscription_for_queue(code, persisted).await {
+            Ok(handle) => {
+                info!("启动队列订阅成功: {code}");
+                handle
+            }
+            Err(e) => {
+                error!("启动队列订阅失败 {code}: {e}");
+                continue;
+            }
+        };
+
+        next.insert(code.clone(), handle);
+    }
+
+    if !added.is_empty() || !removed.is_empty() || QUEUE_SUBSCRIBERS.load_full().is_none() {
+        QUEUE_SUBSCRIBERS.store(Some(Arc::new(next)));
+    }
+}
+
+/// # 为指定队列启动 NATS 订阅
+///
+/// - `persisted = false` → Core NATS 订阅（at-most-once）
+/// - `persisted = true` → JetStream Push 订阅，创建的 Stream 名称为 `MSG-{code}`，
+///   Consumer 名称为 `msg-svr-{code}`
+async fn start_subscription_for_queue(
+    subject: &str,
+    persisted: bool,
+) -> Result<Arc<JoinHandle<()>>, Box<dyn std::error::Error + Send + Sync>> {
+    use async_nats::jetstream::{consumer, stream};
+
+    let owned_subject = subject.to_string();
+
+    if persisted {
+        let stream_name = format!("MSG-{subject}");
+        let stream_config = stream::Config {
+            name: stream_name.clone(),
+            subjects: vec![subject.to_string()],
+            ..Default::default()
+        };
+
+        let consumer_config = consumer::push::Config {
+            durable_name: Some(format!("msg-svr-{subject}")),
+            deliver_policy: consumer::DeliverPolicy::All,
+            ack_policy: consumer::AckPolicy::Explicit,
+            ..Default::default()
+        };
+
+        nats::subscribe(
+            subject,
+            None,
+            Some(stream_config),
+            Some(consumer_config),
+            move |msg| {
+                let subj = owned_subject.clone();
+                async move {
+                    info!(
+                        "收到 JetStream 消息 [{}]: {}",
+                        subj,
+                        String::from_utf8_lossy(&msg.payload)
+                    );
+                    process_message(&subj, &msg.payload).await
+                }
+            },
+        )
+        .await
+        .map_err(Into::into)
+    } else {
+        nats::subscribe(subject, None, None, None, move |msg| {
+            let subj = owned_subject.clone();
+            async move {
+                info!(
+                    "收到 Core NATS 消息 [{}]: {}",
+                    subj,
+                    String::from_utf8_lossy(&msg.payload)
+                );
+                process_message(&subj, &msg.payload).await
+            }
+        })
+        .await
+        .map_err(Into::into)
+    }
+}
 
 /// 处理收到的 NATS 消息
 ///
@@ -58,7 +206,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     // ── 2. 查找消息模板 ──
 
     let cache = get_msg_cache();
-    let msg: &CachedMessage = cache.messages.get(&message_mqo.event_code).ok_or_else(|| {
+    let msg: &MessageCache = cache.messages.get(&message_mqo.event_code).ok_or_else(|| {
         NatsError::Handle(format!(
             "未找到事件编码对应的消息模板: {}",
             message_mqo.event_code
@@ -160,8 +308,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         id: Some(U64(delivery_id)),
         event_code: Some(msg.event_code.clone()),
         message_id: Some(msg.id.into()),
-        event_source_id: Some(msg.source.as_ref().map(|s| s.id).unwrap_or(0).into()),
-        message_category_id: Some(msg.category.as_ref().map(|c| c.id).unwrap_or(0).into()),
+        event_source_id: Some(msg.source.id.into()),
+        message_category_id: Some(msg.category.id.into()),
         business_id: Some(message_mqo.business_id.into()),
         business_trigger_ms: Some(
             message_mqo
@@ -196,24 +344,13 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     // ── 7. 创建投递目标 ──
 
     for target in &msg.targets {
-        let target_category_id = match cache.target_categories.get(&target.target_category_code) {
-            Some(id) => *id,
-            None => {
-                error!(
-                    "未找到目标类别ID: code={}, 跳过此目标",
-                    target.target_category_code
-                );
-                continue;
-            }
-        };
-
         let target_id_val =
             next_id().map_err(|e| NatsError::Handle(format!("生成投递目标ID失败: {e}")))?;
 
         let target_add = MsgDeliveryTargetAddDto {
             id: Some(U64(target_id_val)),
             delivery_id: Some(delivery_id.into()),
-            target_category_id: Some(target_category_id.into()),
+            target_category_id: Some(target.target_category.id.into()),
             target_id: Some(target.target_id.into()),
             deliver_target_status: Some(DeliverTargetStatus::Delivering),
             _current_ms: Some(U64(now_ms)),
@@ -224,13 +361,13 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             Ok(ro) => {
                 let created_target = ro.extra.as_ref().unwrap();
                 info!(
-                    "投递目标已创建: target_id={}, category={}, delivery_id={delivery_id}",
-                    created_target.id, target.target_category_code
+                    "投递目标已创建: target_id={}, category_code={}, delivery_id={delivery_id}",
+                    created_target.id, target.target_category.code
                 );
 
-                // ── 8. 为每个渠道创建投递渠道记录 ──
+                // ── 8. 直接用目标内嵌的渠道列表创建投递渠道记录 ──
 
-                for channel in &msg.channels {
+                for channel in &target.target_category.channels {
                     let channel_id_val = next_id()
                         .map_err(|e| NatsError::Handle(format!("生成投递渠道ID失败: {e}")))?;
 
@@ -244,7 +381,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                         _current_user_id: U64(0),
                     };
 
-                    if let Err(e) = MsgDeliveryChannelSvc::add(channel_add, Some(db.as_ref())).await
+                    if let Err(e) =
+                        MsgDeliveryChannelSvc::add(channel_add, Some(db.as_ref())).await
                     {
                         error!(
                             "创建投递渠道失败: target_id={}, channel_id={}, error={e}",
@@ -260,8 +398,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             }
             Err(e) => {
                 error!(
-                    "创建投递目标失败: category={}, error={e}",
-                    target.target_category_code
+                    "创建投递目标失败: category_code={}, error={e}",
+                    target.target_category.code
                 );
             }
         }
@@ -273,62 +411,4 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     );
 
     Ok(())
-}
-
-/// 渲染模板字符串，将 `{key}` 替换为 `labels` 中对应的值
-///
-/// 未提供的 key 保留原占位符并 warn。
-fn render_template(template: &str, labels: &HashMap<String, String>) -> String {
-    TEMPLATE_VAR_RE
-        .replace_all(template, |caps: &regex::Captures| {
-            let key = &caps[1];
-            match labels.get(key) {
-                Some(v) => v.clone(),
-                None => {
-                    warn!("模板变量 labels 未提供: {{{key}}}，保留占位符");
-                    caps[0].to_owned()
-                }
-            }
-        })
-        .into_owned()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_render_template_with_all_variables() {
-        let template = "你好 {name}，你的订单 {order_id} 已发货";
-        let mut labels = HashMap::new();
-        labels.insert("name".to_string(), "张三".to_string());
-        labels.insert("order_id".to_string(), "ORD-001".to_string());
-        let result = render_template(template, &labels);
-        assert_eq!(result, "你好 张三，你的订单 ORD-001 已发货");
-    }
-
-    #[test]
-    fn test_render_template_with_missing_variable() {
-        let template = "你好 {name}，你的订单 {order_id} 已发货";
-        let labels = HashMap::new();
-        let result = render_template(template, &labels);
-        assert_eq!(result, "你好 {name}，你的订单 {order_id} 已发货");
-    }
-
-    #[test]
-    fn test_render_template_with_partial_variables() {
-        let template = "你好 {name}，你的订单 {order_id} 已发货";
-        let mut labels = HashMap::new();
-        labels.insert("name".to_string(), "李四".to_string());
-        let result = render_template(template, &labels);
-        assert_eq!(result, "你好 李四，你的订单 {order_id} 已发货");
-    }
-
-    #[test]
-    fn test_render_template_no_placeholders() {
-        let template = "系统通知：服务已重启";
-        let labels = HashMap::new();
-        let result = render_template(template, &labels);
-        assert_eq!(result, "系统通知：服务已重启");
-    }
 }
