@@ -1,11 +1,23 @@
-use robotech::api_client::ApiClientConfig;
-use std::collections::HashMap;
+use crate::{
+    MsgChannelApiClient, MsgDeliveryApiClient, MsgDeliveryChannelApiClient,
+    MsgDeliveryChannelLogApiClient, MsgDeliveryTargetApiClient, MsgEventSourceApiClient,
+    MsgMessageApiClient, MsgMessageCategoryApiClient, MsgMessageQueueApiClient,
+    MsgMessageTargetApiClient, MsgTargetCategoryChannelApiClient,
+};
+use robotech::macros::api_client;
 
-pub const MSG_API_CLIENT_CONFIG_KEY: &str = "msg.api-client";
-
-pub fn setup_msg_api_client(
-    _config: &HashMap<String, ApiClientConfig>,
-) -> Result<(), anyhow::Error> {
-    // TODO: 实现 MSG API 客户端初始化逻辑
-    Ok(())
+#[api_client]
+pub struct MsgApiClient {
+    pub channel_client: MsgChannelApiClient,
+    pub delivery_client: MsgDeliveryApiClient,
+    pub delivery_channel_client: MsgDeliveryChannelApiClient,
+    pub delivery_channel_log_client: MsgDeliveryChannelLogApiClient,
+    pub delivery_target_client: MsgDeliveryTargetApiClient,
+    pub event_source_client: MsgEventSourceApiClient,
+    pub message_client: MsgMessageApiClient,
+    pub message_category_client: MsgMessageCategoryApiClient,
+    pub message_queue_client: MsgMessageQueueApiClient,
+    pub message_target_client: MsgMessageTargetApiClient,
+    pub target_category_client: MsgMessageTargetApiClient,
+    pub target_category_channel_client: MsgTargetCategoryChannelApiClient,
 }
