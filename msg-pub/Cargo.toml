@@ -15,10 +15,11 @@ readme = "README.md"
 tracing = { workspace = true }
 arc-swap = { workspace = true }
 chrono = { workspace = true }
-config = { workspace = true }
+thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["time"] }
 
 wheel-rs = { workspace = true }
-robotech = { workspace = true, features = ["feign", "macros", "api-client"] }
+robotech = { workspace = true, features = ["feign", "macros", "api-client", "nats"] }
+msg-api = { workspace = true }
 msg-api-client = { workspace = true }

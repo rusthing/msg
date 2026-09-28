@@ -5,23 +5,32 @@
 //! ## 使用
 //!
 //! ```ignore
-//! use msg_pub;
-//! use std::collections::HashMap;
+//! use msg_pub::MsgPubConfig;
 //!
-//! // 初始化
-//! msg_pub::setup("http://msg-svr:9002");
+//! // ApiClientConfig 来自调用方 AppConfig.api map
+//! let api_cfg = app_config.api.get("msg-svr").cloned()
+//!     .expect("AppConfig 中缺少 msg-svr 的 api 配置");
 //!
-//! // 发送
-//! let mut params = HashMap::new();
-//! params.insert("order_id".to_string(), "ORD-20240001".to_string());
-//! let delivery_id = msg_pub::publish("order_shipped", params, 1001).await?;
+//! msg_pub::setup(api_cfg, MsgPubConfig::default());
+//!
+//! msg_pub::publish("order_shipped", params, 1001).await?;
+//! ```
+//!
+//! ### 从配置中心加载 msg-pub 自身配置（可选）
+//!
+//! ```toml
+//! [msg.pub]
+//! publish-retry-count = 3
+//! publish-retry-interval = "2s"
+//! ```
+//!
+//! ```ignore
+//! let pub_cfg: MsgPubConfig = config.get("msg.pub").unwrap_or_default();
+//! msg_pub::setup(api_cfg, pub_cfg);
 //! ```
 
 pub mod config;
 pub mod utils;
 
-pub use config::MsgPubConfig;
-pub use config::msg_pub_config::{get, setup, setup_from_cfg};
-pub use utils::{
-    publish, publish_with_retry, PublishRequest, PublishResponse,
-};
+pub use config::{get, setup, MsgPubConfig};
+pub use utils::*;

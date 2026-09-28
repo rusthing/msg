@@ -7,8 +7,8 @@ use typed_builder::TypedBuilder;
 #[serde(rename_all = "camelCase")]
 pub struct MessageMqo {
     pub event_code: String,
-    pub business_id: i64,
-    pub business_trigger_ms: Option<i64>,
+    pub business_id: u64,
+    pub business_trigger_ms: Option<u64>,
     #[serde(default)]
     pub labels: HashMap<String, String>,
     #[serde(default)]
