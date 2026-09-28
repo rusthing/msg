@@ -23,7 +23,7 @@ use robotech::mq::nats::NatsError;
 
 /// 匹配 `{variable_name}` 形式的占位符
 static TEMPLATE_VAR_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{(\w+)\}").expect("模板正则表达式编译失败"));
+    LazyLock::new(|| Regex::new(r"\{(\w+)}").expect("模板正则表达式编译失败"));
 
 /// 处理收到的 NATS 消息
 ///
@@ -112,7 +112,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     let existing = MsgDeliverySvc::get_by_query_dto(
         MsgDeliveryQueryDto {
-            business_id: Some(message_mqo.business_id),
+            business_id: Some(message_mqo.business_id.into()),
             ..Default::default()
         },
         Some(db.as_ref()),
@@ -121,7 +121,10 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     match existing {
         Ok(ro) if ro.extra.is_some() => {
-            info!("消息已投递，幂等跳过: business_id={}", message_mqo.business_id);
+            info!(
+                "消息已投递，幂等跳过: business_id={}",
+                message_mqo.business_id
+            );
             return Ok(());
         }
         Ok(_) => {}
@@ -156,14 +159,15 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     let delivery_add = MsgDeliveryAddDto {
         id: Some(U64(delivery_id)),
         event_code: Some(msg.event_code.clone()),
-        message_id: Some(msg.id),
-        event_source_id: Some(msg.source.as_ref().map(|s| s.id).unwrap_or(0)),
-        message_category_id: Some(msg.category.as_ref().map(|c| c.id).unwrap_or(0)),
-        business_id: Some(message_mqo.business_id),
+        message_id: Some(msg.id.into()),
+        event_source_id: Some(msg.source.as_ref().map(|s| s.id).unwrap_or(0).into()),
+        message_category_id: Some(msg.category.as_ref().map(|c| c.id).unwrap_or(0).into()),
+        business_id: Some(message_mqo.business_id.into()),
         business_trigger_ms: Some(
             message_mqo
                 .business_trigger_ms
-                .unwrap_or_else(|| now_ms as i64),
+                .unwrap_or_else(|| now_ms)
+                .into(),
         ),
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
@@ -208,9 +212,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
         let target_add = MsgDeliveryTargetAddDto {
             id: Some(U64(target_id_val)),
-            delivery_id: Some(delivery_id as i64),
-            target_category_id: Some(target_category_id),
-            target_id: Some(target.target_id),
+            delivery_id: Some(delivery_id.into()),
+            target_category_id: Some(target_category_id.into()),
+            target_id: Some(target.target_id.into()),
             deliver_target_status: Some(DeliverTargetStatus::Delivering),
             _current_ms: Some(U64(now_ms)),
             _current_user_id: U64(0),
@@ -233,7 +237,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                     let channel_add = MsgDeliveryChannelAddDto {
                         id: Some(U64(channel_id_val)),
                         deliver_target_id: Some(created_target.id),
-                        channel_id: Some(channel.id),
+                        channel_id: Some(channel.id.into()),
                         deliver_channel_status: Some(DeliverChannelStatus::Delivering),
                         address: None,
                         _current_ms: Some(U64(now_ms)),
