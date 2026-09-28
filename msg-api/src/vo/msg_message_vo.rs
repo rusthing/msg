@@ -3,13 +3,13 @@ use robotech::macros::vo;
 #[vo]
 pub struct MsgMessageVo {
     /// ID
-    pub id: i64,
+    pub id: u64,
     /// 消息类别ID
-    pub category_id: i64,
+    pub category_id: u64,
     /// 消息队列ID
-    pub message_queue_id: i64,
+    pub message_queue_id: u64,
     /// 消息来源ID
-    pub event_source_id: i64,
+    pub event_source_id: u64,
     /// 事件编码（在应用中定义，事件触发时传递出来）
     pub event_code: String,
     /// 名称
@@ -23,13 +23,13 @@ pub struct MsgMessageVo {
     /// 启用
     pub enabled: bool,
     /// 创建者ID
-    pub creator_id: i64,
+    pub creator_id: u64,
     /// 创建时间戳
-    pub create_ms: i64,
+    pub create_ms: u64,
     /// 更新者ID
-    pub updator_id: i64,
+    pub updator_id: u64,
     /// 更新时间戳
-    pub update_ms: i64,
+    pub update_ms: u64,
     /// 消息队列
     pub msg_message_queue: MsgMessageQueueVo,
 }

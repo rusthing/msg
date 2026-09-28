@@ -6,15 +6,15 @@ pub struct MsgDeliveryDto {
     /// 事件编码（在应用中定义，事件触发时传递出来）
     pub event_code: String,
     /// 消息ID
-    pub message_id: i64,
+    pub message_id: u64,
     /// 事件来源ID
-    pub event_source_id: i64,
+    pub event_source_id: u64,
     /// 消息类别ID
-    pub message_category_id: i64,
+    pub message_category_id: u64,
     /// 指纹，可由业务触发时生成ID或直接采用业务ID，用于幂等去重
-    pub business_id: i64,
+    pub business_id: u64,
     /// 业务触发时间戳（与business_id组成唯一约束，用于幂等去重）
-    pub business_trigger_ms: i64,
+    pub business_trigger_ms: u64,
     /// 投递状态
     #[db_default]
     pub deliver_status: DeliverStatus,

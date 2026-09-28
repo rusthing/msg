@@ -2,12 +2,12 @@ use robotech::macros::vo;
 
 #[vo]
 pub struct MsgMessageTargetVo {
-    pub id: i64,
-    pub message_id: i64,
-    pub target_category_id: i64,
-    pub target_id: i64,
-    pub creator_id: i64,
-    pub create_ms: i64,
-    pub updator_id: i64,
-    pub update_ms: i64,
+    pub id: u64,
+    pub message_id: u64,
+    pub target_category_id: u64,
+    pub target_id: u64,
+    pub creator_id: u64,
+    pub create_ms: u64,
+    pub updator_id: u64,
+    pub update_ms: u64,
 }

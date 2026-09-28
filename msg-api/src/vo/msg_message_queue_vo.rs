@@ -3,7 +3,7 @@ use robotech::macros::vo;
 #[vo]
 pub struct MsgMessageQueueVo {
     /// ID
-    pub id: i64,
+    pub id: u64,
     /// 编码，用于订阅消息中间件队列的名称
     pub code: String,
     /// 名称
@@ -13,11 +13,11 @@ pub struct MsgMessageQueueVo {
     /// 备注
     pub remark: Option<String>,
     /// 创建者ID
-    pub creator_id: i64,
+    pub creator_id: u64,
     /// 创建时间戳
-    pub create_ms: i64,
+    pub create_ms: u64,
     /// 更新者ID
-    pub updator_id: i64,
+    pub updator_id: u64,
     /// 更新时间戳
-    pub update_ms: i64,
+    pub update_ms: u64,
 }
