@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/25 11:04:26                           */
+/* Created on:     2026/9/28 16:33:36                           */
 /*==============================================================*/
 
 
@@ -450,6 +450,7 @@ create table msg_message (
    event_source_id      INT8                 not null,
    name                 VARCHAR(50)          not null,
    event_code           VARCHAR(50)          not null,
+   persisted            BOOL                 not null default true,
    title_template       VARCHAR(150)         null,
    content_template     TEXT                 null,
    remark               VARCHAR(50)          null,
@@ -485,6 +486,10 @@ comment on column msg_message.name is
 comment on column msg_message.event_code is
 '事件编码
 在应用中定义，事件触发时传递出来';
+
+comment on column msg_message.persisted is
+'是否持久化
+如果不持久化，投递将不会保存到数据库';
 
 comment on column msg_message.title_template is
 '标题模板

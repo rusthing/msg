@@ -16,6 +16,7 @@ pub struct Model {
     pub name: String,
     #[sea_orm(unique)]
     pub event_code: String,
+    pub persisted: bool,
     pub title_template: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub content_template: Option<String>,

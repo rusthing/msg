@@ -12,6 +12,9 @@ pub struct MsgMessageDto {
     pub event_code: String,
     /// 名称
     pub name: String,
+    /// 是否持久化（如果不持久化，投递将不会保存到数据库）
+    #[db_default]
+    pub persisted: bool,
     /// 标题模板（为null的话从annotations中取title设置为标题）
     pub title_template: Option<String>,
     /// 内容模板（为null的话从annotations中取content设置为内容）
