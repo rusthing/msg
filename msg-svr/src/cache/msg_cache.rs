@@ -296,7 +296,7 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
     .extra
     .unwrap_or_default();
     let channels_by_id: HashMap<u64, &MsgChannelVo> =
-        channels_all.iter().map(|c| (c.id, c)).collect();
+        channels_all.iter().map(|c| (c.id.into(), c)).collect();
 
     let sources: HashMap<u64, SourceCache> =
         MsgEventSourceSvc::list_by_query_dto(MsgEventSourceQueryDto::default(), Some(db.as_ref()))
@@ -306,9 +306,9 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
             .into_iter()
             .map(|m| {
                 (
-                    m.id,
+                    m.id.0,
                     SourceCache {
-                        id: m.id,
+                        id: m.id.0,
                         code: m.code,
                         name: m.name,
                     },
@@ -326,9 +326,9 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
     .into_iter()
     .map(|m| {
         (
-            m.id,
+            m.id.0,
             CategoryCache {
-                id: m.id,
+                id: m.id.0,
                 code: m.code,
                 name: m.name,
             },
@@ -349,9 +349,9 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
             .unwrap_or_default();
         let mut map: HashMap<u64, Vec<u64>> = HashMap::new();
         for link in links {
-            map.entry(link.target_category_id)
+            map.entry(link.target_category_id.0)
                 .or_default()
-                .push(link.channel_id);
+                .push(link.channel_id.0);
         }
         map
     };
@@ -367,13 +367,13 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
         .into_iter()
         .map(|m| {
             let channels: Vec<ChannelCache> = target_category_channels
-                .get(&m.id)
+                .get(&m.id.0)
                 .map(|ch_ids| {
                     ch_ids
                         .iter()
                         .filter_map(|ch_id| channels_by_id.get(ch_id))
                         .map(|ch| ChannelCache {
-                            id: ch.id,
+                            id: ch.id.0,
                             code: ch.code.clone(),
                             name: ch.name.clone(),
                             options: ch.options.clone(),
@@ -384,9 +384,9 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
                 .unwrap_or_default();
 
             (
-                m.id,
+                m.id.0,
                 TargetCategoryCache {
-                    id: m.id,
+                    id: m.id.0,
                     code: m.code,
                     name: m.name,
                     channels,
@@ -420,9 +420,9 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
         .unwrap_or_default();
         let mut map: HashMap<u64, Vec<ChannelCache>> = HashMap::new();
         for link in links {
-            if let Some(tc) = target_categories.get(&link.target_category_id) {
+            if let Some(tc) = target_categories.get(&link.target_category_id.0) {
                 for ch in &tc.channels {
-                    let entry = map.entry(link.message_id).or_default();
+                    let entry = map.entry(link.message_id.0).or_default();
                     if !entry.iter().any(|c| c.id == ch.id) {
                         entry.push(ch.clone());
                     }
@@ -444,10 +444,10 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
         .unwrap_or_default();
         let mut map: HashMap<u64, Vec<TargetCache>> = HashMap::new();
         for link in links {
-            if let Some(tc) = target_categories.get(&link.target_category_id) {
-                map.entry(link.message_id).or_default().push(TargetCache {
+            if let Some(tc) = target_categories.get(&link.target_category_id.0) {
+                map.entry(link.message_id.0).or_default().push(TargetCache {
                     target_category: tc.clone(),
-                    target_id: link.target_id,
+                    target_id: link.target_id.0,
                 });
             }
         }
@@ -460,26 +460,26 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
         .into_iter()
         .map(|m| {
             let cached_queue = QueueCache {
-                id: m.msg_message_queue.id,
+                id: m.msg_message_queue.id.0,
                 code: m.msg_message_queue.code.clone(),
                 name: m.msg_message_queue.name.clone(),
                 persisted: m.msg_message_queue.persisted,
             };
             let category = categories
-                .get(&m.category_id)
+                .get(&m.category_id.0)
                 .cloned()
                 .expect("消息类别应存在：category_id 为 NOT NULL FK");
             let source = sources
-                .get(&m.event_source_id)
+                .get(&m.event_source_id.0)
                 .cloned()
                 .expect("消息事件来源应存在：event_source_id 为 NOT NULL FK");
-            let channels = message_channels.get(&m.id).cloned().unwrap_or_default();
-            let targets = message_targets.get(&m.id).cloned().unwrap_or_default();
+            let channels = message_channels.get(&m.id.0).cloned().unwrap_or_default();
+            let targets = message_targets.get(&m.id.0).cloned().unwrap_or_default();
 
             (
                 m.event_code.clone(),
                 MessageCache {
-                    id: m.id,
+                    id: m.id.0,
                     event_code: m.event_code,
                     name: m.name,
                     persisted: m.persisted,
@@ -530,7 +530,7 @@ pub async fn refresh_msg_queue_cache() -> Result<(), Box<dyn std::error::Error +
             (
                 q.code.clone(),
                 QueueCache {
-                    id: q.id,
+                    id: *q.id,
                     code: q.code,
                     name: q.name,
                     persisted: q.persisted,

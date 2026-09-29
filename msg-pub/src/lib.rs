@@ -32,5 +32,5 @@
 pub mod config;
 pub mod utils;
 
-pub use config::{get, setup, MsgPubConfig};
+pub use config::{get, get_api_config, setup, MsgPubConfig};
 pub use utils::*;

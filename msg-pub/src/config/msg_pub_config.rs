@@ -42,3 +42,11 @@ pub fn get() -> Result<Arc<MsgPubConfig>, Box<dyn std::error::Error + Send + Syn
         .clone()
         .ok_or_else(|| "MSG Pub 未初始化，请先调用 setup()".into())
 }
+
+/// 获取存储的 API 客户端配置，用于创建 feign 客户端调用 msg-svr。
+pub fn get_api_config(
+) -> Result<Arc<ApiClientConfig>, Box<dyn std::error::Error + Send + Sync>> {
+    API_CONFIG
+        .load_full()
+        .ok_or_else(|| "MSG Pub 未初始化，请先调用 setup()".into())
+}
