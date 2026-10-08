@@ -17,9 +17,9 @@
 //!
 //! 注意：消息模板缓存（`refresh_msg_message_cache`）不会触发队列重新订阅。
 
-use crate::cache::{get_msg_cache, MessageCache, QueueCache};
-use crate::sub::render_template;
+use crate::cache::{MessageCache, QueueCache, get_msg_cache};
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc};
+use crate::utils::render_template;
 use arc_swap::ArcSwapOption;
 use idworker::next_id;
 use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
@@ -381,8 +381,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                         _current_user_id: U64(0),
                     };
 
-                    if let Err(e) =
-                        MsgDeliveryChannelSvc::add(channel_add, Some(db.as_ref())).await
+                    if let Err(e) = MsgDeliveryChannelSvc::add(channel_add, Some(db.as_ref())).await
                     {
                         error!(
                             "创建投递渠道失败: target_id={}, channel_id={}, error={e}",

@@ -1,3 +1,3 @@
-// TODO: 添加工具模块
+mod template_utils;
 
-pub mod template_utils;
+pub(crate) use template_utils::*;
