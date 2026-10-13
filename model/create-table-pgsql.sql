@@ -14,9 +14,9 @@ create table msg_channel (
    options              TEXT                 null,
    remark               VARCHAR(50)          null,
    enabled              BOOL                 not null default true,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_CHANNEL primary key (id),
    constraint AK_CODE_MSG_CHANNEL unique (code)
@@ -44,17 +44,17 @@ comment on column msg_channel.remark is
 comment on column msg_channel.enabled is
 '启用';
 
-comment on column msg_channel.creator_id is
-'创建人的用户ID';
+comment on column msg_channel.creater_id is
+'创建者ID';
 
 comment on column msg_channel.create_ms is
 '创建时间戳';
 
-comment on column msg_channel.updator_id is
-'修改人的用户ID';
+comment on column msg_channel.updater_id is
+'更新者ID';
 
 comment on column msg_channel.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_channel_PK                                        */
@@ -80,9 +80,9 @@ create table msg_delivery (
    title                VARCHAR(150)         not null,
    content              TEXT                 not null,
    remark               VARCHAR(50)          null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY primary key (id),
    constraint AK_EVENT_CODE_AND_BUSINESS_ID_AND_MSG_DELIVERY unique (event_code, business_id, business_trigger_ms)
@@ -140,17 +140,17 @@ comment on column msg_delivery.content is
 comment on column msg_delivery.remark is
 '备注';
 
-comment on column msg_delivery.creator_id is
-'创建人的用户ID';
+comment on column msg_delivery.creater_id is
+'创建者ID';
 
 comment on column msg_delivery.create_ms is
 '创建时间戳';
 
-comment on column msg_delivery.updator_id is
-'修改人的用户ID';
+comment on column msg_delivery.updater_id is
+'更新者ID';
 
 comment on column msg_delivery.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_delivery_PK                                       */
@@ -189,9 +189,9 @@ create table msg_delivery_channel (
    channel_id           INT8                 not null,
    deliver_channel_status INT2                 not null default 0,
    address              VARCHAR(80)          null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY_CHANNEL primary key (id),
    constraint AK_DELIVERY_TARGET_AND_CHANNEL_MSG_DELIVERY_CHANNEL unique (deliver_target_id, channel_id)
@@ -219,17 +219,17 @@ comment on column msg_delivery_channel.deliver_channel_status is
 comment on column msg_delivery_channel.address is
 '投递地址';
 
-comment on column msg_delivery_channel.creator_id is
-'创建人的用户ID';
+comment on column msg_delivery_channel.creater_id is
+'创建者ID';
 
 comment on column msg_delivery_channel.create_ms is
 '创建时间戳';
 
-comment on column msg_delivery_channel.updator_id is
-'修改人的用户ID';
+comment on column msg_delivery_channel.updater_id is
+'更新者ID';
 
 comment on column msg_delivery_channel.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_delivery_channel_PK                               */
@@ -261,9 +261,9 @@ create table msg_delivery_channel_log (
    deliver_channel_status INT2                 not null default 0,
    address              VARCHAR(80)          null,
    detail               TEXT                 null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY_CHANNEL_LOG primary key (id)
 );
@@ -290,17 +290,17 @@ comment on column msg_delivery_channel_log.address is
 comment on column msg_delivery_channel_log.detail is
 '投递详情';
 
-comment on column msg_delivery_channel_log.creator_id is
-'创建人的用户ID';
+comment on column msg_delivery_channel_log.creater_id is
+'创建者ID';
 
 comment on column msg_delivery_channel_log.create_ms is
 '创建时间戳';
 
-comment on column msg_delivery_channel_log.updator_id is
-'修改人的用户ID';
+comment on column msg_delivery_channel_log.updater_id is
+'更新者ID';
 
 comment on column msg_delivery_channel_log.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_delivery_channel_log_PK                           */
@@ -325,9 +325,9 @@ create table msg_delivery_target (
    target_category_id   INT8                 not null,
    target_id            INT8                 not null,
    deliver_target_status INT2                 not null default 0,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY_TARGET primary key (id),
    constraint AK_DELIVERY_AND_TARGET_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
@@ -355,17 +355,17 @@ comment on column msg_delivery_target.deliver_target_status is
 2: 投递失败
 3: 目标已读';
 
-comment on column msg_delivery_target.creator_id is
-'创建人的用户ID';
+comment on column msg_delivery_target.creater_id is
+'创建者ID';
 
 comment on column msg_delivery_target.create_ms is
 '创建时间戳';
 
-comment on column msg_delivery_target.updator_id is
-'修改人的用户ID';
+comment on column msg_delivery_target.updater_id is
+'更新者ID';
 
 comment on column msg_delivery_target.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_delivery_target_PK                                */
@@ -396,9 +396,9 @@ create table msg_event_source (
    code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
    remark               VARCHAR(50)          null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_EVENT_SOURCE primary key (id),
    constraint AK_CODE_MSG_EVENT_SOURCE unique (code),
@@ -421,17 +421,17 @@ comment on column msg_event_source.name is
 comment on column msg_event_source.remark is
 '备注';
 
-comment on column msg_event_source.creator_id is
-'创建人的用户ID';
+comment on column msg_event_source.creater_id is
+'创建者ID';
 
 comment on column msg_event_source.create_ms is
 '创建时间戳';
 
-comment on column msg_event_source.updator_id is
-'修改人的用户ID';
+comment on column msg_event_source.updater_id is
+'更新者ID';
 
 comment on column msg_event_source.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_event_source_PK                                   */
@@ -455,9 +455,9 @@ create table msg_message (
    content_template     TEXT                 null,
    remark               VARCHAR(50)          null,
    enabled              BOOL                 not null default true,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE primary key (id),
    constraint AK_NAME_MSG_MESSAGE unique (name),
@@ -505,17 +505,17 @@ comment on column msg_message.remark is
 comment on column msg_message.enabled is
 '启用';
 
-comment on column msg_message.creator_id is
-'创建人的用户ID';
+comment on column msg_message.creater_id is
+'创建者ID';
 
 comment on column msg_message.create_ms is
 '创建时间戳';
 
-comment on column msg_message.updator_id is
-'修改人的用户ID';
+comment on column msg_message.updater_id is
+'更新者ID';
 
 comment on column msg_message.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_message_PK                                        */
@@ -553,9 +553,9 @@ create table msg_message_category (
    code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
    remark               VARCHAR(50)          null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE_CATEGORY primary key (id),
    constraint AK_CODE_MSG_MESSAGE_CATEGORY unique (code),
@@ -578,17 +578,17 @@ comment on column msg_message_category.name is
 comment on column msg_message_category.remark is
 '备注';
 
-comment on column msg_message_category.creator_id is
-'创建人的用户ID';
+comment on column msg_message_category.creater_id is
+'创建者ID';
 
 comment on column msg_message_category.create_ms is
 '创建时间戳';
 
-comment on column msg_message_category.updator_id is
-'修改人的用户ID';
+comment on column msg_message_category.updater_id is
+'更新者ID';
 
 comment on column msg_message_category.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_message_category_PK                               */
@@ -606,9 +606,9 @@ create table msg_message_queue (
    name                 VARCHAR(50)          not null,
    persisted            BOOL                 not null default true,
    remark               VARCHAR(50)          null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE_QUEUE primary key (id),
    constraint AK_CODE_MSG_MESSAGE_QUEUE unique (code),
@@ -635,17 +635,17 @@ comment on column msg_message_queue.persisted is
 comment on column msg_message_queue.remark is
 '备注';
 
-comment on column msg_message_queue.creator_id is
-'创建人的用户ID';
+comment on column msg_message_queue.creater_id is
+'创建者ID';
 
 comment on column msg_message_queue.create_ms is
 '创建时间戳';
 
-comment on column msg_message_queue.updator_id is
-'修改人的用户ID';
+comment on column msg_message_queue.updater_id is
+'更新者ID';
 
 comment on column msg_message_queue.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_message_queue_PK                                  */
@@ -662,9 +662,9 @@ create table msg_message_target (
    message_id           INT8                 not null,
    target_category_id   INT8                 not null,
    target_id            INT8                 not null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE_TARGET primary key (id),
    constraint AK_MESSAGE_AND_TARGET_CATEGORY_AN_MSG_MESSAGE_TARGET unique (message_id, target_category_id, target_id)
@@ -685,17 +685,17 @@ comment on column msg_message_target.target_category_id is
 comment on column msg_message_target.target_id is
 '目标ID';
 
-comment on column msg_message_target.creator_id is
-'创建人的用户ID';
+comment on column msg_message_target.creater_id is
+'创建者ID';
 
 comment on column msg_message_target.create_ms is
 '创建时间戳';
 
-comment on column msg_message_target.updator_id is
-'修改人的用户ID';
+comment on column msg_message_target.updater_id is
+'更新者ID';
 
 comment on column msg_message_target.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_message_target_PK                                 */
@@ -726,9 +726,9 @@ create table msg_target_category (
    code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
    remark               VARCHAR(50)          null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_TARGET_CATEGORY primary key (id),
    constraint AK_CODE_MSG_TARGET_CATEGORY unique (code),
@@ -751,17 +751,17 @@ comment on column msg_target_category.name is
 comment on column msg_target_category.remark is
 '备注';
 
-comment on column msg_target_category.creator_id is
-'创建人的用户ID';
+comment on column msg_target_category.creater_id is
+'创建者ID';
 
 comment on column msg_target_category.create_ms is
 '创建时间戳';
 
-comment on column msg_target_category.updator_id is
-'修改人的用户ID';
+comment on column msg_target_category.updater_id is
+'更新者ID';
 
 comment on column msg_target_category.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_target_category_PK                                */
@@ -777,9 +777,9 @@ create table msg_target_category_channel (
    id                   INT8                 not null,
    target_category_id   INT8                 not null,
    channel_id           INT8                 not null,
-   creator_id           INT8                 not null,
+   creater_id           INT8                 not null,
    create_ms            INT8                 not null,
-   updator_id           INT8                 not null,
+   updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_TARGET_CATEGORY_CHANNEL primary key (id),
    constraint AK_CHANNEL_AND_TARGET_CATEGORY_MSG_TARGET_CATEGORY_CHANNEL unique (channel_id, target_category_id)
@@ -797,17 +797,17 @@ comment on column msg_target_category_channel.target_category_id is
 comment on column msg_target_category_channel.channel_id is
 '渠道ID';
 
-comment on column msg_target_category_channel.creator_id is
-'创建人的用户ID';
+comment on column msg_target_category_channel.creater_id is
+'创建者ID';
 
 comment on column msg_target_category_channel.create_ms is
 '创建时间戳';
 
-comment on column msg_target_category_channel.updator_id is
-'修改人的用户ID';
+comment on column msg_target_category_channel.updater_id is
+'更新者ID';
 
 comment on column msg_target_category_channel.update_ms is
-'修改时间戳';
+'更新时间戳';
 
 /*==============================================================*/
 /* Index: msg_target_category_channel_PK                        */

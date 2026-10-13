@@ -16,9 +16,9 @@ pub struct Model {
     #[sea_orm(unique_key = "ak_delivery_and_target_msg_delivery_target")]
     pub target_id: i64,
     pub deliver_target_status: i16,
-    pub creator_id: i64,
+    pub creater_id: i64,
     pub create_ms: i64,
-    pub updator_id: i64,
+    pub updater_id: i64,
     pub update_ms: i64,
     #[sea_orm(
         belongs_to,

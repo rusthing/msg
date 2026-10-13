@@ -15,9 +15,9 @@ pub struct Model {
     pub channel_id: i64,
     pub deliver_channel_status: i16,
     pub address: Option<String>,
-    pub creator_id: i64,
+    pub creater_id: i64,
     pub create_ms: i64,
-    pub updator_id: i64,
+    pub updater_id: i64,
     pub update_ms: i64,
     #[sea_orm(
         belongs_to,
