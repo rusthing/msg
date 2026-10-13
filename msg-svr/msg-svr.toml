@@ -2,18 +2,13 @@ profile = "dev"
 
 [micro-svc.consul]
 base-url = "http://consul:8500"
-config.file-format = "toml"
-config.common-configs = "log.toml"
 [micro-svc.consul.registry]
-
-[msg]
 
 [redis]
 url = "redis://:xxxxxxxx@redis:6379"
 
 [db]
 url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
-#url = "mysql://msg:msg@mysql:3306/msg"
 
 [web]
 port = 9002
