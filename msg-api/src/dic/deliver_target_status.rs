@@ -1,23 +1,10 @@
 #[cfg(feature = "server")]
 use sea_orm::{ColIdx, DbErr, QueryResult, TryGetError, TryGetable};
-use serde::{Deserialize, Serialize};
+use robotech::macros::dic;
 use strum::{AsRefStr, Display, EnumString};
-use utoipa::ToSchema;
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    AsRefStr,
-    Display,
-    EnumString,
-    Serialize,
-    Deserialize,
-    ToSchema,
-)]
+#[dic]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, AsRefStr, Display, EnumString)]
 #[strum(serialize_all = "kebab-case")]
 pub enum DeliverTargetStatus {
     /// 投递中
