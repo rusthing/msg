@@ -39,7 +39,7 @@ humantime = { workspace = true }
 
 wheel-rs = { workspace = true }
 idworker = { workspace = true, features = ["utils"] }
-robotech = { workspace = true, features = ["db", "config-center", "registry-center", "macros", "redis", "nats"] }
+robotech = { workspace = true, features = ["db", "config-center", "registry-center", "macros", "redis", "nats", "local-cache"] }
 msg-api = { workspace = true, features = ["server"] }
 async-nats = { workspace = true }
 bytes = { workspace = true }

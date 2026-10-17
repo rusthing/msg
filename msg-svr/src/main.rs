@@ -1,8 +1,10 @@
 use anyhow::anyhow;
 use config::Value;
 use idworker::setup_id_worker;
+use msg_api::cst::{MSG_CACHE_REFRESH_SUBJECT, MSG_QUEUE_CACHE_REFRESH_SUBJECT};
+use msg_svr::cache::{MSG_CACHE, MSG_QUEUE_CACHE, refresh_msg_cache, refresh_queue_cache};
 use msg_svr::config::AppConfig;
-use msg_svr::svc::setup_msg_cache;
+use robotech::cache;
 use robotech::db::setup_db_conn;
 use robotech::macros::{bootstrap, db_migrate, log_call};
 use robotech::mq::nats::setup_nats_client;
@@ -31,8 +33,22 @@ async fn setup(
         setup_nats_client(nats_config.clone(), changed).await?;
     }
 
-    // 消息缓存：DB 重连后自动热更新
-    setup_msg_cache(changed).await;
+    // 消息缓存：安装 JetStream 刷新信号消费者（对齐 dtw-rs 本地缓存规范）
+    {
+        cache::setup_local_cache(MSG_CACHE_REFRESH_SUBJECT, &MSG_CACHE, || async {
+            refresh_msg_cache().await
+        })
+        .await?;
+
+        cache::setup_local_cache(MSG_QUEUE_CACHE_REFRESH_SUBJECT, &MSG_QUEUE_CACHE, || async {
+            refresh_queue_cache().await
+        })
+        .await?;
+
+        // 启动后首次全量加载
+        refresh_msg_cache().await?;
+        refresh_queue_cache().await?;
+    }
 
     setup_web_server(app_config.web.clone(), port, old_pid, changed).await?;
 

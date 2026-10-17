@@ -1,3 +1,5 @@
-pub mod msg_pub_config;
+mod event_source_config;
+mod msg_pub_config;
 
-pub use msg_pub_config::{get, get_api_config, setup, MsgPubConfig};
+pub use event_source_config::*;
+pub use msg_pub_config::*;

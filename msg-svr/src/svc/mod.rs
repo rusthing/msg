@@ -11,7 +11,6 @@ mod msg_message_target_svc;
 mod msg_target_category_channel_svc;
 mod msg_target_category_svc;
 
-pub use crate::cache::*;
 pub use msg_channel_svc::*;
 pub use msg_delivery_channel_log_svc::*;
 pub use msg_delivery_channel_svc::*;

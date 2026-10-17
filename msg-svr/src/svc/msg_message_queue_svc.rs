@@ -1,4 +1,4 @@
 use robotech::macros::svc;
 
-#[svc(after_write = super::refresh_msg_queue_cache)]
+#[svc(after_write = crate::cache::on_queue_cache_refresh)]
 pub struct MsgMessageQueueSvc;

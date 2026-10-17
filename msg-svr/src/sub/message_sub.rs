@@ -6,16 +6,16 @@
 //! ## 数据流
 //!
 //! ```text
-//! refresh_msg_queue_cache
+//! 队列缓存刷新（启动加载 / JetStream 队列刷新信号）
 //!   → 从 DB 加载所有 msg_message_queue
-//!   → 提取所有 CachedQueue
+//!   → 提取所有 QueueCache
 //!   → sync_queue_subscriptions(queues)
 //!     → 对比旧订阅：新增 / 保留 / 移除
 //!     → 调用 NATS subscribe 启动新线程
 //!     → 停止不再需要的订阅线程
 //! ```
 //!
-//! 注意：消息模板缓存（`refresh_msg_message_cache`）不会触发队列重新订阅。
+//! 注意：消息模板缓存（`build_msg_cache`）不会触发队列重新订阅。
 
 use crate::cache::{MessageCache, QueueCache, get_msg_cache};
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc};
