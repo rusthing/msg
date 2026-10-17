@@ -29,8 +29,10 @@
 //! msg_pub::setup(api_cfg, pub_cfg);
 //! ```
 
-pub mod config;
-pub mod utils;
+mod config;
+mod utils;
 
 pub use config::*;
 pub use utils::*;
+
+pub use msg_api_client::*;
