@@ -9,6 +9,13 @@ port = 9002
 [redis]
 url = "redis://:xxxxxxxx@redis:6379"
 
+# 本地缓存（robotech 通用配置）
+[local-cache]
+# 刷新订阅探活间隔：consumer 丢失（NATS 重启 / 断连超时 / 人工删除）后，
+# 最多经过该时长会被发现并重建订阅，重建后立即全量刷新一次缓存。
+# 支持 humantime 写法（500ms / 15s / 1m），默认 15s，下限 1s。
+probe-interval = "15s"
+
 [micro-svc.consul]
 base-url = "http://consul:8500"
 [micro-svc.consul.registry]
