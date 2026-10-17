@@ -19,8 +19,6 @@ pub struct Model {
     pub create_ms: i64,
     pub updater_id: i64,
     pub update_ms: i64,
-    #[sea_orm(has_many)]
-    pub msg_messages: HasMany<super::msg_message::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
