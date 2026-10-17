@@ -1,14 +1,14 @@
 profile = "dev"
 
-[micro-svc.consul]
-base-url = "http://consul:8500"
-[micro-svc.consul.registry]
-
-[redis]
-url = "redis://:xxxxxxxx@redis:6379"
-
 [db]
 url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
 
 [web]
 port = 9002
+
+[redis]
+url = "redis://:xxxxxxxx@redis:6379"
+
+[micro-svc.consul]
+base-url = "http://consul:8500"
+[micro-svc.consul.registry]

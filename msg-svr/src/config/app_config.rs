@@ -10,10 +10,11 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct AppConfig {
-    /// msg
-    pub msg: MsgConfig,
     /// db
     pub db: DbConnConfig,
+    /// msg
+    #[serde(default = "MsgConfig::default")]
+    pub msg: MsgConfig,
     /// Web服务器
     #[serde(default = "WebServerConfig::default")]
     pub web: WebServerConfig,

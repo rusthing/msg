@@ -8,3 +8,5 @@ level = "debug"
 "reqwest::connect" = "info"
 "robotech::cfg::cfg_utils" = "error"
 "robotech::micro_svc::hub_client::hub_client" = "error"
+"robotech::web::server::web_server_utils" = "warn"
+
