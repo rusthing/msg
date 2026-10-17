@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/9/28 16:33:36                           */
+/* Created on:     2026/10/17 12:45:36                          */
 /*==============================================================*/
 
 
@@ -445,9 +445,8 @@ id
 /*==============================================================*/
 create table msg_message (
    id                   INT8                 not null,
-   category_id          INT8                 not null,
-   message_queue_id     INT8                 not null,
    event_source_id      INT8                 not null,
+   category_id          INT8                 null,
    name                 VARCHAR(50)          not null,
    event_code           VARCHAR(50)          not null,
    persisted            BOOL                 not null default true,
@@ -471,14 +470,11 @@ comment on table msg_message is
 comment on column msg_message.id is
 'ID';
 
-comment on column msg_message.category_id is
-'消息类别ID';
-
-comment on column msg_message.message_queue_id is
-'消息队列ID';
-
 comment on column msg_message.event_source_id is
 '事件来源ID';
+
+comment on column msg_message.category_id is
+'消息类别ID';
 
 comment on column msg_message.name is
 '名称';
@@ -529,13 +525,6 @@ id
 /*==============================================================*/
 create  index Relationship_1_FK on msg_message (
 category_id
-);
-
-/*==============================================================*/
-/* Index: Relationship_2_FK                                     */
-/*==============================================================*/
-create  index Relationship_2_FK on msg_message (
-message_queue_id
 );
 
 /*==============================================================*/
@@ -878,11 +867,6 @@ alter table msg_message
 alter table msg_message
    add constraint fk_event_source_id__from__msg_event_source foreign key (event_source_id)
       references msg_event_source (id)
-      on delete restrict on update restrict;
-
-alter table msg_message
-   add constraint fk_message_queue_id__from__msg_message_queue foreign key (message_queue_id)
-      references msg_message_queue (id)
       on delete restrict on update restrict;
 
 alter table msg_message_target

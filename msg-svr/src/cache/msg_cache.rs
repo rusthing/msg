@@ -83,7 +83,7 @@ pub struct MsgCache {
 
 /// # 缓存的单条消息
 ///
-/// 聚合了消息模板及其关联的队列、类别、来源、渠道列表、目标列表。
+/// 聚合了消息模板及其关联的类别、来源、渠道列表、目标列表。
 #[derive(Debug, Clone)]
 pub struct MessageCache {
     /// 消息 ID
@@ -100,8 +100,6 @@ pub struct MessageCache {
     pub content_template: Option<String>,
     /// 备注
     pub remark: Option<String>,
-    /// 关联的消息队列
-    pub queue: QueueCache,
     /// 关联的消息类别
     pub category: CategoryCache,
     /// 关联的消息事件来源
@@ -458,17 +456,10 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
 
     let messages: HashMap<String, MessageCache> = messages_all
         .into_iter()
-        .map(|m| {
-            let cached_queue = QueueCache {
-                id: m.msg_message_queue.id.0,
-                code: m.msg_message_queue.code.clone(),
-                name: m.msg_message_queue.name.clone(),
-                persisted: m.msg_message_queue.persisted,
-            };
-            let category = categories
-                .get(&m.category_id.0)
-                .cloned()
-                .expect("消息类别应存在：category_id 为 NOT NULL FK");
+        .filter_map(|m| {
+            let category = m
+                .category_id
+                .and_then(|id| categories.get(&id.0).cloned());
             let source = sources
                 .get(&m.event_source_id.0)
                 .cloned()
@@ -476,7 +467,7 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
             let channels = message_channels.get(&m.id.0).cloned().unwrap_or_default();
             let targets = message_targets.get(&m.id.0).cloned().unwrap_or_default();
 
-            (
+            Some((
                 m.event_code.clone(),
                 MessageCache {
                     id: m.id.0,
@@ -486,13 +477,12 @@ pub async fn refresh_msg_message_cache() -> Result<(), Box<dyn std::error::Error
                     title_template: m.title_template,
                     content_template: m.content_template,
                     remark: m.remark,
-                    queue: cached_queue,
-                    category,
+                    category: category?,
                     source,
                     channels,
                     targets,
                 },
-            )
+            ))
         })
         .collect();
 

@@ -213,16 +213,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         ))
     })?;
 
-    // ── 3. 校验队列匹配 ──
-
-    if msg.queue.code != subject {
-        return Err(NatsError::Handle(format!(
-            "消息队列不匹配: 模板队列={}, 实际队列={}",
-            msg.queue.code, subject
-        )));
-    }
-
-    // ── 4. 渲染标题和内容 ──
+    // ── 3. 渲染标题和内容 ──
     //
     //   title_template 不为 null → 用 labels 做变量替换，替换 title_template
     //   title_template 为 null    → 取 annotations["title"]
@@ -254,7 +245,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     info!("内容渲染完成: title={title}");
 
-    // ── 5. 幂等检查 ──
+    // ── 4. 幂等检查 ──
 
     let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
 
@@ -281,7 +272,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         }
     }
 
-    // ── 6. 创建投递记录 ──
+    // ── 5. 创建投递记录 ──
 
     let now_ms = chrono::Utc::now().timestamp_millis() as u64;
     let delivery_id = next_id().map_err(|e| NatsError::Handle(format!("生成投递ID失败: {e}")))?;
@@ -314,7 +305,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         business_trigger_ms: Some(
             message_mqo
                 .business_trigger_ms
-                .unwrap_or_else(|| now_ms)
+                .unwrap_or(now_ms)
                 .into(),
         ),
         deliver_status: Some(DeliverStatus::Delivering),
@@ -341,7 +332,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         msg.id
     );
 
-    // ── 7. 创建投递目标 ──
+    // ── 6. 创建投递目标 ──
 
     for target in &msg.targets {
         let target_id_val =
@@ -365,7 +356,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                     created_target.id, target.target_category.code
                 );
 
-                // ── 8. 直接用目标内嵌的渠道列表创建投递渠道记录 ──
+                // ── 7. 直接用目标内嵌的渠道列表创建投递渠道记录 ──
 
                 for channel in &target.target_category.channels {
                     let channel_id_val = next_id()

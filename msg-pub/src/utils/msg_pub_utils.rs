@@ -7,8 +7,6 @@ use crate::config::get_api_config;
 use crate::utils::msg_pub_error::MsgPubError;
 use msg_api::cst::MSG_MESSAGE_TOPIC;
 use msg_api::mqo::message_mqo::MessageMqo;
-use robotech::api::U64;
-use robotech::micro_svc::FeignApiClient;
 use robotech::mq::nats::publish;
 
 pub async fn publish_message(message_mqo: MessageMqo) -> Result<(), MsgPubError> {

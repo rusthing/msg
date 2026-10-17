@@ -4,12 +4,10 @@ use robotech::macros::vo;
 pub struct MsgMessageVo {
     /// ID
     pub id: u64,
-    /// 消息类别ID
-    pub category_id: u64,
-    /// 消息队列ID
-    pub message_queue_id: u64,
     /// 消息来源ID
     pub event_source_id: u64,
+    /// 消息类别ID
+    pub category_id: Option<u64>,
     /// 事件编码（在应用中定义，事件触发时传递出来）
     pub event_code: String,
     /// 名称
@@ -32,6 +30,4 @@ pub struct MsgMessageVo {
     pub updater_id: u64,
     /// 更新时间戳
     pub update_ms: u64,
-    /// 消息队列
-    pub msg_message_queue: MsgMessageQueueVo,
 }
