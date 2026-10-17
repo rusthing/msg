@@ -8,8 +8,8 @@
 //!
 //! ## 模块结构
 //!
-//! - [`msg_cache`] — 缓存数据结构定义、消息缓存与队列缓存的双轨管理
-//!   - [`MsgCache`] / [`get_msg_cache`] — 消息缓存（模板、渠道、目标等）
+//! - [`msg_local_cache`] — 缓存数据结构定义、消息缓存与队列缓存的双轨管理
+//!   - [`get_msg_cache`] — 返回 `Arc<HashMap<String, MessageCache>>` 消息缓存快照
 //!   - [`MSG_CACHE`] / [`MSG_QUEUE_CACHE`] — `pub static` 全局缓存，供 `main.rs` 注册 JetStream 消费者
 //!   - [`refresh_msg_cache`] / [`refresh_queue_cache`] — 全量刷新（DB + build + store）
 //!   - [`store_msg_cache`] / [`store_queue_cache`] — 原子替换缓存快照
@@ -21,6 +21,6 @@
 //! 任一节点写库成功后发布刷新信号（JetStream 持久化），所有节点收到信号后
 //! 从 DB 全量重建缓存，无需配置中心参与。
 
-mod msg_cache;
+mod msg_local_cache;
 
-pub use msg_cache::*;
+pub use msg_local_cache::*;

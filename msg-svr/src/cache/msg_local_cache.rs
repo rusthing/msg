@@ -17,7 +17,6 @@
 //!
 //! ## 数据结构
 //!
-//! - [`MsgCache`] — 缓存快照，包含消息模板及其关联的所有配置数据
 //! - [`MessageCache`] — 单条消息的完整缓存条目
 //! - [`ChannelCache`] — 渠道配置缓存
 //!
@@ -25,7 +24,7 @@
 //!
 //! ```ignore
 //! let cache = get_msg_cache();
-//! if let Some(msg) = cache.messages.get("order.created") {
+//! if let Some(msg) = cache.get("order.created") {
 //!     for ch in &msg.channels {
 //!         // 直接用 ch.options / ch.remark 发送消息
 //!     }
@@ -69,11 +68,14 @@ use crate::vo::{
 
 /// # 全局消息缓存
 ///
+/// key = `msg_message.event_code`，value = [`MessageCache`]。
+///
 /// `ArcSwapOption::const_empty()` 是 `const fn`，可直接用于 `static` 初始化，
 /// 无需 `LazyLock` 或 `Box::leak`。
 ///
 /// `pub` 导出供 `main.rs` 通过 `setup_local_cache` 注册 JetStream 刷新信号消费者。
-pub static MSG_CACHE: ArcSwapOption<MsgCache> = ArcSwapOption::const_empty();
+pub static MSG_CACHE: ArcSwapOption<HashMap<String, MessageCache>> =
+    ArcSwapOption::const_empty();
 
 /// # 全局消息队列缓存
 ///
@@ -86,16 +88,6 @@ pub static MSG_QUEUE_CACHE: ArcSwapOption<HashMap<String, QueueCache>> = ArcSwap
 // ═══════════════════════════════════════════════════════════════
 //  数据结构
 // ═══════════════════════════════════════════════════════════════
-
-/// # 消息缓存快照
-///
-/// 刷新时分表查询、组装时全量内嵌，运行时只需一个 `messages` 字典。
-/// 目标类别数据已内嵌在各消息的 `TargetCache.target_category` 中，无需单独缓存。
-#[derive(Debug, Clone, Default)]
-pub struct MsgCache {
-    /// 消息模板，key = `msg_message.event_code`
-    pub messages: HashMap<String, MessageCache>,
-}
 
 /// # 缓存的单条消息
 ///
@@ -213,7 +205,7 @@ pub struct TargetCache {
 /// 也供 `setup_local_cache` 的 JetStream 消费者回调内部使用：
 /// `rebuild_fn` 返回的新缓存会通过 `ArcSwapOption::store` 落盘，
 /// 因此本函数主要用于初始全量加载场景。
-pub fn store_msg_cache(cache: MsgCache) {
+pub fn store_msg_cache(cache: HashMap<String, MessageCache>) {
     info!("存储消息缓存");
     MSG_CACHE.store(Some(Arc::new(cache)));
 }
@@ -237,11 +229,11 @@ pub fn store_queue_cache(cache: HashMap<String, QueueCache>) {
 ///
 /// ## 返回值
 ///
-/// [`Arc<MsgCache>`] — 当下的缓存快照
-pub fn get_msg_cache() -> Arc<MsgCache> {
+/// [`Arc<HashMap<String, MessageCache>>`] — 当下的缓存快照
+pub fn get_msg_cache() -> Arc<HashMap<String, MessageCache>> {
     MSG_CACHE
         .load_full()
-        .unwrap_or_else(|| Arc::new(MsgCache::default()))
+        .unwrap_or_else(|| Arc::new(HashMap::new()))
 }
 
 /// # 获取全局消息队列缓存快照
@@ -286,12 +278,12 @@ pub async fn on_queue_cache_refresh() {
 
 /// # 全量刷新消息缓存
 ///
-/// 从 DB 查询全量数据、组装 [`MsgCache`]、存储到 [`MSG_CACHE`]，并返回结果。
+/// 从 DB 查询全量数据、组装 `HashMap`、存储到 [`MSG_CACHE`]，并返回结果。
 ///
 /// 对应 dtw-rs 的 `refresh_all_control_point_groups`：
 /// - `main.rs` 启动时调用做首次全量加载
 /// - `setup_local_cache` 的 `rebuild_fn` 闭包也调用此函数，收到刷新信号后执行
-pub async fn refresh_msg_cache() -> anyhow::Result<MsgCache> {
+pub async fn refresh_msg_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
     info!("消息缓存全量加载...");
     let cache = build_msg_cache().await?;
     store_msg_cache(cache.clone());
@@ -319,9 +311,9 @@ pub async fn refresh_queue_cache() -> anyhow::Result<HashMap<String, QueueCache>
 
 /// # 从数据库构建消息缓存
 ///
-/// 加载消息、渠道、来源、类别、目标类别、消息-目标关联，组装为 [`MsgCache`]。
+/// 加载消息、渠道、来源、类别、目标类别、消息-目标关联，组装为 `HashMap<String, MessageCache>`。
 /// 仅构建不落缓存，由调用方决定何时替换快照。
-pub async fn build_msg_cache() -> anyhow::Result<MsgCache> {
+pub async fn build_msg_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
     let db = get_db_conn()?;
 
     // ── 通过 SVC 分表查询，禁用数据不查出 ──
@@ -529,7 +521,7 @@ pub async fn build_msg_cache() -> anyhow::Result<MsgCache> {
         })
         .collect();
 
-    Ok(MsgCache { messages })
+    Ok(messages)
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -206,7 +206,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     // ── 2. 查找消息模板 ──
 
     let cache = get_msg_cache();
-    let msg: &MessageCache = cache.messages.get(&message_mqo.event_code).ok_or_else(|| {
+    let msg: &MessageCache = cache.get(&message_mqo.event_code).ok_or_else(|| {
         NatsError::Handle(format!(
             "未找到事件编码对应的消息模板: {}",
             message_mqo.event_code
