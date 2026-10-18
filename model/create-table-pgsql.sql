@@ -1,6 +1,6 @@
 /*==============================================================*/
 /* DBMS name:      PostgreSQL 9.x                               */
-/* Created on:     2026/10/17 12:45:36                          */
+/* Created on:     2026/10/18 12:58:42                          */
 /*==============================================================*/
 
 
@@ -147,7 +147,7 @@ create table msg_delivery (
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY primary key (id),
-   constraint AK_EVENT_CODE_AND_BUSINESS_ID_AND_MSG_DELIVERY unique (event_code, business_id, business_trigger_ms)
+   constraint AK_EVENT_CODE_AND_BUSINESS_ID_AND_BUSINESS_TRIGGER_MS_MSG_DELIVERY unique (event_code, business_id, business_trigger_ms)
 );
 
 comment on table msg_delivery is
@@ -718,7 +718,7 @@ create table msg_message_target (
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE_TARGET primary key (id),
-   constraint AK_MESSAGE_AND_TARGET_CATEGORY_AN_MSG_MESSAGE_TARGET unique (message_id, target_category_id, target_id)
+   constraint AK_MESSAGE_AND_TARGET_CATEGORY_AND_TARGET_MSG_MESSAGE_TARGET unique (message_id, target_category_id, target_id)
 );
 
 comment on table msg_message_target is

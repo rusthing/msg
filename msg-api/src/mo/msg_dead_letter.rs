@@ -9,17 +9,12 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
-    /// 原消息主题
     pub subject: String,
-    /// 转入死信的原因
     #[sea_orm(column_type = "Text")]
     pub reason: String,
-    /// 原始消息负载
     #[sea_orm(column_type = "Text")]
     pub payload: String,
-    /// 已经投递的次数
     pub delivered: i64,
-    /// 是否已人工处理
     pub handled: bool,
     pub remark: Option<String>,
     pub creater_id: i64,

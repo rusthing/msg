@@ -9,14 +9,14 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
-    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_msg_delivery")]
+    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_business_trigger_ms_msg_deliv")]
     pub event_code: String,
     pub message_id: i64,
     pub event_source_id: i64,
     pub message_category_id: i64,
-    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_msg_delivery")]
+    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_business_trigger_ms_msg_deliv")]
     pub business_id: i64,
-    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_msg_delivery")]
+    #[sea_orm(unique_key = "ak_event_code_and_business_id_and_business_trigger_ms_msg_deliv")]
     pub business_trigger_ms: i64,
     pub deliver_status: i16,
     #[sea_orm(column_type = "Text", nullable)]

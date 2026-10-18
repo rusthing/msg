@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
-    #[sea_orm(unique_key = "ak_message_and_target_category_an_msg_message_target")]
+    #[sea_orm(unique_key = "ak_message_and_target_category_and_target_msg_message_target")]
     pub message_id: i64,
-    #[sea_orm(unique_key = "ak_message_and_target_category_an_msg_message_target")]
+    #[sea_orm(unique_key = "ak_message_and_target_category_and_target_msg_message_target")]
     pub target_category_id: i64,
-    #[sea_orm(unique_key = "ak_message_and_target_category_an_msg_message_target")]
+    #[sea_orm(unique_key = "ak_message_and_target_category_and_target_msg_message_target")]
     pub target_id: i64,
     pub creater_id: i64,
     pub create_ms: i64,
