@@ -24,5 +24,5 @@ pub struct AppConfig {
     /// redis
     pub redis: Option<RedisConfig>,
     /// nats
-    pub nats: Option<NatsConfig>,
+    pub nats: NatsConfig,
 }

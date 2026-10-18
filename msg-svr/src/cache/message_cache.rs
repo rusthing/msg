@@ -5,8 +5,8 @@
 //!
 //! ## 更新机制（robotech 刷新信号规范，对齐 dtw-rs）
 //!
-//! - **启动时**：`main.rs` 先调用 `setup_local_cache` 注册刷新信号订阅，
-//!   再调用 `refresh_message_cache` 全量加载
+//! - **启动时**：`cache_utils::setup_cache` 先调用 `setup_local_cache` 注册刷新信号
+//!   订阅，再调用 `refresh_message_cache` 全量加载
 //! - **运行时**：SVC 写操作成功后发布 JetStream 刷新信号，所有节点收到后全量重建
 //! - **读取**：`ArcSwapOption::load_full()` 无锁并发读
 //!
@@ -24,7 +24,8 @@
 //! 队列写操作 → 发布刷新信号 → 各节点 direct 查库 → 对比并增删 NATS 订阅
 //! ```
 //!
-//! 详见 [`crate::sub::reload_queue_subscriptions`]。
+//! 详见 [`crate::sub::reload_queue_subscriptions`]；启动装配在
+//! [`crate::utils::setup_queue_refresh`]。
 //!
 //! ## 数据结构
 //!
@@ -55,7 +56,7 @@
 //! - `pub static` 全局缓存 → `build_{对象}_cache`（纯逻辑） / `refresh_{对象}_cache`（DB + build + store）
 //! - `store_{对象}_cache` 原子替换到 `ArcSwapOption`
 //! - `on_{对象}_cache_refresh` 发布 JetStream 刷新信号
-//! - `setup_local_cache` 由 `main.rs` 显式调用
+//! - `setup_local_cache` 由 `cache_utils::setup_cache` 调用
 
 use arc_swap::ArcSwapOption;
 use msg_api::cst::MSG_MESSAGE_REFRESH_SUBJECT;
@@ -93,7 +94,8 @@ use crate::vo::{
 /// `ArcSwapOption::const_empty()` 是 `const fn`，可直接用于 `static` 初始化，
 /// 无需 `LazyLock` 或 `Box::leak`。
 ///
-/// `pub` 导出供 `main.rs` 通过 `setup_local_cache` 注册 JetStream 刷新信号消费者。
+/// `pub` 导出供 `cache_utils::setup_cache` 通过 `setup_local_cache` 注册
+/// JetStream 刷新信号消费者。
 pub static MSG_MESSAGE_CACHE: ArcSwapOption<HashMap<String, MessageCache>> =
     ArcSwapOption::const_empty();
 
@@ -253,7 +255,7 @@ pub async fn on_message_cache_refresh() {
 /// 从 DB 查询全量数据、组装 `HashMap`、存储到 [`MSG_MESSAGE_CACHE`]，并返回结果。
 ///
 /// 对应 dtw-rs 的 `refresh_control_point_group_cache`：
-/// - `main.rs` 启动时调用做首次全量加载
+/// - `cache_utils::setup_cache` 启动时调用做首次全量加载
 /// - `setup_local_cache` 的 `rebuild_fn` 闭包也调用此函数，收到刷新信号后执行
 pub async fn refresh_message_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
     info!("消息缓存全量加载...");

@@ -10,6 +10,9 @@
 //! ```
 //!
 //! 使用 `arc_swap` 持有的句柄确保线程安全，支持热更新。
+//!
+//! 启动装配（刷新信号订阅 + 入口队列保底 + 首次同步）见
+//! [`crate::utils::setup_queue_refresh`]，本模块只提供被驱动的函数。
 
 mod dead_letter;
 mod message_sub;

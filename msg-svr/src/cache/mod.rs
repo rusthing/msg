@@ -10,10 +10,19 @@
 //!
 //! - [`message_cache`] — 消息缓存数据结构定义与消息缓存管理
 //!   - [`get_message_cache`] — 返回 `Arc<HashMap<String, MessageCache>>` 消息缓存快照
-//!   - [`MSG_MESSAGE_CACHE`] — `pub static` 全局缓存，供 `main.rs` 注册刷新信号订阅
+//!   - [`MSG_MESSAGE_CACHE`] — `pub static` 全局缓存，供 [`setup_cache`] 注册刷新信号订阅
 //!   - [`refresh_message_cache`] — 全量刷新（DB + build + store）
 //!   - [`store_message_cache`] — 原子替换缓存快照
 //!   - [`on_message_cache_refresh`] — 写操作后发布消息缓存刷新信号
+//! - [`cache_utils`] — 启动装配
+//!   - [`setup_cache`] — 注册刷新信号消费者 + 首次全量加载，由 `main.rs` 调用
+//!
+//! ## 分层
+//!
+//! | 文件 | 职责 |
+//! |------|------|
+//! | `{对象}_cache.rs` | 数据结构、全局静态、build / store / on_refresh / refresh |
+//! | `cache_utils.rs` | 启动装配（`setup_cache`），不持有任何缓存状态 |
 //!
 //! ## 命名约定
 //!
@@ -42,8 +51,11 @@
 //!
 //! 消息队列只用于决定订阅哪些 subject，订阅状态由 `crate::sub` 维护，
 //! 没有读取方需要队列快照，因此不进缓存。队列变更直接驱动订阅同步，
-//! 见 [`crate::sub::reload_queue_subscriptions`]。
+//! 见 [`crate::sub::reload_queue_subscriptions`]；启动装配在
+//! [`crate::utils::setup_queue_refresh`]，与本模块的 [`setup_cache`] 平级。
 
+mod cache_utils;
 mod message_cache;
 
+pub use cache_utils::*;
 pub use message_cache::*;
