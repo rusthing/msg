@@ -4,7 +4,9 @@ use idworker::setup_id_worker;
 use msg_api::cst::{MSG_MESSAGE_REFRESH_SUBJECT, MSG_QUEUE_REFRESH_SUBJECT};
 use msg_svr::cache::{MSG_MESSAGE_CACHE, refresh_message_cache};
 use msg_svr::config::{AppConfig, set_msg_config};
-use msg_svr::sub::{reload_queue_subscriptions, setup_dead_letter_subscription};
+use msg_svr::sub::{
+    ensure_intake_queue, reload_queue_subscriptions, setup_dead_letter_subscription,
+};
 use robotech::cache;
 use robotech::db::setup_db_conn;
 use robotech::macros::{bootstrap, db_migrate, log_call};
@@ -57,6 +59,9 @@ async fn setup(
 
         // 启动后首次全量加载：消息模板必须先就绪，订阅到消息时才有模板可用
         refresh_message_cache().await?;
+
+        // 入口队列保底：只在启动时补一次，保证 msg.message 一定有订阅与 stream
+        ensure_intake_queue().await?;
         reload_queue_subscriptions().await?;
     }
 

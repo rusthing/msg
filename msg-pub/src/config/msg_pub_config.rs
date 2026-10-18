@@ -22,5 +22,6 @@ impl Default for MsgPubConfig {
 }
 
 fn topic_default() -> String {
-    "msg:message".to_string()
+    // 与 `msg_api::cst::MSG_MESSAGE_TOPIC` 保持一致（历史默认值误写成 `msg:message`）
+    "msg.message".to_string()
 }
