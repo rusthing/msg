@@ -12,6 +12,7 @@
 //!
 //! 用 JetStream 而不是 core NATS：死信必须持久化，否则没有订阅者时会被直接丢弃。
 
+use crate::config::get_msg_config;
 use crate::dto::MsgDeadLetterAddDto;
 use crate::svc::MsgDeadLetterSvc;
 use arc_swap::ArcSwapOption;
@@ -63,8 +64,9 @@ pub async fn setup_dead_letter_subscription() -> anyhow::Result<()> {
         durable_name: Some(DLQ_CONSUMER.to_string()),
         deliver_policy: consumer::DeliverPolicy::All,
         ack_policy: consumer::AckPolicy::Explicit,
-        // 落库失败重试 3 次即可，再失败说明表本身也有问题
-        max_deliver: 3,
+        // 落库失败重试次数有限，再失败说明表本身也有问题——次数由配置
+        // `msg.dead-letter-max-deliver` 控制
+        max_deliver: get_msg_config().effective_dead_letter_max_deliver(),
         ..Default::default()
     };
 

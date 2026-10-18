@@ -12,6 +12,15 @@ profile = "dev"
 #[nats]
 #servers = "nats://nats:4222"
 
+# MSG 业务配置
+[msg]
+# 业务队列（persisted=true）消费失败的最大重投次数，达到上限后转入死信 dlq.{subject}
+# 配置 <= 0 时按下限 1 处理（NATS 用 -1 表示不限制，别在这里配 0）
+# 热更新：改完立即重建订阅并原地更新 consumer，无需重启
+max-deliver = 5
+# 死信队列自身落库失败的最大重投次数（死信消费只写一张表，失败多半是库的问题）
+dead-letter-max-deliver = 3
+
 # 刷新信号订阅（robotech 通用配置，缓存与队列订阅共用）
 [refresh]
 # 订阅探活间隔：consumer 丢失（NATS 重启 / 断连超时 / 人工删除）后，

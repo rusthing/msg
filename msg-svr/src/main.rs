@@ -3,7 +3,7 @@ use config::Value;
 use idworker::setup_id_worker;
 use msg_api::cst::{MSG_MESSAGE_REFRESH_SUBJECT, MSG_QUEUE_REFRESH_SUBJECT};
 use msg_svr::cache::{MSG_MESSAGE_CACHE, refresh_message_cache};
-use msg_svr::config::AppConfig;
+use msg_svr::config::{AppConfig, set_msg_config};
 use msg_svr::sub::{reload_queue_subscriptions, setup_dead_letter_subscription};
 use robotech::cache;
 use robotech::db::setup_db_conn;
@@ -26,6 +26,10 @@ async fn setup(
 ) -> Result<(), anyhow::Error> {
     let db_url = app_config.db.get_url();
     db_migrate!(db_url);
+
+    // 业务配置先落到全局：订阅参数（重投上限）在建立订阅时读取，
+    // 必须早于死信订阅与业务队列订阅
+    set_msg_config(app_config.msg.clone());
 
     setup_id_worker(app_config.id_worker.clone(), changed)?;
     setup_db_conn(app_config.db.clone(), changed).await?;

@@ -22,6 +22,7 @@
 //! 注意：消息模板缓存（`build_message_cache`）不会触发队列重新订阅。
 
 use crate::cache::{MessageCache, get_message_cache};
+use crate::config::get_msg_config;
 use crate::dto::MsgMessageQueueQueryDto;
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
 use crate::utils::render_template;
@@ -56,11 +57,25 @@ pub struct QueueSpec {
     pub persisted: bool,
 }
 
+/// # 队列订阅句柄
+///
+/// 除了订阅任务句柄，还记录「建立订阅时应用的重投上限」：配置热更新改了
+/// `msg.max-deliver` 之后，靠这个值判断哪些 consumer 需要重建。
+#[derive(Debug)]
+struct QueueSubscription {
+    /// 订阅任务句柄
+    handle: Arc<JoinHandle<()>>,
+    /// 是否 JetStream 订阅（Core NATS 没有 consumer，重投上限对它无意义）
+    persisted: bool,
+    /// 建立订阅时应用的重投上限
+    max_deliver: i64,
+}
+
 /// # 全局队列订阅句柄
 ///
 /// key = `queue.code`（即 NATS subject），value = 订阅线程句柄。
 /// 使用 [`ArcSwapOption`] 实现无锁热替换。
-static QUEUE_SUBSCRIBERS: ArcSwapOption<HashMap<String, Arc<JoinHandle<()>>>> =
+static QUEUE_SUBSCRIBERS: ArcSwapOption<HashMap<String, QueueSubscription>> =
     ArcSwapOption::const_empty();
 
 /// # 重新加载队列订阅
@@ -107,11 +122,16 @@ pub async fn on_queue_refresh() {
 /// - 队列 `code` 不存在于当前订阅 → 启动新订阅
 /// - 队列 `code` 已存在且订阅任务仍在运行 → 保留（跳过）
 /// - 队列 `code` 已存在但订阅任务**已退出** → 视为不存在，重建
+/// - 队列 `code` 已存在但**重投上限已变更** → 停掉旧订阅，按新上限重建
 /// - 当前订阅中的 `code` 不在 `queues` 中 → 停止
 ///
 /// 「任务已退出」必须算作不存在：连接关闭（如 NATS 配置热更新换掉 Client）
 /// 会让订阅任务自行结束，但句柄仍留在 [`QUEUE_SUBSCRIBERS`] 里。只比 `code`
 /// 集合的话，这些死订阅永远不会被重建。
+///
+/// 「重投上限已变更」必须重建：`get_or_create_consumer` 对已存在的 consumer
+/// 不会应用新配置，只有重新 `subscribe` 才会走到 `update_consumer`，
+/// 把 `msg.max-deliver` 的新值原地刷到服务器上。
 ///
 /// 每个队列根据 `persisted` 字段自动选择 Core NATS（`false`）或
 /// JetStream Push（`true`）订阅模式。
@@ -126,30 +146,48 @@ pub async fn sync_queue_subscriptions(queues: &HashSet<QueueSpec>) {
 
     let new_codes: HashSet<String> = queues.iter().map(|q| q.code.clone()).collect();
 
-    // ── 保留仍然存活的订阅，死句柄直接丢弃（下面会按新增重建）──
+    // 重投上限来自配置文件，改配置后热更新会重新走到这里
+    let max_deliver = get_msg_config().effective_max_deliver();
 
-    let mut next: HashMap<String, Arc<JoinHandle<()>>> = HashMap::new();
+    // ── 保留仍然存活的订阅，死句柄/配置已变的直接丢弃（下面会按新增重建）──
+
+    let mut next: HashMap<String, QueueSubscription> = HashMap::new();
     let mut live_codes: HashSet<String> = HashSet::new();
 
-    for (code, handle) in current.iter() {
-        if handle.is_finished() {
+    for (code, subscription) in current.iter() {
+        if subscription.handle.is_finished() {
             warn!("队列订阅任务已退出，将重建: {code}");
             continue;
         }
-        next.insert(code.clone(), Arc::clone(handle));
+        if subscription.persisted && subscription.max_deliver != max_deliver {
+            info!(
+                "队列重投上限变更（{} → {max_deliver}），重建订阅: {code}",
+                subscription.max_deliver
+            );
+            subscription.handle.abort();
+            continue;
+        }
+        next.insert(
+            code.clone(),
+            QueueSubscription {
+                handle: Arc::clone(&subscription.handle),
+                persisted: subscription.persisted,
+                max_deliver: subscription.max_deliver,
+            },
+        );
         live_codes.insert(code.clone());
     }
 
     // ── 停止已移除的队列订阅 ──
 
     for code in live_codes.difference(&new_codes) {
-        if let Some(handle) = next.remove(code) {
+        if let Some(subscription) = next.remove(code) {
             info!("停止队列订阅: {code}");
-            handle.abort();
+            subscription.handle.abort();
         }
     }
 
-    // ── 启动新增（含上一轮已退出）的队列订阅 ──
+    // ── 启动新增（含上一轮已退出 / 重投上限已变）的队列订阅 ──
 
     for code in new_codes.difference(&live_codes) {
         // 默认不持久化（Core NATS）
@@ -159,7 +197,7 @@ pub async fn sync_queue_subscriptions(queues: &HashSet<QueueSpec>) {
             .map(|q| q.persisted)
             .unwrap_or(false);
 
-        let handle = match start_subscription_for_queue(code, persisted).await {
+        let handle = match start_subscription_for_queue(code, persisted, max_deliver).await {
             Ok(handle) => {
                 info!("启动队列订阅成功: {code}");
                 handle
@@ -170,7 +208,14 @@ pub async fn sync_queue_subscriptions(queues: &HashSet<QueueSpec>) {
             }
         };
 
-        next.insert(code.clone(), handle);
+        next.insert(
+            code.clone(),
+            QueueSubscription {
+                handle,
+                persisted,
+                max_deliver,
+            },
+        );
     }
 
     QUEUE_SUBSCRIBERS.store(Some(Arc::new(next)));
@@ -190,11 +235,13 @@ const QUEUE_GROUP: &str = "msg-svr";
 /// - `persisted = false` → Core NATS 订阅（at-most-once）
 /// - `persisted = true` → JetStream Push 订阅，创建的 Stream 名称为 `MSG-{code}`，
 ///   Consumer 名称为 `msg-svr-{code}`
+/// - `max_deliver` → 消费失败的最大重投次数，来自配置 `msg.max-deliver`
 ///
 /// 两种模式都加入 [`QUEUE_GROUP`] 队列组，由服务端在副本之间负载均衡。
 async fn start_subscription_for_queue(
     subject: &str,
     persisted: bool,
+    max_deliver: i64,
 ) -> Result<Arc<JoinHandle<()>>, Box<dyn std::error::Error + Send + Sync>> {
     use async_nats::jetstream::{consumer, stream};
 
@@ -215,8 +262,8 @@ async fn start_subscription_for_queue(
             durable_name: Some(format!("msg-svr-{subject}")),
             deliver_policy: consumer::DeliverPolicy::All,
             ack_policy: consumer::AckPolicy::Explicit,
-            // 处理失败的消息最多重投 5 次，避免毒消息无限循环
-            max_deliver: 5,
+            // 处理失败的消息最多重投 max_deliver 次，避免毒消息无限循环
+            max_deliver,
             ..Default::default()
         };
 
