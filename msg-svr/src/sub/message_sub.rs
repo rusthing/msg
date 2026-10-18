@@ -1,27 +1,34 @@
 //! # 队列订阅管理
 //!
-//! 维护当前活跃的消息队列订阅句柄，在队列缓存刷新时根据最新的队列信息
-//! 同步订阅状态：新增队列则启动新订阅，移除的队列则停止旧的订阅线程。
+//! 维护当前活跃的消息队列订阅句柄，队列变更时根据最新的队列信息同步订阅
+//! 状态：新增队列则启动新订阅，移除的队列则停止旧的订阅线程。
 //!
 //! ## 数据流
 //!
 //! ```text
-//! 队列缓存刷新（启动加载 / JetStream 队列刷新信号）
-//!   → 从 DB 加载所有 msg_message_queue
-//!   → 提取所有 QueueCache
-//!   → sync_queue_subscriptions(queues)
+//! 队列变更信号（启动加载 / JetStream 队列刷新信号）
+//!   → 从 DB 查询所有 msg_message_queue
+//!   → 映射为 QueueSpec（订阅只需要 code + persisted）
+//!   → sync_queue_subscriptions(specs)
 //!     → 对比旧订阅：新增 / 保留 / 移除
 //!     → 调用 NATS subscribe 启动新线程
 //!     → 停止不再需要的订阅线程
 //! ```
 //!
+//! 队列信息**不进缓存**：它唯一的用途是决定订阅哪些 subject，
+//! 而订阅状态本身由 [`QUEUE_SUBSCRIBERS`] 维护。缓存一份队列数据只会
+//! 多一份需要同步的快照，没有任何读取方。
+//!
 //! 注意：消息模板缓存（`build_msg_cache`）不会触发队列重新订阅。
 
-use crate::cache::{MessageCache, QueueCache, get_msg_cache};
-use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc};
+use crate::cache::{MessageCache, get_msg_cache};
+use crate::dto::MsgMessageQueueQueryDto;
+use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
 use crate::utils::render_template;
+use crate::vo::MsgMessageQueueVo;
 use arc_swap::ArcSwapOption;
 use idworker::next_id;
+use msg_api::cst::MSG_QUEUE_REFRESH_SUBJECT;
 use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
 use msg_api::dto::{
     MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto, MsgDeliveryTargetAddDto,
@@ -36,12 +43,62 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
+/// # 队列订阅规格
+///
+/// 订阅层只关心「订阅哪个 subject、是否持久化」，
+/// 不需要完整的队列实体。
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct QueueSpec {
+    /// 队列编码，同时作为 NATS subject
+    pub code: String,
+    /// 是否持久化（`true` → JetStream，`false` → Core NATS）
+    pub persisted: bool,
+}
+
 /// # 全局队列订阅句柄
 ///
 /// key = `queue.code`（即 NATS subject），value = 订阅线程句柄。
 /// 使用 [`ArcSwapOption`] 实现无锁热替换。
 static QUEUE_SUBSCRIBERS: ArcSwapOption<HashMap<String, Arc<JoinHandle<()>>>> =
     ArcSwapOption::const_empty();
+
+/// # 重新加载队列订阅
+///
+/// 从 DB 查询全量队列并同步订阅。启动时调用一次，之后每次收到队列刷新
+/// 信号都调用——这是队列变更后唯一的处理入口，没有缓存快照需要维护。
+pub async fn reload_queue_subscriptions() -> anyhow::Result<()> {
+    info!("队列订阅同步...");
+
+    let db = get_db_conn()?;
+    let queues: Vec<MsgMessageQueueVo> = MsgMessageQueueSvc::list_by_query_dto(
+        MsgMessageQueueQueryDto::default(),
+        Some(db.as_ref()),
+    )
+    .await?
+    .extra
+    .unwrap_or_default();
+
+    let specs: HashSet<QueueSpec> = queues
+        .into_iter()
+        .map(|q| QueueSpec {
+            code: q.code,
+            persisted: q.persisted,
+        })
+        .collect();
+
+    sync_queue_subscriptions(&specs).await;
+    info!("队列订阅同步完成");
+    Ok(())
+}
+
+/// # 发布队列刷新信号
+///
+/// 用于 `#[svc(after_write = ...)]`：队列配置写成功后通知所有节点同步订阅。
+pub async fn on_queue_refresh() {
+    if let Err(e) = robotech::refresh::publish(MSG_QUEUE_REFRESH_SUBJECT).await {
+        error!("发布队列刷新信号失败: {e}");
+    }
+}
 
 /// # 同步队列订阅
 ///
@@ -55,8 +112,8 @@ static QUEUE_SUBSCRIBERS: ArcSwapOption<HashMap<String, Arc<JoinHandle<()>>>> =
 ///
 /// ## 参数
 ///
-/// - `queues`: 从当前缓存中提取的所有唯一消息队列列表
-pub async fn sync_queue_subscriptions(queues: &HashSet<QueueCache>) {
+/// - `queues`: 需要保持订阅的队列规格集合
+pub async fn sync_queue_subscriptions(queues: &HashSet<QueueSpec>) {
     let current = QUEUE_SUBSCRIBERS
         .load_full()
         .unwrap_or_else(|| Arc::new(HashMap::new()));

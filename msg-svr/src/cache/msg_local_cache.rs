@@ -1,12 +1,12 @@
 //! # 消息缓存
 //!
-//! 将消息模板、渠道、队列、目标类别等低频变更数据从数据库加载到内存，
+//! 将消息模板、渠道、目标类别等低频变更数据从数据库加载到内存，
 //! 利用 [`ArcSwapOption`] 实现无锁并发读取与原子热更新。
 //!
-//! ## 更新机制（robotech 本地缓存规范，对齐 dtw-rs）
+//! ## 更新机制（robotech 刷新信号规范，对齐 dtw-rs）
 //!
-//! - **启动时**：`main.rs` 先调用 `setup_local_cache` 安装 JetStream 消费者，
-//!   再调用 `refresh_msg_cache` / `refresh_queue_cache` 全量加载
+//! - **启动时**：`main.rs` 先调用 `setup_local_cache` 注册刷新信号订阅，
+//!   再调用 `refresh_msg_cache` 全量加载
 //! - **运行时**：SVC 写操作成功后发布 JetStream 刷新信号，所有节点收到后全量重建
 //! - **读取**：`ArcSwapOption::load_full()` 无锁并发读
 //!
@@ -14,6 +14,17 @@
 //! SVC write → after_write 回调 → JetStream publish 刷新信号 → 所有节点
 //!   → DB 全量查询 → ArcSwapOption::store → 业务读取 get_msg_cache()
 //! ```
+//!
+//! ## 队列不在缓存中
+//!
+//! 消息队列表只用于决定订阅哪些 subject，订阅状态由 `crate::sub` 自己维护，
+//! 没有读取方需要队列快照。因此队列变更走另一条链路：
+//!
+//! ```text
+//! 队列写操作 → 发布刷新信号 → 各节点 direct 查库 → 对比并增删 NATS 订阅
+//! ```
+//!
+//! 详见 [`crate::sub::reload_queue_subscriptions`]。
 //!
 //! ## 数据结构
 //!
@@ -40,26 +51,24 @@
 //! - `setup_local_cache` 由 `main.rs` 显式调用
 
 use arc_swap::ArcSwapOption;
-use msg_api::cst::{MSG_CACHE_REFRESH_SUBJECT, MSG_QUEUE_CACHE_REFRESH_SUBJECT};
+use msg_api::cst::MSG_CACHE_REFRESH_SUBJECT;
 use robotech::cache::publish_cache_refresh_signal;
 use robotech::db::get_db_conn;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{error, info};
 
 // ── SVC 引用 ──
 use crate::dto::{
     MsgChannelQueryDto, MsgEventSourceQueryDto, MsgMessageCategoryQueryDto, MsgMessageQueryDto,
-    MsgMessageQueueQueryDto, MsgMessageTargetQueryDto, MsgTargetCategoryChannelQueryDto,
-    MsgTargetCategoryQueryDto,
+    MsgMessageTargetQueryDto, MsgTargetCategoryChannelQueryDto, MsgTargetCategoryQueryDto,
 };
-use crate::sub::sync_queue_subscriptions;
 use crate::svc::{
-    MsgChannelSvc, MsgEventSourceSvc, MsgMessageCategorySvc, MsgMessageQueueSvc, MsgMessageSvc,
-    MsgMessageTargetSvc, MsgTargetCategoryChannelSvc, MsgTargetCategorySvc,
+    MsgChannelSvc, MsgEventSourceSvc, MsgMessageCategorySvc, MsgMessageSvc, MsgMessageTargetSvc,
+    MsgTargetCategoryChannelSvc, MsgTargetCategorySvc,
 };
 use crate::vo::{
-    MsgChannelVo, MsgMessageExVo, MsgMessageQueueVo, MsgMessageTargetVo, MsgTargetCategoryChannelVo,
+    MsgChannelVo, MsgMessageExVo, MsgMessageTargetVo, MsgTargetCategoryChannelVo,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -76,14 +85,6 @@ use crate::vo::{
 /// `pub` 导出供 `main.rs` 通过 `setup_local_cache` 注册 JetStream 刷新信号消费者。
 pub static MSG_CACHE: ArcSwapOption<HashMap<String, MessageCache>> =
     ArcSwapOption::const_empty();
-
-/// # 全局消息队列缓存
-///
-/// 独立于消息缓存的队列缓存，用于订阅管理。
-/// key = `queue.code`，value = [`QueueCache`]。
-///
-/// `pub` 导出供 `main.rs` 通过 `setup_local_cache` 注册独立的队列刷新消费者。
-pub static MSG_QUEUE_CACHE: ArcSwapOption<HashMap<String, QueueCache>> = ArcSwapOption::const_empty();
 
 // ═══════════════════════════════════════════════════════════════
 //  数据结构
@@ -116,19 +117,6 @@ pub struct MessageCache {
     pub channels: Vec<ChannelCache>,
     /// 该消息的目标配置列表
     pub targets: Vec<TargetCache>,
-}
-
-/// # 缓存的消息队列
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct QueueCache {
-    /// 队列 ID
-    pub id: u64,
-    /// 编码
-    pub code: String,
-    /// 名称
-    pub name: String,
-    /// 是否持久化（`true` → JetStream，`false` → Core NATS）
-    pub persisted: bool,
 }
 
 /// # 缓存的消息来源
@@ -210,14 +198,6 @@ pub fn store_msg_cache(cache: HashMap<String, MessageCache>) {
     MSG_CACHE.store(Some(Arc::new(cache)));
 }
 
-/// # 存储队列缓存（全量替换）
-///
-/// 仅替换缓存快照，不触发订阅同步（订阅同步由 [`refresh_queue_cache`] 在存储前完成）。
-pub fn store_queue_cache(cache: HashMap<String, QueueCache>) {
-    info!("存储消息队列缓存");
-    MSG_QUEUE_CACHE.store(Some(Arc::new(cache)));
-}
-
 // ═══════════════════════════════════════════════════════════════
 //  公开 API — 读取
 // ═══════════════════════════════════════════════════════════════
@@ -236,19 +216,6 @@ pub fn get_msg_cache() -> Arc<HashMap<String, MessageCache>> {
         .unwrap_or_else(|| Arc::new(HashMap::new()))
 }
 
-/// # 获取全局消息队列缓存快照
-///
-/// 返回当前队列缓存的只读引用。若缓存尚未初始化，返回空的默认 map。
-///
-/// ## 返回值
-///
-/// [`Arc<HashMap<String, QueueCache>>`] — 当下的队列缓存快照
-pub fn get_queue_cache() -> Arc<HashMap<String, QueueCache>> {
-    MSG_QUEUE_CACHE
-        .load_full()
-        .unwrap_or_else(|| Arc::new(HashMap::new()))
-}
-
 // ═══════════════════════════════════════════════════════════════
 //  公开 API — 刷新信号
 // ═══════════════════════════════════════════════════════════════
@@ -259,16 +226,6 @@ pub fn get_queue_cache() -> Arc<HashMap<String, QueueCache>> {
 pub async fn on_cache_refresh() {
     if let Err(e) = publish_cache_refresh_signal(MSG_CACHE_REFRESH_SUBJECT).await {
         error!("发布消息缓存刷新信号失败: {e}");
-    }
-}
-
-/// # 写操作后发布队列缓存刷新信号
-///
-/// 队列变更需要同时刷新缓存并同步 NATS 订阅，因此使用独立主题，
-/// 避免消息模板变更时触发无谓的重新订阅。
-pub async fn on_queue_cache_refresh() {
-    if let Err(e) = publish_cache_refresh_signal(MSG_QUEUE_CACHE_REFRESH_SUBJECT).await {
-        error!("发布队列缓存刷新信号失败: {e}");
     }
 }
 
@@ -289,20 +246,6 @@ pub async fn refresh_msg_cache() -> anyhow::Result<HashMap<String, MessageCache>
     store_msg_cache(cache.clone());
     info!("消息缓存全量加载完成");
     Ok(cache)
-}
-
-/// # 全量刷新队列缓存
-///
-/// 从 DB 查询全量队列数据、同步 NATS 订阅、存储到 [`MSG_QUEUE_CACHE`]，并返回结果。
-///
-/// 队列缓存加载时会同步 NATS 订阅，因此消息缓存先于队列缓存加载，
-/// 保证订阅到消息时消息模板已就绪。
-pub async fn refresh_queue_cache() -> anyhow::Result<HashMap<String, QueueCache>> {
-    info!("队列缓存全量加载...");
-    let queues = rebuild_queue_cache().await?;
-    store_queue_cache(queues.clone());
-    info!("队列缓存全量加载完成");
-    Ok(queues)
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -522,47 +465,4 @@ pub async fn build_msg_cache() -> anyhow::Result<HashMap<String, MessageCache>> 
         .collect();
 
     Ok(messages)
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  内部实现 — 队列缓存重建
-// ═══════════════════════════════════════════════════════════════
-
-/// # 从数据库重建队列缓存并同步订阅
-///
-/// 返回最新的队列集合；缓存快照由调用方替换。
-/// 队列的新增/移除会立即反映到 NATS 订阅上。
-pub async fn rebuild_queue_cache() -> anyhow::Result<HashMap<String, QueueCache>> {
-    let db = get_db_conn()?;
-
-    let queues: Vec<MsgMessageQueueVo> = MsgMessageQueueSvc::list_by_query_dto(
-        MsgMessageQueueQueryDto::default(),
-        Some(db.as_ref()),
-    )
-    .await?
-    .extra
-    .unwrap_or_default();
-
-    let queue_map: HashMap<String, QueueCache> = queues
-        .into_iter()
-        .map(|q| {
-            (
-                q.code.clone(),
-                QueueCache {
-                    id: *q.id,
-                    code: q.code,
-                    name: q.name,
-                    persisted: q.persisted,
-                },
-            )
-        })
-        .collect();
-
-    let unique_queues: HashSet<QueueCache> = queue_map.values().cloned().collect();
-
-    // ── 同步队列订阅（队列变更时重新订阅） ──
-
-    sync_queue_subscriptions(&unique_queues).await;
-
-    Ok(queue_map)
 }

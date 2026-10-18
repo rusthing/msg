@@ -8,7 +8,8 @@
 /// 消息模板、事件来源、类别、目标类别、渠道等数据变更时发布。
 pub const MSG_CACHE_REFRESH_SUBJECT: &str = "msg.cache.refresh";
 
-/// 消息队列缓存全量刷新 JetStream 主题
+/// 消息队列刷新 JetStream 主题
 ///
-/// 消息队列变更时发布，刷新队列缓存并同步 NATS 订阅。
-pub const MSG_QUEUE_CACHE_REFRESH_SUBJECT: &str = "msg.queue.cache.refresh";
+/// 消息队列变更时发布，各节点收到后直接从 DB 查询队列并同步 NATS 订阅，
+/// 不经过缓存。
+pub const MSG_QUEUE_REFRESH_SUBJECT: &str = "msg.queue.refresh";
