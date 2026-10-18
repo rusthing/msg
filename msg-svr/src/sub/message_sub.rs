@@ -40,6 +40,7 @@ use robotech::mq::nats;
 use robotech::mq::nats::NatsError;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
@@ -104,8 +105,13 @@ pub async fn on_queue_refresh() {
 ///
 /// 根据给定的队列集合，对比当前活跃订阅：
 /// - 队列 `code` 不存在于当前订阅 → 启动新订阅
-/// - 队列 `code` 已存在 → 保留（跳过）
+/// - 队列 `code` 已存在且订阅任务仍在运行 → 保留（跳过）
+/// - 队列 `code` 已存在但订阅任务**已退出** → 视为不存在，重建
 /// - 当前订阅中的 `code` 不在 `queues` 中 → 停止
+///
+/// 「任务已退出」必须算作不存在：连接关闭（如 NATS 配置热更新换掉 Client）
+/// 会让订阅任务自行结束，但句柄仍留在 [`QUEUE_SUBSCRIBERS`] 里。只比 `code`
+/// 集合的话，这些死订阅永远不会被重建。
 ///
 /// 每个队列根据 `persisted` 字段自动选择 Core NATS（`false`）或
 /// JetStream Push（`true`）订阅模式。
@@ -118,28 +124,34 @@ pub async fn sync_queue_subscriptions(queues: &HashSet<QueueSpec>) {
         .load_full()
         .unwrap_or_else(|| Arc::new(HashMap::new()));
 
-    let current_codes: HashSet<String> = current.keys().cloned().collect();
     let new_codes: HashSet<String> = queues.iter().map(|q| q.code.clone()).collect();
+
+    // ── 保留仍然存活的订阅，死句柄直接丢弃（下面会按新增重建）──
+
+    let mut next: HashMap<String, Arc<JoinHandle<()>>> = HashMap::new();
+    let mut live_codes: HashSet<String> = HashSet::new();
+
+    for (code, handle) in current.iter() {
+        if handle.is_finished() {
+            warn!("队列订阅任务已退出，将重建: {code}");
+            continue;
+        }
+        next.insert(code.clone(), Arc::clone(handle));
+        live_codes.insert(code.clone());
+    }
 
     // ── 停止已移除的队列订阅 ──
 
-    let removed: HashSet<&String> = current_codes.difference(&new_codes).collect();
-    let mut next = HashMap::new();
-
-    for (code, handle) in current.iter() {
-        if removed.contains(code) {
+    for code in live_codes.difference(&new_codes) {
+        if let Some(handle) = next.remove(code) {
             info!("停止队列订阅: {code}");
             handle.abort();
-        } else {
-            next.insert(code.clone(), Arc::clone(handle));
         }
     }
 
-    // ── 启动新增的队列订阅 ──
+    // ── 启动新增（含上一轮已退出）的队列订阅 ──
 
-    let added: HashSet<&String> = new_codes.difference(&current_codes).collect();
-
-    for &code in &added {
+    for code in new_codes.difference(&live_codes) {
         // 默认不持久化（Core NATS）
         let persisted = queues
             .iter()
@@ -161,16 +173,25 @@ pub async fn sync_queue_subscriptions(queues: &HashSet<QueueSpec>) {
         next.insert(code.clone(), handle);
     }
 
-    if !added.is_empty() || !removed.is_empty() || QUEUE_SUBSCRIBERS.load_full().is_none() {
-        QUEUE_SUBSCRIBERS.store(Some(Arc::new(next)));
-    }
+    QUEUE_SUBSCRIBERS.store(Some(Arc::new(next)));
 }
+
+/// # 队列组名
+///
+/// 同一队列的所有 msg-svr 副本必须共用同一个组名，否则同一条消息会被
+/// 每个副本各收一份（普通订阅语义是「所有订阅者都收到」）。
+///
+/// - JetStream 模式：写入 consumer 的 `deliver_group`
+/// - Core NATS 模式：作为 `queue_subscribe` 的组名
+const QUEUE_GROUP: &str = "msg-svr";
 
 /// # 为指定队列启动 NATS 订阅
 ///
 /// - `persisted = false` → Core NATS 订阅（at-most-once）
 /// - `persisted = true` → JetStream Push 订阅，创建的 Stream 名称为 `MSG-{code}`，
 ///   Consumer 名称为 `msg-svr-{code}`
+///
+/// 两种模式都加入 [`QUEUE_GROUP`] 队列组，由服务端在副本之间负载均衡。
 async fn start_subscription_for_queue(
     subject: &str,
     persisted: bool,
@@ -184,6 +205,9 @@ async fn start_subscription_for_queue(
         let stream_config = stream::Config {
             name: stream_name.clone(),
             subjects: vec![subject.to_string()],
+            // 保留 7 天：消费端长时间停机后仍能补上，同时避免 stream 无限增长
+            // （`max_age` 默认 0 表示永久保留，文件存储会一直占盘）
+            max_age: Duration::from_secs(7 * 24 * 3600),
             ..Default::default()
         };
 
@@ -191,12 +215,14 @@ async fn start_subscription_for_queue(
             durable_name: Some(format!("msg-svr-{subject}")),
             deliver_policy: consumer::DeliverPolicy::All,
             ack_policy: consumer::AckPolicy::Explicit,
+            // 处理失败的消息最多重投 5 次，避免毒消息无限循环
+            max_deliver: 5,
             ..Default::default()
         };
 
         nats::subscribe(
             subject,
-            None,
+            Some(QUEUE_GROUP),
             Some(stream_config),
             Some(consumer_config),
             move |msg| {
@@ -214,7 +240,7 @@ async fn start_subscription_for_queue(
         .await
         .map_err(Into::into)
     } else {
-        nats::subscribe(subject, None, None, None, move |msg| {
+        nats::subscribe(subject, Some(QUEUE_GROUP), None, None, move |msg| {
             let subj = owned_subject.clone();
             async move {
                 info!(
@@ -253,7 +279,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     // ── 1. 解析消息负载 ──
 
     let message_mqo: MessageMqo = serde_json::from_slice(payload)
-        .map_err(|e| NatsError::Handle(format!("消息负载 JSON 解析失败 [{}]: {}", subject, e)))?;
+        .map_err(|e| NatsError::Discard(format!("消息负载 JSON 解析失败 [{}]: {}", subject, e)))?;
 
     info!(
         "收到消息: event_code={}, business_id={}, subject={}",
@@ -297,7 +323,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     };
 
     if title.is_empty() && content.is_empty() {
-        return Err(NatsError::Handle("标题和内容均为空，无法投递".into()));
+        // 模板和 annotations 都取不到内容，重投多少次都一样
+        return Err(NatsError::Discard("标题和内容均为空，无法投递".into()));
     }
 
     info!("内容渲染完成: title={title}");
