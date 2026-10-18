@@ -64,6 +64,68 @@ id
 );
 
 /*==============================================================*/
+/* Table: msg_dead_letter                                       */
+/*==============================================================*/
+create table msg_dead_letter (
+   id                   INT8                 not null,
+   subject              VARCHAR(150)         not null,
+   reason               TEXT                 not null,
+   payload              TEXT                 not null,
+   delivered            INT8                 not null default 0,
+   handled              BOOL                 not null default false,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_DEAD_LETTER primary key (id)
+);
+
+comment on table msg_dead_letter is
+'死信消息
+重投达到上限后被转入 dlq.{原subject} 的消息，供人工排查与重放';
+
+comment on column msg_dead_letter.id is
+'ID';
+
+comment on column msg_dead_letter.subject is
+'原消息主题';
+
+comment on column msg_dead_letter.reason is
+'死信原因';
+
+comment on column msg_dead_letter.payload is
+'消息内容';
+
+comment on column msg_dead_letter.delivered is
+'投递次数';
+
+comment on column msg_dead_letter.handled is
+'已处理';
+
+comment on column msg_dead_letter.remark is
+'备注';
+
+comment on column msg_dead_letter.creater_id is
+'创建者ID';
+
+comment on column msg_dead_letter.create_ms is
+'创建时间戳';
+
+comment on column msg_dead_letter.updater_id is
+'更新者ID';
+
+comment on column msg_dead_letter.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_dead_letter_PK                                    */
+/*==============================================================*/
+create unique index msg_dead_letter_PK on msg_dead_letter (
+id
+);
+
+/*==============================================================*/
 /* Table: msg_delivery                                          */
 /*==============================================================*/
 create table msg_delivery (

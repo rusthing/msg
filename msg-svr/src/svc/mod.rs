@@ -1,4 +1,5 @@
 mod msg_channel_svc;
+mod msg_dead_letter_svc;
 mod msg_delivery_channel_log_svc;
 mod msg_delivery_channel_svc;
 mod msg_delivery_svc;
@@ -12,6 +13,7 @@ mod msg_target_category_channel_svc;
 mod msg_target_category_svc;
 
 pub use msg_channel_svc::*;
+pub use msg_dead_letter_svc::*;
 pub use msg_delivery_channel_log_svc::*;
 pub use msg_delivery_channel_svc::*;
 pub use msg_delivery_svc::*;

@@ -1,4 +1,5 @@
 mod msg_channel_dao;
+mod msg_dead_letter_dao;
 mod msg_delivery_channel_dao;
 mod msg_delivery_channel_log_dao;
 mod msg_delivery_dao;
@@ -12,6 +13,7 @@ mod msg_target_category_channel_dao;
 mod msg_target_category_dao;
 
 pub use msg_channel_dao::*;
+pub use msg_dead_letter_dao::*;
 pub use msg_delivery_channel_dao::*;
 pub use msg_delivery_channel_log_dao::*;
 pub use msg_delivery_dao::*;

@@ -11,6 +11,8 @@
 //!
 //! 使用 `arc_swap` 持有的句柄确保线程安全，支持热更新。
 
+mod dead_letter;
 mod message_sub;
 
+pub use dead_letter::*;
 pub use message_sub::*;

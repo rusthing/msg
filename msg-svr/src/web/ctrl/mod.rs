@@ -1,4 +1,5 @@
 pub mod msg_channel_ctrl;
+pub mod msg_dead_letter_ctrl;
 pub mod msg_delivery_channel_ctrl;
 pub mod msg_delivery_channel_log_ctrl;
 pub mod msg_delivery_ctrl;

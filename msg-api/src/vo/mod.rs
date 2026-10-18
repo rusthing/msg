@@ -1,4 +1,5 @@
 mod msg_channel_vo;
+mod msg_dead_letter_vo;
 mod msg_delivery_channel_log_vo;
 mod msg_delivery_channel_vo;
 mod msg_delivery_target_vo;
@@ -12,6 +13,7 @@ mod msg_target_category_channel_vo;
 mod msg_target_category_vo;
 
 pub use msg_channel_vo::*;
+pub use msg_dead_letter_vo::*;
 pub use msg_delivery_channel_log_vo::*;
 pub use msg_delivery_channel_vo::*;
 pub use msg_delivery_target_vo::*;

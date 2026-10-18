@@ -1,4 +1,5 @@
 pub mod msg_channel_dto;
+pub mod msg_dead_letter_dto;
 pub mod msg_delivery_channel_dto;
 pub mod msg_delivery_channel_log_dto;
 pub mod msg_delivery_dto;
@@ -12,6 +13,7 @@ pub mod msg_target_category_channel_dto;
 pub mod msg_target_category_dto;
 
 pub use msg_channel_dto::*;
+pub use msg_dead_letter_dto::*;
 pub use msg_delivery_channel_dto::*;
 pub use msg_delivery_channel_log_dto::*;
 pub use msg_delivery_dto::*;

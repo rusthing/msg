@@ -1,4 +1,5 @@
 mod msg_channel_api_doc;
+mod msg_dead_letter_api_doc;
 mod msg_delivery_api_doc;
 mod msg_delivery_channel_api_doc;
 mod msg_delivery_channel_log_api_doc;

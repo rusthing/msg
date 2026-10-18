@@ -3,6 +3,7 @@
 pub mod prelude;
 
 pub mod msg_channel;
+pub mod msg_dead_letter;
 pub mod msg_delivery;
 pub mod msg_delivery_channel;
 pub mod msg_delivery_channel_log;

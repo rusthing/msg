@@ -4,7 +4,7 @@ use idworker::setup_id_worker;
 use msg_api::cst::{MSG_MESSAGE_REFRESH_SUBJECT, MSG_QUEUE_REFRESH_SUBJECT};
 use msg_svr::cache::{MSG_MESSAGE_CACHE, refresh_message_cache};
 use msg_svr::config::AppConfig;
-use msg_svr::sub::reload_queue_subscriptions;
+use msg_svr::sub::{reload_queue_subscriptions, setup_dead_letter_subscription};
 use robotech::cache;
 use robotech::db::setup_db_conn;
 use robotech::macros::{bootstrap, db_migrate, log_call};
@@ -34,6 +34,9 @@ async fn setup(
     if let Some(ref nats_config) = app_config.nats {
         setup_nats_client(nats_config.clone(), changed).await?;
     }
+
+    // 死信订阅：消费 dlq.> 并落库，必须先于业务队列就绪
+    setup_dead_letter_subscription().await?;
 
     // 消息缓存：收到刷新信号后全量重建缓存快照
     // 队列订阅：收到刷新信号后直接查库并同步 NATS 订阅（不经过缓存）
