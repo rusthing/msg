@@ -19,9 +19,9 @@
 //! 而订阅状态本身由 [`QUEUE_SUBSCRIBERS`] 维护。缓存一份队列数据只会
 //! 多一份需要同步的快照，没有任何读取方。
 //!
-//! 注意：消息模板缓存（`build_msg_cache`）不会触发队列重新订阅。
+//! 注意：消息模板缓存（`build_message_cache`）不会触发队列重新订阅。
 
-use crate::cache::{MessageCache, get_msg_cache};
+use crate::cache::{MessageCache, get_message_cache};
 use crate::dto::MsgMessageQueueQueryDto;
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
 use crate::utils::render_template;
@@ -95,7 +95,7 @@ pub async fn reload_queue_subscriptions() -> anyhow::Result<()> {
 ///
 /// 用于 `#[svc(after_write = ...)]`：队列配置写成功后通知所有节点同步订阅。
 pub async fn on_queue_refresh() {
-    if let Err(e) = robotech::refresh::publish(MSG_QUEUE_REFRESH_SUBJECT).await {
+    if let Err(e) = robotech::refresh::publish(&MSG_QUEUE_REFRESH_SUBJECT).await {
         error!("发布队列刷新信号失败: {e}");
     }
 }
@@ -262,7 +262,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     // ── 2. 查找消息模板 ──
 
-    let cache = get_msg_cache();
+    let cache = get_message_cache();
     let msg: &MessageCache = cache.get(&message_mqo.event_code).ok_or_else(|| {
         NatsError::Handle(format!(
             "未找到事件编码对应的消息模板: {}",

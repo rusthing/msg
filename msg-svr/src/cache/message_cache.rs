@@ -6,13 +6,13 @@
 //! ## 更新机制（robotech 刷新信号规范，对齐 dtw-rs）
 //!
 //! - **启动时**：`main.rs` 先调用 `setup_local_cache` 注册刷新信号订阅，
-//!   再调用 `refresh_msg_cache` 全量加载
+//!   再调用 `refresh_message_cache` 全量加载
 //! - **运行时**：SVC 写操作成功后发布 JetStream 刷新信号，所有节点收到后全量重建
 //! - **读取**：`ArcSwapOption::load_full()` 无锁并发读
 //!
 //! ```text
 //! SVC write → after_write 回调 → JetStream publish 刷新信号 → 所有节点
-//!   → DB 全量查询 → ArcSwapOption::store → 业务读取 get_msg_cache()
+//!   → DB 全量查询 → ArcSwapOption::store → 业务读取 get_message_cache()
 //! ```
 //!
 //! ## 队列不在缓存中
@@ -34,7 +34,7 @@
 //! ## 使用
 //!
 //! ```ignore
-//! let cache = get_msg_cache();
+//! let cache = get_message_cache();
 //! if let Some(msg) = cache.get("order.created") {
 //!     for ch in &msg.channels {
 //!         // 直接用 ch.options / ch.remark 发送消息
@@ -42,16 +42,23 @@
 //! }
 //! ```
 //!
+//! ## 命名
+//!
+//! 本模块只负责「消息」这一份缓存，因此文件、静态、函数都带 `message`：
+//! `message_cache.rs` / `MSG_MESSAGE_CACHE` / `get_message_cache` /
+//! `refresh_message_cache` / `on_message_cache_refresh`。
+//! 新增第二份缓存时新建 `{对象}_cache.rs`，不要去改这里的名字。
+//!
 //! ## 参考
 //!
-//! 本模块结构与 [`dtw_rs::cache::dtw_local_cache`] 一致：
-//! - `pub static` 全局缓存 → `build_*`（纯逻辑） / `refresh_*`（DB + build + store）
-//! - `store_*` 原子替换到 `ArcSwapOption`
-//! - `on_cache_refresh` 发布 JetStream 刷新信号
+//! 本模块结构与 dtw-svr 的 `control_point_group_cache` 一致：
+//! - `pub static` 全局缓存 → `build_{对象}_cache`（纯逻辑） / `refresh_{对象}_cache`（DB + build + store）
+//! - `store_{对象}_cache` 原子替换到 `ArcSwapOption`
+//! - `on_{对象}_cache_refresh` 发布 JetStream 刷新信号
 //! - `setup_local_cache` 由 `main.rs` 显式调用
 
 use arc_swap::ArcSwapOption;
-use msg_api::cst::MSG_CACHE_REFRESH_SUBJECT;
+use msg_api::cst::MSG_MESSAGE_REFRESH_SUBJECT;
 use robotech::cache::publish_cache_refresh_signal;
 use robotech::db::get_db_conn;
 use std::collections::HashMap;
@@ -79,11 +86,15 @@ use crate::vo::{
 ///
 /// key = `msg_message.event_code`，value = [`MessageCache`]。
 ///
+/// 名字带对象（`MESSAGE`）而不是笼统的 `MSG_CACHE`：一个服务可能有多份缓存，
+/// 对象段需与刷新主题 `refresh.msg.message` 的末段对应，新增第二份缓存时
+/// 才知道该往哪里插名字（`MSG_QUEUE_CACHE`、`MSG_TEMPLATE_CACHE` …）。
+///
 /// `ArcSwapOption::const_empty()` 是 `const fn`，可直接用于 `static` 初始化，
 /// 无需 `LazyLock` 或 `Box::leak`。
 ///
 /// `pub` 导出供 `main.rs` 通过 `setup_local_cache` 注册 JetStream 刷新信号消费者。
-pub static MSG_CACHE: ArcSwapOption<HashMap<String, MessageCache>> =
+pub static MSG_MESSAGE_CACHE: ArcSwapOption<HashMap<String, MessageCache>> =
     ArcSwapOption::const_empty();
 
 // ═══════════════════════════════════════════════════════════════
@@ -189,13 +200,13 @@ pub struct TargetCache {
 
 /// # 存储消息缓存（全量替换）
 ///
-/// 与 [`refresh_msg_cache`] 配合，构建完成后调用此函数原子替换缓存快照。
+/// 与 [`refresh_message_cache`] 配合，构建完成后调用此函数原子替换缓存快照。
 /// 也供 `setup_local_cache` 的 JetStream 消费者回调内部使用：
 /// `rebuild_fn` 返回的新缓存会通过 `ArcSwapOption::store` 落盘，
 /// 因此本函数主要用于初始全量加载场景。
-pub fn store_msg_cache(cache: HashMap<String, MessageCache>) {
+pub fn store_message_cache(cache: HashMap<String, MessageCache>) {
     info!("存储消息缓存");
-    MSG_CACHE.store(Some(Arc::new(cache)));
+    MSG_MESSAGE_CACHE.store(Some(Arc::new(cache)));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -210,8 +221,8 @@ pub fn store_msg_cache(cache: HashMap<String, MessageCache>) {
 /// ## 返回值
 ///
 /// [`Arc<HashMap<String, MessageCache>>`] — 当下的缓存快照
-pub fn get_msg_cache() -> Arc<HashMap<String, MessageCache>> {
-    MSG_CACHE
+pub fn get_message_cache() -> Arc<HashMap<String, MessageCache>> {
+    MSG_MESSAGE_CACHE
         .load_full()
         .unwrap_or_else(|| Arc::new(HashMap::new()))
 }
@@ -223,8 +234,12 @@ pub fn get_msg_cache() -> Arc<HashMap<String, MessageCache>> {
 /// # 写操作后发布消息缓存刷新信号
 ///
 /// 用于 `#[svc(after_write = ...)]`，任何消息相关配置写成功后通知所有节点全量重建。
-pub async fn on_cache_refresh() {
-    if let Err(e) = publish_cache_refresh_signal(MSG_CACHE_REFRESH_SUBJECT).await {
+///
+/// 命名带对象前缀（`message`），与主题 `refresh.msg.message` 的末段对应；
+/// 同一服务新增缓存时按 `on_{对象}_cache_refresh` 命名，避免笼统的
+/// `on_cache_refresh` 无法区分是哪一份缓存。
+pub async fn on_message_cache_refresh() {
+    if let Err(e) = publish_cache_refresh_signal(&MSG_MESSAGE_REFRESH_SUBJECT).await {
         error!("发布消息缓存刷新信号失败: {e}");
     }
 }
@@ -235,15 +250,15 @@ pub async fn on_cache_refresh() {
 
 /// # 全量刷新消息缓存
 ///
-/// 从 DB 查询全量数据、组装 `HashMap`、存储到 [`MSG_CACHE`]，并返回结果。
+/// 从 DB 查询全量数据、组装 `HashMap`、存储到 [`MSG_MESSAGE_CACHE`]，并返回结果。
 ///
-/// 对应 dtw-rs 的 `refresh_all_control_point_groups`：
+/// 对应 dtw-rs 的 `refresh_control_point_group_cache`：
 /// - `main.rs` 启动时调用做首次全量加载
 /// - `setup_local_cache` 的 `rebuild_fn` 闭包也调用此函数，收到刷新信号后执行
-pub async fn refresh_msg_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
+pub async fn refresh_message_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
     info!("消息缓存全量加载...");
-    let cache = build_msg_cache().await?;
-    store_msg_cache(cache.clone());
+    let cache = build_message_cache().await?;
+    store_message_cache(cache.clone());
     info!("消息缓存全量加载完成");
     Ok(cache)
 }
@@ -256,7 +271,7 @@ pub async fn refresh_msg_cache() -> anyhow::Result<HashMap<String, MessageCache>
 ///
 /// 加载消息、渠道、来源、类别、目标类别、消息-目标关联，组装为 `HashMap<String, MessageCache>`。
 /// 仅构建不落缓存，由调用方决定何时替换快照。
-pub async fn build_msg_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
+pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
     let db = get_db_conn()?;
 
     // ── 通过 SVC 分表查询，禁用数据不查出 ──

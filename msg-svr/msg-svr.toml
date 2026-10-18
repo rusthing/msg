@@ -1,13 +1,16 @@
 profile = "dev"
 
-[db]
-url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
+#[db]
+#url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
+#
+#[web]
+#port = 9002
 
-[web]
-port = 9002
+#[redis]
+#url = "redis://:xxxxxxxx@redis:6379"
 
-[redis]
-url = "redis://:xxxxxxxx@redis:6379"
+#[nats]
+#servers = "nats://nats:4222"
 
 # 刷新信号订阅（robotech 通用配置，缓存与队列订阅共用）
 [refresh]
@@ -19,4 +22,6 @@ probe-interval = "15s"
 
 [micro-svc.consul]
 base-url = "http://consul:8500"
+[micro-svc.consul.config]
+common-configs = ["redis.toml", "nats.toml"]
 [micro-svc.consul.registry]

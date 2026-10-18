@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use config::Value;
 use idworker::setup_id_worker;
-use msg_api::cst::{MSG_CACHE_REFRESH_SUBJECT, MSG_QUEUE_REFRESH_SUBJECT};
-use msg_svr::cache::{MSG_CACHE, refresh_msg_cache};
+use msg_api::cst::{MSG_MESSAGE_REFRESH_SUBJECT, MSG_QUEUE_REFRESH_SUBJECT};
+use msg_svr::cache::{MSG_MESSAGE_CACHE, refresh_message_cache};
 use msg_svr::config::AppConfig;
 use msg_svr::sub::reload_queue_subscriptions;
 use robotech::cache;
@@ -38,18 +38,18 @@ async fn setup(
     // 消息缓存：收到刷新信号后全量重建缓存快照
     // 队列订阅：收到刷新信号后直接查库并同步 NATS 订阅（不经过缓存）
     {
-        cache::setup_local_cache(MSG_CACHE_REFRESH_SUBJECT, &MSG_CACHE, || async {
-            refresh_msg_cache().await
+        cache::setup_local_cache(&MSG_MESSAGE_REFRESH_SUBJECT, &MSG_MESSAGE_CACHE, || async {
+            refresh_message_cache().await
         })
         .await?;
 
-        refresh::subscribe(MSG_QUEUE_REFRESH_SUBJECT, || async {
+        refresh::subscribe(&MSG_QUEUE_REFRESH_SUBJECT, || async {
             reload_queue_subscriptions().await
         })
         .await?;
 
         // 启动后首次全量加载：消息模板必须先就绪，订阅到消息时才有模板可用
-        refresh_msg_cache().await?;
+        refresh_message_cache().await?;
         reload_queue_subscriptions().await?;
     }
 
