@@ -25,20 +25,16 @@ async fn setup(
     let db_url = app_config.db.get_url();
     db_migrate!(db_url);
 
-    // 业务配置先落到全局：订阅参数（重投上限）在建立订阅时读取，
-    // 必须早于死信订阅与业务队列订阅
-    set_msg_config(app_config.msg.clone());
-
     setup_id_worker(app_config.id_worker.clone(), changed).await?;
     setup_db_conn(app_config.db.clone(), changed).await?;
-
     // NATS 消息中间件连接
     setup_nats_client(app_config.nats.clone(), changed).await?;
+    setup_web_server(app_config.web.clone(), port, old_pid, changed).await?;
 
+    // 订阅参数（重投上限）在建立订阅时读取，必须先于死信订阅与业务队列订阅
+    set_msg_config(app_config.msg.clone());
     // 死信订阅：消费 dlq.> 并落库，必须先于业务队列就绪
     setup_dead_letter_subscription().await?;
-
-    setup_web_server(app_config.web.clone(), port, old_pid, changed).await?;
 
     // 消息缓存：注册刷新信号订阅 + 启动后首次全量加载
     setup_cache().await?;
