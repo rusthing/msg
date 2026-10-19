@@ -1,10 +1,10 @@
 use anyhow::anyhow;
 use config::Value;
-use idworker::setup_id_worker;
 use msg_svr::cache::setup_cache;
 use msg_svr::config::{AppConfig, set_msg_config};
 use msg_svr::sub::setup_dead_letter_subscription;
 use msg_svr::utils::setup_queue_refresh;
+use robotech::app::setup_id_worker;
 use robotech::db::setup_db_conn;
 use robotech::macros::{bootstrap, db_migrate, log_call};
 use robotech::mq::nats::setup_nats_client;
@@ -29,7 +29,7 @@ async fn setup(
     // 必须早于死信订阅与业务队列订阅
     set_msg_config(app_config.msg.clone());
 
-    setup_id_worker(app_config.id_worker.clone(), changed)?;
+    setup_id_worker(app_config.id_worker.clone(), changed).await?;
     setup_db_conn(app_config.db.clone(), changed).await?;
 
     // NATS 消息中间件连接
