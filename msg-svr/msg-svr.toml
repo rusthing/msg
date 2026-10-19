@@ -12,6 +12,10 @@ profile = "dev"
 #[nats]
 #servers = "nats://nats:4222"
 
+[id-worker]
+epoch = 1758108749211
+node = 1
+
 # MSG 业务配置
 [msg]
 # 业务队列（persisted=true）消费失败的最大重投次数，达到上限后转入死信 dlq.{subject}
