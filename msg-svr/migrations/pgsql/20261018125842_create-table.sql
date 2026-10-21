@@ -1,0 +1,953 @@
+/*==============================================================*/
+/* DBMS name:      PostgreSQL 9.x                               */
+/* Created on:     2026/10/18 12:58:42                          */
+/*==============================================================*/
+
+
+/*==============================================================*/
+/* Table: msg_channel                                           */
+/*==============================================================*/
+create table msg_channel (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   options              TEXT                 null,
+   remark               VARCHAR(50)          null,
+   enabled              BOOL                 not null default true,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_CHANNEL primary key (id),
+   constraint AK_CODE_MSG_CHANNEL unique (code)
+);
+
+comment on table msg_channel is
+'渠道
+目前支持websocket/短信/邮箱';
+
+comment on column msg_channel.id is
+'ID';
+
+comment on column msg_channel.code is
+'编码';
+
+comment on column msg_channel.name is
+'名称';
+
+comment on column msg_channel.options is
+'配置';
+
+comment on column msg_channel.remark is
+'备注';
+
+comment on column msg_channel.enabled is
+'启用';
+
+comment on column msg_channel.creater_id is
+'创建者ID';
+
+comment on column msg_channel.create_ms is
+'创建时间戳';
+
+comment on column msg_channel.updater_id is
+'更新者ID';
+
+comment on column msg_channel.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_channel_PK                                        */
+/*==============================================================*/
+create unique index msg_channel_PK on msg_channel (
+id
+);
+
+/*==============================================================*/
+/* Table: msg_dead_letter                                       */
+/*==============================================================*/
+create table msg_dead_letter (
+   id                   INT8                 not null,
+   subject              VARCHAR(150)         not null,
+   reason               TEXT                 not null,
+   payload              TEXT                 not null,
+   delivered            INT8                 not null default 0,
+   handled              BOOL                 not null default false,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_DEAD_LETTER primary key (id)
+);
+
+comment on table msg_dead_letter is
+'死信消息
+重投达到上限后被转入 dlq.{原subject} 的消息，供人工排查与重放';
+
+comment on column msg_dead_letter.id is
+'ID';
+
+comment on column msg_dead_letter.subject is
+'原消息主题';
+
+comment on column msg_dead_letter.reason is
+'死信原因';
+
+comment on column msg_dead_letter.payload is
+'消息内容';
+
+comment on column msg_dead_letter.delivered is
+'投递次数';
+
+comment on column msg_dead_letter.handled is
+'已处理';
+
+comment on column msg_dead_letter.remark is
+'备注';
+
+comment on column msg_dead_letter.creater_id is
+'创建者ID';
+
+comment on column msg_dead_letter.create_ms is
+'创建时间戳';
+
+comment on column msg_dead_letter.updater_id is
+'更新者ID';
+
+comment on column msg_dead_letter.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_dead_letter_PK                                    */
+/*==============================================================*/
+create unique index msg_dead_letter_PK on msg_dead_letter (
+id
+);
+
+/*==============================================================*/
+/* Table: msg_delivery                                          */
+/*==============================================================*/
+create table msg_delivery (
+   id                   INT8                 not null,
+   event_code           VARCHAR(50)          not null,
+   message_id           INT8                 not null,
+   event_source_id      INT8                 not null,
+   message_category_id  INT8                 not null,
+   business_id          INT8                 not null,
+   business_trigger_ms  INT8                 not null,
+   deliver_status       INT2                 not null default 0,
+   labels               TEXT                 null,
+   annotations          TEXT                 null,
+   title                VARCHAR(150)         not null,
+   content              TEXT                 not null,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_DELIVERY primary key (id),
+   constraint AK_EVENT_CODE_AND_BUSINESS_ID_AND_BUSINESS_TRIGGER_MS_MSG_DELIVERY unique (event_code, business_id, business_trigger_ms)
+);
+
+comment on table msg_delivery is
+'投递';
+
+comment on column msg_delivery.id is
+'ID';
+
+comment on column msg_delivery.event_code is
+'事件编码
+在应用中定义，事件触发时传递出来';
+
+comment on column msg_delivery.message_id is
+'消息ID';
+
+comment on column msg_delivery.event_source_id is
+'事件来源ID';
+
+comment on column msg_delivery.message_category_id is
+'消息类别ID';
+
+comment on column msg_delivery.business_id is
+'业务ID
+可以由业务触发时生成ID或者直接采用业务ID，与业务触发时间戳组合唯一约束，用于幂等去重，避免多次投递';
+
+comment on column msg_delivery.business_trigger_ms is
+'业务触发时间戳
+与业务ID组合唯一约束，用于幂等去重，避免多次投递';
+
+comment on column msg_delivery.deliver_status is
+'投递状态
+0: 投递中
+1: 投递部分成功
+2: 投递全部成功
+3: 投递全部失败
+';
+
+comment on column msg_delivery.labels is
+'路由标签
+一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本';
+
+comment on column msg_delivery.annotations is
+'标注
+放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示';
+
+comment on column msg_delivery.title is
+'标题';
+
+comment on column msg_delivery.content is
+'内容';
+
+comment on column msg_delivery.remark is
+'备注';
+
+comment on column msg_delivery.creater_id is
+'创建者ID';
+
+comment on column msg_delivery.create_ms is
+'创建时间戳';
+
+comment on column msg_delivery.updater_id is
+'更新者ID';
+
+comment on column msg_delivery.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_delivery_PK                                       */
+/*==============================================================*/
+create unique index msg_delivery_PK on msg_delivery (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_3_FK                                     */
+/*==============================================================*/
+create  index Relationship_3_FK on msg_delivery (
+message_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_16_FK                                    */
+/*==============================================================*/
+create  index Relationship_16_FK on msg_delivery (
+event_source_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_17_FK                                    */
+/*==============================================================*/
+create  index Relationship_17_FK on msg_delivery (
+message_category_id
+);
+
+/*==============================================================*/
+/* Table: msg_delivery_channel                                  */
+/*==============================================================*/
+create table msg_delivery_channel (
+   id                   INT8                 not null,
+   deliver_target_id    INT8                 not null,
+   channel_id           INT8                 not null,
+   deliver_channel_status INT2                 not null default 0,
+   address              VARCHAR(80)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_DELIVERY_CHANNEL primary key (id),
+   constraint AK_DELIVERY_TARGET_AND_CHANNEL_MSG_DELIVERY_CHANNEL unique (deliver_target_id, channel_id)
+);
+
+comment on table msg_delivery_channel is
+'投递渠道';
+
+comment on column msg_delivery_channel.id is
+'ID';
+
+comment on column msg_delivery_channel.deliver_target_id is
+'投递目标ID';
+
+comment on column msg_delivery_channel.channel_id is
+'渠道ID';
+
+comment on column msg_delivery_channel.deliver_channel_status is
+'投递状态
+0: 投递中
+1: 投递成功
+2: 投递失败
+';
+
+comment on column msg_delivery_channel.address is
+'投递地址';
+
+comment on column msg_delivery_channel.creater_id is
+'创建者ID';
+
+comment on column msg_delivery_channel.create_ms is
+'创建时间戳';
+
+comment on column msg_delivery_channel.updater_id is
+'更新者ID';
+
+comment on column msg_delivery_channel.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_delivery_channel_PK                               */
+/*==============================================================*/
+create unique index msg_delivery_channel_PK on msg_delivery_channel (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_8_FK                                     */
+/*==============================================================*/
+create  index Relationship_8_FK on msg_delivery_channel (
+deliver_target_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_9_FK                                     */
+/*==============================================================*/
+create  index Relationship_9_FK on msg_delivery_channel (
+channel_id
+);
+
+/*==============================================================*/
+/* Table: msg_delivery_channel_log                              */
+/*==============================================================*/
+create table msg_delivery_channel_log (
+   id                   INT8                 not null,
+   delivery_channel_id  INT8                 not null,
+   deliver_channel_status INT2                 not null default 0,
+   address              VARCHAR(80)          null,
+   detail               TEXT                 null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_DELIVERY_CHANNEL_LOG primary key (id)
+);
+
+comment on table msg_delivery_channel_log is
+'投递渠道日志';
+
+comment on column msg_delivery_channel_log.id is
+'ID';
+
+comment on column msg_delivery_channel_log.delivery_channel_id is
+'投递渠道ID';
+
+comment on column msg_delivery_channel_log.deliver_channel_status is
+'投递状态
+0: 投递中
+1: 投递成功
+2: 投递失败
+';
+
+comment on column msg_delivery_channel_log.address is
+'投递地址';
+
+comment on column msg_delivery_channel_log.detail is
+'投递详情';
+
+comment on column msg_delivery_channel_log.creater_id is
+'创建者ID';
+
+comment on column msg_delivery_channel_log.create_ms is
+'创建时间戳';
+
+comment on column msg_delivery_channel_log.updater_id is
+'更新者ID';
+
+comment on column msg_delivery_channel_log.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_delivery_channel_log_PK                           */
+/*==============================================================*/
+create unique index msg_delivery_channel_log_PK on msg_delivery_channel_log (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_10_FK                                    */
+/*==============================================================*/
+create  index Relationship_10_FK on msg_delivery_channel_log (
+delivery_channel_id
+);
+
+/*==============================================================*/
+/* Table: msg_delivery_target                                   */
+/*==============================================================*/
+create table msg_delivery_target (
+   id                   INT8                 not null,
+   delivery_id          INT8                 not null,
+   target_category_id   INT8                 not null,
+   target_id            INT8                 not null,
+   deliver_target_status INT2                 not null default 0,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_DELIVERY_TARGET primary key (id),
+   constraint AK_DELIVERY_AND_TARGET_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
+);
+
+comment on table msg_delivery_target is
+'投递目标';
+
+comment on column msg_delivery_target.id is
+'ID';
+
+comment on column msg_delivery_target.delivery_id is
+'投递ID';
+
+comment on column msg_delivery_target.target_category_id is
+'目标类别ID';
+
+comment on column msg_delivery_target.target_id is
+'目标ID';
+
+comment on column msg_delivery_target.deliver_target_status is
+'投递状态
+0: 投递中
+1: 投递成功
+2: 投递失败
+3: 目标已读';
+
+comment on column msg_delivery_target.creater_id is
+'创建者ID';
+
+comment on column msg_delivery_target.create_ms is
+'创建时间戳';
+
+comment on column msg_delivery_target.updater_id is
+'更新者ID';
+
+comment on column msg_delivery_target.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_delivery_target_PK                                */
+/*==============================================================*/
+create unique index msg_delivery_target_PK on msg_delivery_target (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_7_FK                                     */
+/*==============================================================*/
+create  index Relationship_7_FK on msg_delivery_target (
+delivery_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_12_FK                                    */
+/*==============================================================*/
+create  index Relationship_12_FK on msg_delivery_target (
+target_category_id
+);
+
+/*==============================================================*/
+/* Table: msg_event_source                                      */
+/*==============================================================*/
+create table msg_event_source (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_EVENT_SOURCE primary key (id),
+   constraint AK_CODE_MSG_EVENT_SOURCE unique (code),
+   constraint AK_NAME_MSG_EVENT_SOURCE unique (name)
+);
+
+comment on table msg_event_source is
+'事件来源
+由客户端启动时自动注册上来';
+
+comment on column msg_event_source.id is
+'ID';
+
+comment on column msg_event_source.code is
+'编码';
+
+comment on column msg_event_source.name is
+'名称';
+
+comment on column msg_event_source.remark is
+'备注';
+
+comment on column msg_event_source.creater_id is
+'创建者ID';
+
+comment on column msg_event_source.create_ms is
+'创建时间戳';
+
+comment on column msg_event_source.updater_id is
+'更新者ID';
+
+comment on column msg_event_source.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_event_source_PK                                   */
+/*==============================================================*/
+create unique index msg_event_source_PK on msg_event_source (
+id
+);
+
+/*==============================================================*/
+/* Table: msg_message                                           */
+/*==============================================================*/
+create table msg_message (
+   id                   INT8                 not null,
+   event_source_id      INT8                 not null,
+   category_id          INT8                 null,
+   name                 VARCHAR(50)          not null,
+   event_code           VARCHAR(50)          not null,
+   persisted            BOOL                 not null default true,
+   title_template       VARCHAR(150)         null,
+   content_template     TEXT                 null,
+   remark               VARCHAR(50)          null,
+   enabled              BOOL                 not null default true,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_MESSAGE primary key (id),
+   constraint AK_NAME_MSG_MESSAGE unique (name),
+   constraint AK_EVENT_CODE_MSG_MESSAGE unique (event_code)
+);
+
+comment on table msg_message is
+'消息
+由客户端启动时自动注册事件的基本信息上来，用户可以配置消息的其它信息，不能修改事件的基本信息更不能删除';
+
+comment on column msg_message.id is
+'ID';
+
+comment on column msg_message.event_source_id is
+'事件来源ID';
+
+comment on column msg_message.category_id is
+'消息类别ID';
+
+comment on column msg_message.name is
+'名称';
+
+comment on column msg_message.event_code is
+'事件编码
+在应用中定义，事件触发时传递出来';
+
+comment on column msg_message.persisted is
+'是否持久化
+如果不持久化，投递将不会保存到数据库';
+
+comment on column msg_message.title_template is
+'标题模板
+为null的话从annotations中取title设置为标题';
+
+comment on column msg_message.content_template is
+'内容模板
+为null的话从annotations中取content设置为内容';
+
+comment on column msg_message.remark is
+'备注';
+
+comment on column msg_message.enabled is
+'启用';
+
+comment on column msg_message.creater_id is
+'创建者ID';
+
+comment on column msg_message.create_ms is
+'创建时间戳';
+
+comment on column msg_message.updater_id is
+'更新者ID';
+
+comment on column msg_message.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_message_PK                                        */
+/*==============================================================*/
+create unique index msg_message_PK on msg_message (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_1_FK                                     */
+/*==============================================================*/
+create  index Relationship_1_FK on msg_message (
+category_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_13_FK                                    */
+/*==============================================================*/
+create  index Relationship_13_FK on msg_message (
+event_source_id
+);
+
+/*==============================================================*/
+/* Table: msg_message_category                                  */
+/*==============================================================*/
+create table msg_message_category (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_MESSAGE_CATEGORY primary key (id),
+   constraint AK_CODE_MSG_MESSAGE_CATEGORY unique (code),
+   constraint AK_NAME_MSG_MESSAGE_CATEGORY unique (name)
+);
+
+comment on table msg_message_category is
+'消息类别
+由客户端启动时自动注册上来';
+
+comment on column msg_message_category.id is
+'ID';
+
+comment on column msg_message_category.code is
+'编码';
+
+comment on column msg_message_category.name is
+'名称';
+
+comment on column msg_message_category.remark is
+'备注';
+
+comment on column msg_message_category.creater_id is
+'创建者ID';
+
+comment on column msg_message_category.create_ms is
+'创建时间戳';
+
+comment on column msg_message_category.updater_id is
+'更新者ID';
+
+comment on column msg_message_category.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_message_category_PK                               */
+/*==============================================================*/
+create unique index msg_message_category_PK on msg_message_category (
+id
+);
+
+/*==============================================================*/
+/* Table: msg_message_queue                                     */
+/*==============================================================*/
+create table msg_message_queue (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   persisted            BOOL                 not null default true,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_MESSAGE_QUEUE primary key (id),
+   constraint AK_CODE_MSG_MESSAGE_QUEUE unique (code),
+   constraint AK_NAME_MSG_MESSAGE_QUEUE unique (name)
+);
+
+comment on table msg_message_queue is
+'消息队列
+由客户端启动时自动注册上来，消息中心自动热更新订阅这些队列';
+
+comment on column msg_message_queue.id is
+'ID';
+
+comment on column msg_message_queue.code is
+'编码
+用于订阅消息中间件队列的名称';
+
+comment on column msg_message_queue.name is
+'名称';
+
+comment on column msg_message_queue.persisted is
+'是否持久化';
+
+comment on column msg_message_queue.remark is
+'备注';
+
+comment on column msg_message_queue.creater_id is
+'创建者ID';
+
+comment on column msg_message_queue.create_ms is
+'创建时间戳';
+
+comment on column msg_message_queue.updater_id is
+'更新者ID';
+
+comment on column msg_message_queue.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_message_queue_PK                                  */
+/*==============================================================*/
+create unique index msg_message_queue_PK on msg_message_queue (
+id
+);
+
+/*==============================================================*/
+/* Table: msg_message_target                                    */
+/*==============================================================*/
+create table msg_message_target (
+   id                   INT8                 not null,
+   message_id           INT8                 not null,
+   target_category_id   INT8                 not null,
+   target_id            INT8                 not null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_MESSAGE_TARGET primary key (id),
+   constraint AK_MESSAGE_AND_TARGET_CATEGORY_AND_TARGET_MSG_MESSAGE_TARGET unique (message_id, target_category_id, target_id)
+);
+
+comment on table msg_message_target is
+'消息目标';
+
+comment on column msg_message_target.id is
+'ID';
+
+comment on column msg_message_target.message_id is
+'消息ID';
+
+comment on column msg_message_target.target_category_id is
+'目标类别ID';
+
+comment on column msg_message_target.target_id is
+'目标ID';
+
+comment on column msg_message_target.creater_id is
+'创建者ID';
+
+comment on column msg_message_target.create_ms is
+'创建时间戳';
+
+comment on column msg_message_target.updater_id is
+'更新者ID';
+
+comment on column msg_message_target.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_message_target_PK                                 */
+/*==============================================================*/
+create unique index msg_message_target_PK on msg_message_target (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_4_FK                                     */
+/*==============================================================*/
+create  index Relationship_4_FK on msg_message_target (
+message_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_11_FK                                    */
+/*==============================================================*/
+create  index Relationship_11_FK on msg_message_target (
+target_category_id
+);
+
+/*==============================================================*/
+/* Table: msg_target_category                                   */
+/*==============================================================*/
+create table msg_target_category (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_TARGET_CATEGORY primary key (id),
+   constraint AK_CODE_MSG_TARGET_CATEGORY unique (code),
+   constraint AK_NAME_MSG_TARGET_CATEGORY unique (name)
+);
+
+comment on table msg_target_category is
+'目标类别
+有用户/角色/分组或自定义如大屏';
+
+comment on column msg_target_category.id is
+'ID';
+
+comment on column msg_target_category.code is
+'编码';
+
+comment on column msg_target_category.name is
+'名称';
+
+comment on column msg_target_category.remark is
+'备注';
+
+comment on column msg_target_category.creater_id is
+'创建者ID';
+
+comment on column msg_target_category.create_ms is
+'创建时间戳';
+
+comment on column msg_target_category.updater_id is
+'更新者ID';
+
+comment on column msg_target_category.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_target_category_PK                                */
+/*==============================================================*/
+create unique index msg_target_category_PK on msg_target_category (
+id
+);
+
+/*==============================================================*/
+/* Table: msg_target_category_channel                           */
+/*==============================================================*/
+create table msg_target_category_channel (
+   id                   INT8                 not null,
+   target_category_id   INT8                 not null,
+   channel_id           INT8                 not null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_TARGET_CATEGORY_CHANNEL primary key (id),
+   constraint AK_CHANNEL_AND_TARGET_CATEGORY_MSG_TARGET_CATEGORY_CHANNEL unique (channel_id, target_category_id)
+);
+
+comment on table msg_target_category_channel is
+'目标类别渠道';
+
+comment on column msg_target_category_channel.id is
+'ID';
+
+comment on column msg_target_category_channel.target_category_id is
+'目标类别ID';
+
+comment on column msg_target_category_channel.channel_id is
+'渠道ID';
+
+comment on column msg_target_category_channel.creater_id is
+'创建者ID';
+
+comment on column msg_target_category_channel.create_ms is
+'创建时间戳';
+
+comment on column msg_target_category_channel.updater_id is
+'更新者ID';
+
+comment on column msg_target_category_channel.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_target_category_channel_PK                        */
+/*==============================================================*/
+create unique index msg_target_category_channel_PK on msg_target_category_channel (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_14_FK                                    */
+/*==============================================================*/
+create  index Relationship_14_FK on msg_target_category_channel (
+target_category_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_15_FK                                    */
+/*==============================================================*/
+create  index Relationship_15_FK on msg_target_category_channel (
+channel_id
+);
+
+alter table msg_delivery
+   add constraint fk_event_source_id__from__msg_event_source foreign key (event_source_id)
+      references msg_event_source (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery
+   add constraint fk_message_category_id__from__msg_message_category foreign key (message_category_id)
+      references msg_message_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery
+   add constraint fk_message_id__from__msg_message foreign key (message_id)
+      references msg_message (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery_channel
+   add constraint fk_deliver_target_id__from__msg_delivery_target foreign key (deliver_target_id)
+      references msg_delivery_target (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery_channel
+   add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
+      references msg_channel (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery_channel_log
+   add constraint fk_delivery_channel_id__from__msg_delivery_channel foreign key (delivery_channel_id)
+      references msg_delivery_channel (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery_target
+   add constraint fk_target_category_id__from__msg_target_category foreign key (target_category_id)
+      references msg_target_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery_target
+   add constraint fk_delivery_id__from__msg_delivery foreign key (delivery_id)
+      references msg_delivery (id)
+      on delete restrict on update restrict;
+
+alter table msg_message
+   add constraint fk_category_id__from__msg_message_category foreign key (category_id)
+      references msg_message_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_message
+   add constraint fk_event_source_id__from__msg_event_source foreign key (event_source_id)
+      references msg_event_source (id)
+      on delete restrict on update restrict;
+
+alter table msg_message_target
+   add constraint fk_target_category_id__from__msg_target_category foreign key (target_category_id)
+      references msg_target_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_message_target
+   add constraint fk_message_id__from__msg_message foreign key (message_id)
+      references msg_message (id)
+      on delete restrict on update restrict;
+
+alter table msg_target_category_channel
+   add constraint fk_target_category_id__from__msg_target_category foreign key (target_category_id)
+      references msg_target_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_target_category_channel
+   add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
+      references msg_channel (id)
+      on delete restrict on update restrict;
+
