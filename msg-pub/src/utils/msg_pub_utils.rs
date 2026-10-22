@@ -59,7 +59,21 @@ pub async fn publish_message_with(
     message_mqo: MessageMqo,
     mode: PublishMode,
 ) -> Result<(), MsgPubError> {
+    publish_message_to(MSG_MESSAGE_TOPIC, message_mqo, mode).await
+}
+
+/// # 发布一条消息到指定队列
+///
+/// 与 [`publish_message_with`] 的唯一差别是目标 subject 由调用方给出。业务方
+/// 有自己的消息入口队列时（已通过 `msg_message_queue` 注册给消息中心），用
+/// 注册的那个 `code` 发；两者必须是同一个 subject，否则「注册的队列没人发，
+/// 发的 subject 没人订阅」。
+pub async fn publish_message_to(
+    subject: &str,
+    message_mqo: MessageMqo,
+    mode: PublishMode,
+) -> Result<(), MsgPubError> {
     let persistent = matches!(mode, PublishMode::Persistent);
-    publish(MSG_MESSAGE_TOPIC, &message_mqo, persistent).await?;
+    publish(subject, &message_mqo, persistent).await?;
     Ok(())
 }
