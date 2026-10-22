@@ -13,6 +13,7 @@ pub struct Model {
     pub event_code: String,
     pub message_id: i64,
     pub event_source_id: i64,
+    pub message_category_id: i64,
     #[sea_orm(unique_key = "ak_event_code_and_business_id_and_business_trigger_ms_msg_deliv")]
     pub business_id: i64,
     #[sea_orm(unique_key = "ak_event_code_and_business_id_and_business_trigger_ms_msg_deliv")]
@@ -48,6 +49,14 @@ pub struct Model {
         on_delete = "Restrict"
     )]
     pub msg_message: BelongsTo<super::msg_message::Entity>,
+    #[sea_orm(
+        belongs_to,
+        from = "message_category_id",
+        to = "id",
+        on_update = "Restrict",
+        on_delete = "Restrict"
+    )]
+    pub msg_message_category: BelongsTo<super::msg_message_category::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

@@ -133,6 +133,7 @@ create table msg_delivery (
    event_code           VARCHAR(50)          not null,
    message_id           INT8                 not null,
    event_source_id      INT8                 not null,
+   message_category_id  INT8                 not null,
    business_id          INT8                 not null,
    business_trigger_ms  INT8                 not null,
    deliver_status       INT2                 not null default 0,
@@ -164,6 +165,9 @@ comment on column msg_delivery.message_id is
 
 comment on column msg_delivery.event_source_id is
 '事件来源ID';
+
+comment on column msg_delivery.message_category_id is
+'消息类别ID';
 
 comment on column msg_delivery.business_id is
 '业务ID
@@ -229,6 +233,13 @@ message_id
 /*==============================================================*/
 create  index Relationship_16_FK on msg_delivery (
 event_source_id
+);
+
+/*==============================================================*/
+/* Index: Relationship_17_FK                                    */
+/*==============================================================*/
+create  index Relationship_17_FK on msg_delivery (
+message_category_id
 );
 
 /*==============================================================*/
@@ -497,6 +508,7 @@ id
 create table msg_message (
    id                   INT8                 not null,
    event_source_id      INT8                 not null,
+   category_id          INT8                 not null,
    name                 VARCHAR(50)          not null,
    event_code           VARCHAR(50)          not null,
    persisted            BOOL                 not null default true,
@@ -522,6 +534,9 @@ comment on column msg_message.id is
 
 comment on column msg_message.event_source_id is
 '事件来源ID';
+
+comment on column msg_message.category_id is
+'消息类别ID';
 
 comment on column msg_message.name is
 '名称';
@@ -568,10 +583,69 @@ id
 );
 
 /*==============================================================*/
+/* Index: Relationship_1_FK                                     */
+/*==============================================================*/
+create  index Relationship_1_FK on msg_message (
+category_id
+);
+
+/*==============================================================*/
 /* Index: Relationship_13_FK                                    */
 /*==============================================================*/
 create  index Relationship_13_FK on msg_message (
 event_source_id
+);
+
+/*==============================================================*/
+/* Table: msg_message_category                                  */
+/*==============================================================*/
+create table msg_message_category (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_MESSAGE_CATEGORY primary key (id),
+   constraint AK_CODE_MSG_MESSAGE_CATEGORY unique (code),
+   constraint AK_NAME_MSG_MESSAGE_CATEGORY unique (name)
+);
+
+comment on table msg_message_category is
+'消息类别
+由客户端启动时自动注册上来';
+
+comment on column msg_message_category.id is
+'ID';
+
+comment on column msg_message_category.code is
+'编码';
+
+comment on column msg_message_category.name is
+'名称';
+
+comment on column msg_message_category.remark is
+'备注';
+
+comment on column msg_message_category.creater_id is
+'创建者ID';
+
+comment on column msg_message_category.create_ms is
+'创建时间戳';
+
+comment on column msg_message_category.updater_id is
+'更新者ID';
+
+comment on column msg_message_category.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_message_category_PK                               */
+/*==============================================================*/
+create unique index msg_message_category_PK on msg_message_category (
+id
 );
 
 /*==============================================================*/
@@ -813,6 +887,11 @@ alter table msg_delivery
       on delete restrict on update restrict;
 
 alter table msg_delivery
+   add constraint fk_message_category_id__from__msg_message_category foreign key (message_category_id)
+      references msg_message_category (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery
    add constraint fk_message_id__from__msg_message foreign key (message_id)
       references msg_message (id)
       on delete restrict on update restrict;
@@ -840,6 +919,11 @@ alter table msg_delivery_target
 alter table msg_delivery_target
    add constraint fk_delivery_id__from__msg_delivery foreign key (delivery_id)
       references msg_delivery (id)
+      on delete restrict on update restrict;
+
+alter table msg_message
+   add constraint fk_category_id__from__msg_message_category foreign key (category_id)
+      references msg_message_category (id)
       on delete restrict on update restrict;
 
 alter table msg_message

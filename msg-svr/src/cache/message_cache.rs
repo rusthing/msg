@@ -68,14 +68,16 @@ use tracing::{error, info};
 
 // ── SVC 引用 ──
 use crate::dto::{
-    MsgChannelQueryDto, MsgEventSourceQueryDto, MsgMessageQueryDto, MsgMessageTargetQueryDto,
-    MsgTargetCategoryChannelQueryDto, MsgTargetCategoryQueryDto,
+    MsgChannelQueryDto, MsgEventSourceQueryDto, MsgMessageCategoryQueryDto, MsgMessageQueryDto,
+    MsgMessageTargetQueryDto, MsgTargetCategoryChannelQueryDto, MsgTargetCategoryQueryDto,
 };
 use crate::svc::{
-    MsgChannelSvc, MsgEventSourceSvc, MsgMessageSvc, MsgMessageTargetSvc,
+    MsgChannelSvc, MsgEventSourceSvc, MsgMessageCategorySvc, MsgMessageSvc, MsgMessageTargetSvc,
     MsgTargetCategoryChannelSvc, MsgTargetCategorySvc,
 };
-use crate::vo::{MsgChannelVo, MsgMessageExVo, MsgMessageTargetVo, MsgTargetCategoryChannelVo};
+use crate::vo::{
+    MsgChannelVo, MsgMessageExVo, MsgMessageTargetVo, MsgTargetCategoryChannelVo,
+};
 
 // ═══════════════════════════════════════════════════════════════
 //  全局缓存
@@ -103,7 +105,7 @@ pub static MSG_MESSAGE_CACHE: ArcSwapOption<HashMap<String, MessageCache>> =
 
 /// # 缓存的单条消息
 ///
-/// 聚合了消息模板及其关联的来源、渠道列表、目标列表。
+/// 聚合了消息模板及其关联的类别、来源、渠道列表、目标列表。
 #[derive(Debug, Clone)]
 pub struct MessageCache {
     /// 消息 ID
@@ -120,6 +122,8 @@ pub struct MessageCache {
     pub content_template: Option<String>,
     /// 备注
     pub remark: Option<String>,
+    /// 关联的消息类别
+    pub category: CategoryCache,
     /// 关联的消息事件来源
     pub source: SourceCache,
     /// 该消息绑定的渠道列表（含完整配置，刷新时组装）
@@ -132,6 +136,17 @@ pub struct MessageCache {
 #[derive(Debug, Clone)]
 pub struct SourceCache {
     /// 来源 ID
+    pub id: u64,
+    /// 编码
+    pub code: String,
+    /// 名称
+    pub name: String,
+}
+
+/// # 缓存的消息类别（同时用于目标类别）
+#[derive(Debug, Clone)]
+pub struct CategoryCache {
+    /// 类别 ID
     pub id: u64,
     /// 编码
     pub code: String,
@@ -256,7 +271,7 @@ pub async fn refresh_message_cache() -> anyhow::Result<HashMap<String, MessageCa
 
 /// # 从数据库构建消息缓存
 ///
-/// 加载消息、渠道、来源、目标类别、消息-目标关联，组装为 `HashMap<String, MessageCache>`。
+/// 加载消息、渠道、来源、类别、目标类别、消息-目标关联，组装为 `HashMap<String, MessageCache>`。
 /// 仅构建不落缓存，由调用方决定何时替换快照。
 pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCache>> {
     let db = get_db_conn()?;
@@ -293,6 +308,26 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
                 )
             })
             .collect();
+
+    let categories: HashMap<u64, CategoryCache> = MsgMessageCategorySvc::list_by_query_dto(
+        MsgMessageCategoryQueryDto::default(),
+        Some(db.as_ref()),
+    )
+    .await?
+    .extra
+    .unwrap_or_default()
+    .into_iter()
+    .map(|m| {
+        (
+            m.id.0,
+            CategoryCache {
+                id: m.id.0,
+                code: m.code,
+                name: m.name,
+            },
+        )
+    })
+    .collect();
 
     // ── 目标类别（含渠道列表），先查出类别、再查出类别-渠道关联、再组装 ──
 
@@ -417,6 +452,10 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
     let messages: HashMap<String, MessageCache> = messages_all
         .into_iter()
         .map(|m| {
+            let category = categories
+                .get(&m.category_id.0)
+                .cloned()
+                .expect("消息类别应存在：category_id 为 NOT NULL FK");
             let source = sources
                 .get(&m.event_source_id.0)
                 .cloned()
@@ -434,6 +473,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
                     title_template: m.title_template,
                     content_template: m.content_template,
                     remark: m.remark,
+                    category,
                     source,
                     channels,
                     targets,

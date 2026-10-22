@@ -547,6 +547,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         event_code: Some(msg.event_code.clone()),
         message_id: Some(msg.id.into()),
         event_source_id: Some(msg.source.id.into()),
+        message_category_id: Some(msg.category.id.into()),
         business_id: Some(message_mqo.business_id.into()),
         // 与幂等检查用的是同一个值，不能再各自兜底
         business_trigger_ms: Some(business_trigger_ms.into()),
@@ -594,7 +595,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             Ok(ro) => {
                 let created_target = ro.extra.as_ref().unwrap();
                 info!(
-                    "投递目标已创建: target_id={}, target_category_code={}, delivery_id={delivery_id}",
+                    "投递目标已创建: target_id={}, category_code={}, delivery_id={delivery_id}",
                     created_target.id, target.target_category.code
                 );
 
@@ -630,7 +631,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             }
             Err(e) => {
                 error!(
-                    "创建投递目标失败: target_category_code={}, error={e}",
+                    "创建投递目标失败: category_code={}, error={e}",
                     target.target_category.code
                 );
             }

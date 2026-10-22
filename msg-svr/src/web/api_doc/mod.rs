@@ -6,6 +6,7 @@ mod msg_delivery_channel_log_api_doc;
 mod msg_delivery_target_api_doc;
 mod msg_event_source_api_doc;
 mod msg_message_api_doc;
+mod msg_message_category_api_doc;
 mod msg_message_queue_api_doc;
 mod msg_message_target_api_doc;
 mod msg_target_category_api_doc;
