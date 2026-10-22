@@ -451,10 +451,11 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
 
     let messages: HashMap<String, MessageCache> = messages_all
         .into_iter()
-        .filter_map(|m| {
-            let category = m
-                .category_id
-                .and_then(|id| categories.get(&id.0).cloned());
+        .map(|m| {
+            let category = categories
+                .get(&m.category_id.0)
+                .cloned()
+                .expect("消息类别应存在：category_id 为 NOT NULL FK");
             let source = sources
                 .get(&m.event_source_id.0)
                 .cloned()
@@ -462,7 +463,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
             let channels = message_channels.get(&m.id.0).cloned().unwrap_or_default();
             let targets = message_targets.get(&m.id.0).cloned().unwrap_or_default();
 
-            Some((
+            (
                 m.event_code.clone(),
                 MessageCache {
                     id: m.id.0,
@@ -472,12 +473,12 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
                     title_template: m.title_template,
                     content_template: m.content_template,
                     remark: m.remark,
-                    category: category?,
+                    category,
                     source,
                     channels,
                     targets,
                 },
-            ))
+            )
         })
         .collect();
 

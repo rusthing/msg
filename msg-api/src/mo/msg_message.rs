@@ -10,7 +10,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     pub event_source_id: i64,
-    pub category_id: Option<i64>,
+    pub category_id: i64,
     #[sea_orm(unique)]
     pub name: String,
     #[sea_orm(unique)]
@@ -42,7 +42,7 @@ pub struct Model {
         on_update = "Restrict",
         on_delete = "Restrict"
     )]
-    pub msg_message_category: BelongsTo<Option<super::msg_message_category::Entity>>,
+    pub msg_message_category: BelongsTo<super::msg_message_category::Entity>,
     #[sea_orm(has_many)]
     pub msg_message_targets: HasMany<super::msg_message_target::Entity>,
 }

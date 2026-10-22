@@ -5,7 +5,7 @@ pub struct MsgMessageDto {
     /// 消息来源ID
     pub event_source_id: u64,
     /// 消息类别ID
-    pub category_id: Option<u64>,
+    pub category_id: u64,
     /// 事件编码（在应用中定义，事件触发时传递出来）
     pub event_code: String,
     /// 名称

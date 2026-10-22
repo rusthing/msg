@@ -6,6 +6,7 @@ pub mod msg_delivery_ctrl;
 pub mod msg_delivery_target_ctrl;
 pub mod msg_event_source_ctrl;
 pub mod msg_message_category_ctrl;
+pub mod msg_message_level_ctrl;
 pub mod msg_message_ctrl;
 pub mod msg_message_queue_ctrl;
 pub mod msg_message_target_ctrl;

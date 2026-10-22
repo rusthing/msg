@@ -508,7 +508,7 @@ id
 create table msg_message (
    id                   INT8                 not null,
    event_source_id      INT8                 not null,
-   category_id          INT8                 null,
+   category_id          INT8                 not null,
    name                 VARCHAR(50)          not null,
    event_code           VARCHAR(50)          not null,
    persisted            BOOL                 not null default true,
@@ -645,6 +645,57 @@ comment on column msg_message_category.update_ms is
 /* Index: msg_message_category_PK                               */
 /*==============================================================*/
 create unique index msg_message_category_PK on msg_message_category (
+id
+);
+
+/*==============================================================*/
+/* Table: msg_message_level                                     */
+/*==============================================================*/
+create table msg_message_level (
+   id                   INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_MESSAGE_LEVEL primary key (id),
+   constraint AK_CODE_MSG_MESSAGE_LEVEL unique (code),
+   constraint AK_NAME_MSG_MESSAGE_LEVEL unique (name)
+);
+
+comment on table msg_message_level is
+'消息级别';
+
+comment on column msg_message_level.id is
+'ID';
+
+comment on column msg_message_level.code is
+'编码';
+
+comment on column msg_message_level.name is
+'名称';
+
+comment on column msg_message_level.remark is
+'备注';
+
+comment on column msg_message_level.creater_id is
+'创建者ID';
+
+comment on column msg_message_level.create_ms is
+'创建时间戳';
+
+comment on column msg_message_level.updater_id is
+'更新者ID';
+
+comment on column msg_message_level.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_message_level_PK                                  */
+/*==============================================================*/
+create unique index msg_message_level_PK on msg_message_level (
 id
 );
 

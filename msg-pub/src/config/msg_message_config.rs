@@ -86,12 +86,11 @@ impl MsgMessageConfig {
     /// ## 参数
     ///
     /// - `event_source_id`: 事件来源 ID
-    /// - `category_id`: 消息类别 ID；为空表示不挂类别（该消息不会进模板缓存）
-    pub fn to_add_dto(&self, event_source_id: u64, category_id: Option<u64>) -> MsgMessageAddDto {
+    /// - `category_id`: 消息类别 ID（必填）
+    pub fn to_add_dto(&self, event_source_id: u64, category_id: u64) -> MsgMessageAddDto {
         MsgMessageAddDto {
             event_source_id: Some(U64(event_source_id)),
-            // AddDto 的可空字段是双重 Option：外层「是否设置」，内层「是否 NULL」
-            category_id: Some(category_id.map(U64)),
+            category_id: Some(U64(category_id)),
             event_code: Some(self.event_code.clone()),
             name: Some(self.name.clone()),
             persisted: Some(self.persisted),

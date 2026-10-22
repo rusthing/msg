@@ -6,6 +6,7 @@ mod msg_delivery_router;
 mod msg_delivery_target_router;
 mod msg_event_source_router;
 mod msg_message_category_router;
+mod msg_message_level_router;
 mod msg_message_queue_router;
 mod msg_message_router;
 mod msg_message_target_router;
