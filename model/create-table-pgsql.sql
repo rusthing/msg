@@ -256,7 +256,7 @@ create table msg_delivery_channel (
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY_CHANNEL primary key (id),
-   constraint AK_DELIVERY_TARGET_AND_CHANNEL_MSG_DELIVERY_CHANNEL unique (deliver_target_id, channel_id)
+   constraint AK_DELIVER_TARGET_ID_AND_CHANNEL_ID_MSG_DELIVERY_CHANNEL unique (deliver_target_id, channel_id)
 );
 
 comment on table msg_delivery_channel is
@@ -392,7 +392,7 @@ create table msg_delivery_target (
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY_TARGET primary key (id),
-   constraint AK_DELIVERY_AND_TARGET_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
+   constraint AK_DELIVERY_ID_AND_TARGET_CATEGORY_ID_AND_TARGET_ID_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
 );
 
 comment on table msg_delivery_target is
@@ -718,7 +718,7 @@ create table msg_message_target (
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_MESSAGE_TARGET primary key (id),
-   constraint AK_MESSAGE_AND_TARGET_CATEGORY_AND_TARGET_MSG_MESSAGE_TARGET unique (message_id, target_category_id, target_id)
+   constraint AK_MESSAGE_ID_AND_TARGET_CATEGORY_ID_AND_TARGET_ID_MSG_MESSAGE_TARGET unique (message_id, target_category_id, target_id)
 );
 
 comment on table msg_message_target is
@@ -833,7 +833,7 @@ create table msg_target_category_channel (
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_TARGET_CATEGORY_CHANNEL primary key (id),
-   constraint AK_CHANNEL_AND_TARGET_CATEGORY_MSG_TARGET_CATEGORY_CHANNEL unique (channel_id, target_category_id)
+   constraint AK_CHANNEL_ID_AND_TARGET_CATEGORY_ID_MSG_TARGET_CATEGORY_CHANNEL unique (channel_id, target_category_id)
 );
 
 comment on table msg_target_category_channel is
