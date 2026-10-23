@@ -21,6 +21,17 @@ profile = "dev"
 ## 死信队列自身落库失败的最大重投次数（死信消费只写一张表，失败多半是库的问题）
 #dead-letter-max-deliver = 3
 
+## 大屏长连接（websocket 渠道）
+## 握手令牌不在这里：它是渠道配置，存在 msg_channel.options（{"token":"..."}），
+## 每次握手现查，换令牌不用重启
+#[msg.ws]
+## 挂载路径，路由在 Web 服务器启动时注册，改这里要重启
+#path = "/msg/ws"
+## 心跳间隔（秒），写失败即断开并清理连接
+#ping-interval-secs = 30
+## 每条连接的待发队列长度，满了丢新消息（大屏要最新状态，不追一条不漏）
+#send-queue-size = 128
+
 ## 刷新信号订阅（robotech 通用配置，缓存与队列订阅共用）
 #[refresh]
 ## 订阅探活间隔：consumer 丢失（NATS 重启 / 断连超时 / 人工删除）后，

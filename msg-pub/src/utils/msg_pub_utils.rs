@@ -5,7 +5,7 @@
 
 use crate::utils::msg_pub_error::MsgPubError;
 use msg_api_client::cst::MSG_MESSAGE_TOPIC;
-use msg_api_client::mqo::message_mqo::MessageMqo;
+use msg_api_client::msg::message_msg::MessageMsg;
 use robotech::mq::nats::publish;
 
 /// # 发布模式
@@ -47,8 +47,8 @@ pub enum PublishMode {
 ///   这是**期望行为**：宁可报错，也不要无声丢弃。
 /// - 高频、可丢的场景请用 [`publish_message_with`] + [`PublishMode::BestEffort`]，
 ///   不要为了统一入口付出每条一次的 ACK 往返。
-pub async fn publish_message(message_mqo: MessageMqo) -> Result<(), MsgPubError> {
-    publish_message_with(message_mqo, PublishMode::Persistent).await
+pub async fn publish_message(message_msg: MessageMsg) -> Result<(), MsgPubError> {
+    publish_message_with(message_msg, PublishMode::Persistent).await
 }
 
 /// # 按指定模式发布一条消息到消息中心
@@ -56,10 +56,10 @@ pub async fn publish_message(message_mqo: MessageMqo) -> Result<(), MsgPubError>
 /// 两种模式的差异见 [`PublishMode`]。消息体与主题完全一致，
 /// 调用方可以按业务对可靠性的要求自行选择，不需要绕过 msg-pub 直连 NATS。
 pub async fn publish_message_with(
-    message_mqo: MessageMqo,
+    message_msg: MessageMsg,
     mode: PublishMode,
 ) -> Result<(), MsgPubError> {
-    publish_message_to(MSG_MESSAGE_TOPIC, message_mqo, mode).await
+    publish_message_to(MSG_MESSAGE_TOPIC, message_msg, mode).await
 }
 
 /// # 发布一条消息到指定队列
@@ -70,10 +70,10 @@ pub async fn publish_message_with(
 /// 发的 subject 没人订阅」。
 pub async fn publish_message_to(
     subject: &str,
-    message_mqo: MessageMqo,
+    message_msg: MessageMsg,
     mode: PublishMode,
 ) -> Result<(), MsgPubError> {
     let persistent = matches!(mode, PublishMode::Persistent);
-    publish(subject, &message_mqo, persistent).await?;
+    publish(subject, &message_msg, persistent).await?;
     Ok(())
 }

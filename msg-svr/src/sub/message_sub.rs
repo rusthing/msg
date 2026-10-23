@@ -21,12 +21,13 @@
 //!
 //! 注意：消息模板缓存（`build_message_cache`）不会触发队列重新订阅。
 
-use crate::cache::{MessageCache, get_message_cache};
+use crate::cache::{ChannelCache, MessageCache, get_message_cache};
 use crate::config::get_msg_config;
 use crate::dto::MsgMessageQueueQueryDto;
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
 use crate::utils::render_template;
 use crate::vo::MsgMessageQueueVo;
+use crate::wkr::{self, channel::SendOutcome, deliver_result};
 use arc_swap::ArcSwapOption;
 use idworker::next_id;
 use msg_api::cst::{MSG_MESSAGE_TOPIC, MSG_QUEUE_REFRESH_SUBJECT};
@@ -35,7 +36,7 @@ use msg_api::dto::{
     MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto, MsgDeliveryTargetAddDto,
     MsgMessageQueueAddDto,
 };
-use msg_api::mqo::message_mqo::MessageMqo;
+use msg_api::msg::{DeliveryMsg, message_msg::MessageMsg};
 use robotech::api::U64;
 use robotech::cst::user_id_cst::SYS_OPERATOR_USER_ID;
 use robotech::dao::DaoError;
@@ -414,50 +415,59 @@ async fn start_subscription_for_queue(
 /// 1. 解析 JSON 负载
 /// 2. 从缓存查找消息模板（按 `event_code`）
 /// 3. 校验队列匹配
-/// 4. 渲染标题和内容（模板用 labels 替换；若模板为 null 则从 annotations 取）
-/// 5. 幂等检查（`(event_code, business_id, business_trigger_ms)` 唯一约束）
-/// 6. 创建 `msg_delivery` 投递记录（含 labels / annotations JSON）
+/// 4. 渲染标题和内容（模板变量取 `labels` 与 `annotations`；模板为 null 时从 `annotations` 取）
+/// 5. 幂等检查（`(event_code, business_id, business_trigger_ms)` 唯一约束；
+///    非持久化消息在第 4 步后就返回，不走到这里）
+/// 6. 创建 `msg_delivery` 投递记录（含 labels / annotations 快照，供排查）
 /// 7. 为每个目标创建 `msg_delivery_target`
 /// 8. 为每个（目标 × 渠道）组合创建 `msg_delivery_channel`
+///
+/// 投递任务只带渲染后的标题与正文：模板是编译，`labels` / `annotations` 是
+/// 编译期输入，产物下发之后不再需要原始变量。
 ///
 /// ## 返回值
 ///
 /// - `Ok(())`：消息处理成功（含幂等跳过）
-/// - `Err(NatsError)`：处理失败
+/// - `Err(NatsError)`：处理失败；持久化消息缺 `business_id` / `business_trigger_ms`
+///   时是 `Discard`（不重投，重复投递只会堆垃圾记录）
 ///
-/// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递。
+/// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递；
+/// 只有 `Discard` 是终止性的，直接 ACK 丢弃。
 pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsError> {
     // ── 1. 解析消息负载 ──
 
-    let message_mqo: MessageMqo = serde_json::from_slice(payload)
+    let message_msg: MessageMsg = serde_json::from_slice(payload)
         .map_err(|e| NatsError::Discard(format!("消息负载 JSON 解析失败 [{}]: {}", subject, e)))?;
 
     info!(
-        "收到消息: event_code={}, business_id={}, subject={}",
-        message_mqo.event_code, message_mqo.business_id, subject
+        "收到消息: event_code={}, business_id={:?}, subject={}",
+        message_msg.event_code, message_msg.business_id, subject
     );
 
     // ── 2. 查找消息模板 ──
 
     let cache = get_message_cache();
-    let msg: &MessageCache = cache.get(&message_mqo.event_code).ok_or_else(|| {
+    let msg: &MessageCache = cache.get(&message_msg.event_code).ok_or_else(|| {
         NatsError::Handle(format!(
             "未找到事件编码对应的消息模板: {}",
-            message_mqo.event_code
+            message_msg.event_code
         ))
     })?;
 
     // ── 3. 渲染标题和内容 ──
     //
-    //   title_template 不为 null → 用 labels 做变量替换，替换 title_template
+    //   模板是「编译」：labels 与 annotations 是输入变量，渲染出的标题和正文
+    //   是产物。产物之后的投递链路只带这两样，原始变量不再下发。
+    //
+    //   title_template 不为 null → 用 labels + annotations 做变量替换
     //   title_template 为 null    → 取 annotations["title"]
     //
-    //   content_template 不为 null → 用 labels 做变量替换，替换 content_template
+    //   content_template 不为 null → 用 labels + annotations 做变量替换
     //   content_template 为 null    → 取 annotations["content"]
 
     let title = match &msg.title_template {
-        Some(tpl) => render_template(tpl, &message_mqo.labels),
-        None => message_mqo
+        Some(tpl) => render_template(tpl, &message_msg.labels, &message_msg.annotations),
+        None => message_msg
             .annotations
             .get("title")
             .cloned()
@@ -465,8 +475,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     };
 
     let content = match &msg.content_template {
-        Some(tpl) => render_template(tpl, &message_mqo.labels),
-        None => message_mqo
+        Some(tpl) => render_template(tpl, &message_msg.labels, &message_msg.annotations),
+        None => message_msg
             .annotations
             .get("content")
             .cloned()
@@ -480,24 +490,47 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     info!("内容渲染完成: title={title}");
 
-    // ── 4. 幂等检查 ──
+    let now_ms = chrono::Utc::now().timestamp_millis() as u64;
+
+    // ── 4. 非持久化消息：不落库、不回写，发不出去就丢 ──
+    //
+    //   `msg_message.persisted = false` 的消息没有投递记录（三级 ID 全空），
+    //   也没有幂等可言（没地方存），所以直接按缓存里的目标×渠道拆任务发出去，
+    //   失败只打日志。这类消息的语义就是 at-most-once。
+
+    if !msg.persisted {
+        publish_best_effort(msg, &message_msg, &title, &content, now_ms).await;
+        return Ok(());
+    }
+
+    // ── 5. 幂等检查 ──
     //
     //   幂等键与 `msg_delivery` 的唯一约束保持一致：
     //   `(event_code, business_id, business_trigger_ms)`。
     //   只按 business_id 查会把「同一个业务对象的另一个事件」误判成重复，
     //   直接静默漏投。
     //
-    //   business_trigger_ms 必填（`MessageMqo` 里是 u64），由发布方传递且重发时保持不变，
-    //   服务端不再兜底：兜底取 now 会让每次重投都算新消息，取 0 又会吞掉后续真实触发。
+    //   两个业务字段在 `MessageMsg` 里都是可选的：发布方没有业务对象可指时
+    //   （遥测这类不落库的消息）会留空。落库的消息必须有，缺了就地拒收——
+    //   不落库就没地方存幂等键，硬投出去只会让同一条消息反复生成投递记录。
+    //   服务端也不兜底：补 now 会让每次重投都算新消息，补 0 又会吞掉后续真实触发。
 
-    let business_trigger_ms = message_mqo.business_trigger_ms;
+    let (Some(business_id), Some(business_trigger_ms)) = (
+        message_msg.business_id,
+        message_msg.business_trigger_ms,
+    ) else {
+        return Err(NatsError::Discard(format!(
+            "持久化消息缺少幂等键 [{}]: business_id={:?}, business_trigger_ms={:?}",
+            subject, message_msg.business_id, message_msg.business_trigger_ms
+        )));
+    };
 
     let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
 
     let existing = MsgDeliverySvc::get_by_query_dto(
         MsgDeliveryQueryDto {
-            event_code: Some(message_mqo.event_code.clone()),
-            business_id: Some(message_mqo.business_id.into()),
+            event_code: Some(message_msg.event_code.clone()),
+            business_id: Some(business_id.into()),
             business_trigger_ms: Some(business_trigger_ms.into()),
             ..Default::default()
         },
@@ -508,8 +541,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     match existing {
         Ok(ro) if ro.extra.is_some() => {
             info!(
-                "消息已投递，幂等跳过: event_code={}, business_id={}, business_trigger_ms={business_trigger_ms}",
-                message_mqo.event_code, message_mqo.business_id
+                "消息已投递，幂等跳过: event_code={}, business_id={business_id}, business_trigger_ms={business_trigger_ms}",
+                message_msg.event_code
             );
             return Ok(());
         }
@@ -519,25 +552,24 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         }
     }
 
-    // ── 5. 创建投递记录 ──
+    // ── 6. 创建投递记录 ──
 
-    let now_ms = chrono::Utc::now().timestamp_millis() as u64;
     let delivery_id = next_id().map_err(|e| NatsError::Handle(format!("生成投递ID失败: {e}")))?;
 
-    let labels_json = if message_mqo.labels.is_empty() {
+    let labels_json = if message_msg.labels.is_empty() {
         None
     } else {
         Some(
-            serde_json::to_string(&message_mqo.labels)
+            serde_json::to_string(&message_msg.labels)
                 .map_err(|e| NatsError::Handle(format!("labels 序列化失败: {e}")))?,
         )
     };
 
-    let annotations_json = if message_mqo.annotations.is_empty() {
+    let annotations_json = if message_msg.annotations.is_empty() {
         None
     } else {
         Some(
-            serde_json::to_string(&message_mqo.annotations)
+            serde_json::to_string(&message_msg.annotations)
                 .map_err(|e| NatsError::Handle(format!("annotations 序列化失败: {e}")))?,
         )
     };
@@ -548,14 +580,15 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         message_id: Some(msg.id.into()),
         event_source_id: Some(msg.source.id.into()),
         message_category_id: Some(msg.category.id.into()),
-        business_id: Some(message_mqo.business_id.into()),
+        business_id: Some(business_id.into()),
         // 与幂等检查用的是同一个值，不能再各自兜底
         business_trigger_ms: Some(business_trigger_ms.into()),
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
         annotations: Some(annotations_json),
-        title: Some(title),
-        content: Some(content),
+        // 后面还要用它们组装投递任务（任务里带的是渲染好的文案）
+        title: Some(title.clone()),
+        content: Some(content.clone()),
         remark: None,
         _current_ms: Some(U64(now_ms)),
         _current_user_id: U64(0),
@@ -565,8 +598,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         .await
         .map_err(|e| {
             NatsError::Handle(format!(
-                "创建投递记录失败 (business_id={}): {e}",
-                message_mqo.business_id
+                "创建投递记录失败 (business_id={business_id}): {e}"
             ))
         })?;
 
@@ -575,7 +607,17 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         msg.id
     );
 
-    // ── 6. 创建投递目标 ──
+    // ── 7. 创建投递目标与渠道记录，并把投递任务收起来 ──
+
+    // 任务要等记录建好再发：先有 ID 才能回写，发不出去也能在库里看到
+    let task_ctx = TaskContext {
+        msg,
+        message_msg: &message_msg,
+        title: &title,
+        content: &content,
+        created_ms: now_ms,
+    };
+    let mut tasks: Vec<DeliveryMsg> = Vec::new();
 
     for target in &msg.targets {
         let target_id_val =
@@ -599,7 +641,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                     created_target.id, target.target_category.code
                 );
 
-                // ── 7. 直接用目标内嵌的渠道列表创建投递渠道记录 ──
+                // ── 8. 直接用目标内嵌的渠道列表创建投递渠道记录 ──
 
                 for channel in &target.target_category.channels {
                     let channel_id_val = next_id()
@@ -626,6 +668,16 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                             "投递渠道已创建: target_id={}, channel_id={}, channel_name={}",
                             created_target.id, channel.id, channel.name
                         );
+                        tasks.push(build_task(
+                            &task_ctx,
+                            (
+                                Some(delivery_id),
+                                Some(created_target.id.0),
+                                Some(channel_id_val),
+                            ),
+                            target.target_id,
+                            channel,
+                        ));
                     }
                 }
             }
@@ -638,13 +690,102 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         }
     }
 
+    // ── 9. 发布投递任务 ──
+
+    for task in tasks {
+        if let Err(e) = wkr::publish_task(&task).await {
+            error!(
+                "发布投递任务失败: channel={}, target_id={}, error={e}",
+                task.channel_code, task.target_id
+            );
+            // 发不出去就不会有发送结果回来，就地记失败，避免渠道一直挂在「投递中」
+            deliver_result::record(
+                &task,
+                &SendOutcome::Failed(format!("发布投递任务失败: {e}")),
+            )
+            .await;
+        }
+    }
+
     info!(
-        "消息处理完成: event_code={}, business_id={}",
-        message_mqo.event_code, message_mqo.business_id
+        "消息处理完成: event_code={}, business_id={:?}",
+        message_msg.event_code, message_msg.business_id
     );
 
     Ok(())
 }
+
+/// # 组装投递任务时共用的上下文
+///
+/// 持久化与非持久化两条路径只有「投递 ID 有没有」不同，其余都取自这里。
+struct TaskContext<'a> {
+    msg: &'a MessageCache,
+    message_msg: &'a MessageMsg,
+    title: &'a str,
+    content: &'a str,
+    created_ms: u64,
+}
+
+/// # 组装一条投递任务
+///
+/// `ids` 是 `(delivery_id, delivery_target_id, delivery_channel_id)`：
+/// 持久化消息带真实 ID，非持久化消息全为 `None`。
+fn build_task(
+    ctx: &TaskContext<'_>,
+    ids: (Option<u64>, Option<u64>, Option<u64>),
+    target_id: u64,
+    channel: &ChannelCache,
+) -> DeliveryMsg {
+    DeliveryMsg {
+        persisted: ctx.msg.persisted,
+        delivery_id: ids.0,
+        delivery_target_id: ids.1,
+        delivery_channel_id: ids.2,
+        event_code: ctx.msg.event_code.clone(),
+        message_id: ctx.msg.id,
+        channel_id: channel.id,
+        channel_code: channel.code.clone(),
+        target_id,
+        business_id: ctx.message_msg.business_id,
+        business_trigger_ms: ctx.message_msg.business_trigger_ms,
+        title: ctx.title.to_string(),
+        content: ctx.content.to_string(),
+        created_ms: ctx.created_ms,
+    }
+}
+
+/// # 非持久化消息的投递
+///
+/// 不写任何表、不做幂等、不回写状态：按缓存里的目标×渠道直接发，
+/// 发不出去只打日志。这类消息语义就是 at-most-once。
+async fn publish_best_effort(
+    msg: &MessageCache,
+    message_msg: &MessageMsg,
+    title: &str,
+    content: &str,
+    created_ms: u64,
+) {
+    let ctx = TaskContext {
+        msg,
+        message_msg,
+        title,
+        content,
+        created_ms,
+    };
+
+    for target in &msg.targets {
+        for channel in &target.target_category.channels {
+            let task = build_task(&ctx, (None, None, None), target.target_id, channel);
+            if let Err(e) = wkr::publish_task(&task).await {
+                warn!(
+                    "发布非持久化投递任务失败，已丢弃: channel={}, target_id={}, error={e}",
+                    task.channel_code, task.target_id
+                );
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

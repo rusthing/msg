@@ -5,4 +5,4 @@ pub mod vo;
 pub mod cst;
 #[cfg(feature = "server")]
 pub mod mo;
-pub mod mqo;
+pub mod msg;

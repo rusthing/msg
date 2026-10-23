@@ -8,6 +8,14 @@
 //! max-deliver = 5
 //! # 死信队列自身落库失败的最大重投次数
 //! dead-letter-max-deliver = 3
+//!
+//! [msg.ws]
+//! # 大屏长连接的挂载路径
+//! path = "/msg/ws"
+//! # 心跳间隔（秒）
+//! ping-interval-secs = 30
+//! # 每条连接的待发队列长度，满了丢新消息
+//! send-queue-size = 128
 //! ```
 //!
 //! 配置在 `setup()` 入口写入全局，建立 NATS 订阅时读取：
@@ -33,6 +41,13 @@ const DEFAULT_DEAD_LETTER_MAX_DELIVER: i64 = 3;
 /// 避免配置笔误把订阅变成无限重投（毒消息会在 stream 里反复刷）。
 const MIN_MAX_DELIVER: i64 = 1;
 
+/// 大屏长连接默认挂载路径
+const DEFAULT_WS_PATH: &str = "/msg/ws";
+/// 心跳默认间隔（秒）
+const DEFAULT_WS_PING_INTERVAL_SECS: u64 = 30;
+/// 单连接默认待发队列长度
+const DEFAULT_WS_SEND_QUEUE_SIZE: usize = 128;
+
 /// # MSG 业务配置
 ///
 /// 字段缺省时取 [`Default`] 的取值，因此配置文件里只写关心的字段即可。
@@ -49,6 +64,8 @@ pub struct MsgConfig {
     /// 死信消费只是写一张表，重试几次仍失败基本说明表/库本身有问题，
     /// 再投也没有意义，所以默认值比业务队列小。
     pub dead_letter_max_deliver: i64,
+    /// websocket 渠道（大屏长连接）配置
+    pub ws: MsgWsConfig,
 }
 
 impl Default for MsgConfig {
@@ -56,6 +73,39 @@ impl Default for MsgConfig {
         Self {
             max_deliver: DEFAULT_MAX_DELIVER,
             dead_letter_max_deliver: DEFAULT_DEAD_LETTER_MAX_DELIVER,
+            ws: MsgWsConfig::default(),
+        }
+    }
+}
+
+/// # websocket 渠道配置
+///
+/// 只放连接本身的参数。握手用的 token 不在这里——它是渠道的配置，
+/// 存在 `msg_channel.options`（`{"token":"..."}`），运营改渠道表即可换。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct MsgWsConfig {
+    /// 长连接挂载路径
+    ///
+    /// 在 Web 服务器启动时注册，改这个值需要重启（Web 路由不会因热更新重建）。
+    pub path: String,
+    /// 心跳间隔（秒）
+    ///
+    /// 服务端按这个间隔发 Ping；写失败说明连接已断，直接关闭并清理。
+    pub ping_interval_secs: u64,
+    /// 每条连接的待发队列长度
+    ///
+    /// 大屏消费不过来时队列会堆积，满了就丢新消息（大屏只要最新状态，
+    /// 不追求一条不漏），不能让一个慢连接拖住整个投递线程。
+    pub send_queue_size: usize,
+}
+
+impl Default for MsgWsConfig {
+    fn default() -> Self {
+        Self {
+            path: DEFAULT_WS_PATH.to_string(),
+            ping_interval_secs: DEFAULT_WS_PING_INTERVAL_SECS,
+            send_queue_size: DEFAULT_WS_SEND_QUEUE_SIZE,
         }
     }
 }
@@ -140,5 +190,18 @@ mod tests {
         let config = parse("[msg]\nmax-deliver = 0\ndead-letter-max-deliver = -1\n");
         assert_eq!(config.effective_max_deliver(), MIN_MAX_DELIVER);
         assert_eq!(config.effective_dead_letter_max_deliver(), MIN_MAX_DELIVER);
+    }
+
+    #[test]
+    fn ws_defaults() {
+        // 整段不写时走默认值，只写一个字段时其余仍回落默认
+        let config = parse("[msg]");
+        assert_eq!(config.ws.path, "/msg/ws");
+        assert_eq!(config.ws.ping_interval_secs, 30);
+        assert_eq!(config.ws.send_queue_size, 128);
+
+        let config = parse("[msg.ws]\npath = \"/screen/ws\"\n");
+        assert_eq!(config.ws.path, "/screen/ws");
+        assert_eq!(config.ws.ping_interval_secs, 30);
     }
 }

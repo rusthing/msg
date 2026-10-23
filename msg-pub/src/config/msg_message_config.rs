@@ -50,7 +50,7 @@ pub struct MsgMessageConfig {
     pub source_code: String,
     /// 消息类别（按 code 幂等注册，不存在时自动创建）
     pub category: MsgMessageCategoryConfig,
-    /// 事件编码——发布 `MessageMqo` 时填的就是它，msg-svr 按它查模板
+    /// 事件编码——发布 `MessageMsg` 时填的就是它，msg-svr 按它查模板
     pub event_code: String,
     /// 名称（唯一）
     pub name: String,
@@ -58,11 +58,11 @@ pub struct MsgMessageConfig {
     #[serde(default = "persisted_default")]
     #[builder(default = persisted_default())]
     pub persisted: bool,
-    /// 标题模板（`{var}` 占位符取消息 labels；为 null 时取 annotations.title）
+    /// 标题模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时取 annotations.title）
     #[serde(default)]
     #[builder(default)]
     pub title_template: Option<String>,
-    /// 内容模板（`{var}` 占位符取消息 labels；为 null 时取 annotations.content）
+    /// 内容模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时取 annotations.content）
     #[serde(default)]
     #[builder(default)]
     pub content_template: Option<String>,
