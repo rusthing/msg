@@ -3239,7 +3239,7 @@ DAT 1792733861</a:History>
 <o:Identifier Id="o120">
 <a:ObjectID>9C8631C1-EBAA-44B6-861D-54B41C065FB7</a:ObjectID>
 <a:Name>消息与目标类别与目标</a:Name>
-<a:Code>message_and_target_category_and_target</a:Code>
+<a:Code>message_id_and_target_category_id_and_target_id</a:Code>
 <a:CreationDate>1790042377</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790042453</a:ModificationDate>
@@ -3552,7 +3552,7 @@ DAT 1792733861</a:History>
 <o:Identifier Id="o142">
 <a:ObjectID>61EFBEE9-3AF2-4457-A9AD-B2F6E2972E46</a:ObjectID>
 <a:Name>投递与目标</a:Name>
-<a:Code>delivery_and_target</a:Code>
+<a:Code>delivery_id_and_target_category_id_and_target_id</a:Code>
 <a:CreationDate>1790300617</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790300690</a:ModificationDate>
@@ -3716,7 +3716,7 @@ DAT 1792733861</a:History>
 <o:Identifier Id="o153">
 <a:ObjectID>995B51AB-4090-4AF7-9568-414D10711CFE</a:ObjectID>
 <a:Name>投递目标与渠道</a:Name>
-<a:Code>delivery_target_and_channel</a:Code>
+<a:Code>deliver_target_id_and_channel_id</a:Code>
 <a:CreationDate>1790040276</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790040333</a:ModificationDate>
@@ -4332,7 +4332,7 @@ DAT 1792733861</a:History>
 <o:Identifier Id="o196">
 <a:ObjectID>9BEFDD89-F095-4B26-8BC8-6AC006829CEA</a:ObjectID>
 <a:Name>渠道与目标类别</a:Name>
-<a:Code>channel_and_target_category</a:Code>
+<a:Code>channel_id_and_target_category_id</a:Code>
 <a:CreationDate>1790300764</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790300828</a:ModificationDate>

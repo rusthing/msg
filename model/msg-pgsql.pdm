@@ -5709,7 +5709,7 @@ INS COLNCOL {8212F379-7205-41C4-804A-950E05C434FD}</a:History>
 <o:Key Id="o95">
 <a:ObjectID>89580D09-59AF-4A29-8617-9750A4B692E8</a:ObjectID>
 <a:Name>渠道与目标类别</a:Name>
-<a:Code>channel_and_target_category</a:Code>
+<a:Code>channel_id_and_target_category_id</a:Code>
 <a:CreationDate>1790301829</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790301863</a:ModificationDate>
@@ -7105,7 +7105,7 @@ DAT 1790046262</a:History>
 <o:Key Id="o180">
 <a:ObjectID>F0122078-3554-472E-B2BD-F1D9D5E38119</a:ObjectID>
 <a:Name>消息与目标类别与目标</a:Name>
-<a:Code>message_and_target_category_and_target</a:Code>
+<a:Code>message_id_and_target_category_id_and_target_id</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
@@ -7710,7 +7710,7 @@ DAT 1790046262</a:History>
 <o:Key Id="o217">
 <a:ObjectID>75929DCB-5548-4A91-8CB3-424D24539CB3</a:ObjectID>
 <a:Name>投递与目标</a:Name>
-<a:Code>delivery_and_target</a:Code>
+<a:Code>delivery_id_and_target_category_id_and_target_id</a:Code>
 <a:CreationDate>1790301829</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790301863</a:ModificationDate>
@@ -8053,7 +8053,7 @@ DAT 1790046262</a:History>
 <o:Key Id="o238">
 <a:ObjectID>2C19DE84-4D8E-46DA-B9F9-AD7A3BF0A1FA</a:ObjectID>
 <a:Name>投递目标与渠道</a:Name>
-<a:Code>delivery_target_and_channel</a:Code>
+<a:Code>deliver_target_id_and_channel_id</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
