@@ -2255,7 +2255,7 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:ModificationDate>1790233756</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>标题模板
-为null的话从annotations中取title设置为标题</a:Comment>
+为null的话用发布方给的title作为标题</a:Comment>
 <a:DataType>VA150</a:DataType>
 <a:Length>150</a:Length>
 <a:GlobalObjectID/>
@@ -2269,7 +2269,22 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:ModificationDate>1790236929</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>内容模板
-为null的话从annotations中取content设置为内容</a:Comment>
+为null的话用发布方给的content作为内容</a:Comment>
+<a:DataType>TXT</a:DataType>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o230">
+<a:ObjectID>6C03CA3B-C991-4694-87A5-F52B805B45FC</a:ObjectID>
+<a:Name>附加内容模板</a:Name>
+<a:Code>ext_template</a:Code>
+<a:CreationDate>1792733861</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1792733861</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>附加内容模板
+渲染结果原样下发，格式不约定；为null时用发布方给的附加内容</a:Comment>
+<a:History>ORG {6C03CA3B-C991-4694-87A5-F52B805B45FC}
+DAT 1792733861</a:History>
 <a:DataType>TXT</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -2881,6 +2896,21 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o231">
+<a:ObjectID>86CCF4EB-022A-4089-905E-91FC4465C5D1</a:ObjectID>
+<a:Name>附加内容</a:Name>
+<a:Code>ext</a:Code>
+<a:CreationDate>1792733861</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1792733861</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>附加内容
+模板渲染结果，格式不约定</a:Comment>
+<a:History>ORG {86CCF4EB-022A-4089-905E-91FC4465C5D1}
+DAT 1792733861</a:History>
+<a:DataType>TXT</a:DataType>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 <o:EntityAttribute Id="o113">
 <a:ObjectID>ACA85807-A12A-4C4B-822A-BDBA223F6964</a:ObjectID>
 <a:Name>备注</a:Name>
@@ -3032,8 +3062,9 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304171</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
 <a:DataType>LI</a:DataType>
-<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:LogicalAttribute.Mandatory>0</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o124">
@@ -3342,8 +3373,9 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304180</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
 <a:DataType>LI</a:DataType>
-<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:LogicalAttribute.Mandatory>0</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o146">

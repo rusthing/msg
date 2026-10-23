@@ -414,23 +414,23 @@ async fn start_subscription_for_queue(
 ///
 /// 1. 解析 JSON 负载
 /// 2. 从缓存查找消息模板（按 `event_code`）
-/// 3. 校验队列匹配
-/// 4. 渲染标题和内容（模板变量取 `labels` 与 `annotations`；模板为 null 就不产出该字段）
-/// 5. 幂等检查（`(event_code, business_id, business_trigger_ms)` 唯一约束；
-///    非持久化消息在第 4 步后就返回，不走到这里）
+/// 3. 渲染标题、内容与附加内容（模板优先、发布方兜底；标题和内容为空就拒收）
+/// 4. 非持久化消息直接按缓存里的目标×渠道投递并返回
+/// 5. 幂等检查（`(event_code, business_id, business_trigger_ms)` 唯一约束）
 /// 6. 创建 `msg_delivery` 投递记录（含 labels / annotations 快照，供排查）
 /// 7. 为每个目标创建 `msg_delivery_target`
 /// 8. 为每个（目标 × 渠道）组合创建 `msg_delivery_channel`
 ///
-/// 投递任务与投递三张表一一对应：渲染好的标题正文、原始 `labels` / `annotations`、
-/// 三张表的行 ID 与目标/渠道字段。模板只把变量拼成文案，不吞掉输入——接收方
-/// 还要用结构化字段做业务处理（大屏按坐标落点、按楼层切图）。
+/// 投递任务与投递三张表一一对应：渲染好的标题、内容、附加内容，三张表的行 ID
+/// 与目标/渠道字段。`labels` / `annotations` 只是模板的输入，渲染完就只剩
+/// `msg_delivery` 里的快照，不再下发——接收方要的结构化字段，得由模板渲染
+/// 进 `content` 或 `ext`。
 ///
 /// ## 返回值
 ///
 /// - `Ok(())`：消息处理成功（含幂等跳过）
-/// - `Err(NatsError)`：处理失败；持久化消息缺 `business_id` / `business_trigger_ms`
-///   时是 `Discard`（不重投，重复投递只会堆垃圾记录）
+/// - `Err(NatsError)`：处理失败；标题/内容为空、持久化消息缺 `business_id` /
+///   `business_trigger_ms` 时是 `Discard`（配置错误，重投多少次都一样）
 ///
 /// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递；
 /// 只有 `Discard` 是终止性的，直接 ACK 丢弃。
@@ -455,30 +455,52 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         ))
     })?;
 
-    // ── 3. 渲染标题和内容 ──
+    // ── 3. 渲染标题、内容与附加内容 ──
     //
-    //   模板只负责把 labels 与 annotations 拼成可读文案，渲染结果和原始变量
-    //   一起下发：接收方既要文案，也要结构化字段。
+    //   三个字段各自独立判断，模板优先、发布方兜底：
+    //   msg_message 上的模板有值 → 用模板渲染；
+    //   模板为 null → 取 MessageMsg 里发布方给的同名值；
+    //   两边都没有，或渲染结果全是空白 → None（空串不算有内容）。
     //
-    //   title_template 有值 → 用 labels + annotations 做变量替换
-    //   title_template 为 null → 不产出标题（任务里 title 为 None）
-    //
-    //   content_template 同理。
-    //
-    //   不为 null 的模板也不会去 annotations 里找同名键兜底：文案的形态由
-    //   模板决定，没有模板就是没有。
+    //   模板变量取 labels / annotations，这两份只是输入，不随投递下发。
+    //   模板为 null 时只认发布方给的字段，不会再去 annotations 里找同名键
+    //   兜底（早先 title 缺模板会去 annotations 取 title，现在不发 annotations
+    //   了，那条路已经没有了）。
 
-    let title = msg
-        .title_template
-        .as_ref()
-        .map(|tpl| render_template(tpl, &message_msg.labels, &message_msg.annotations));
+    let title = pick(
+        msg.title_template.as_deref(),
+        message_msg.title.as_deref(),
+        &message_msg.labels,
+        &message_msg.annotations,
+    );
 
-    let content = msg
-        .content_template
-        .as_ref()
-        .map(|tpl| render_template(tpl, &message_msg.labels, &message_msg.annotations));
+    let content = pick(
+        msg.content_template.as_deref(),
+        message_msg.content.as_deref(),
+        &message_msg.labels,
+        &message_msg.annotations,
+    );
 
-    info!("内容渲染完成: title={title:?}, content={content:?}");
+    let ext = pick(
+        msg.ext_template.as_deref(),
+        message_msg.ext.as_deref(),
+        &message_msg.labels,
+        &message_msg.annotations,
+    );
+
+    info!("内容渲染完成: title={title:?}, content={content:?}, ext={ext:?}");
+
+    // 标题和内容是投递的成品，缺一个消费方就没法用。这是配置错误
+    // （模板和发布方都没给），重投多少次结果都一样，就地拒收。
+    let (title, content) = match (title, content) {
+        (Some(title), Some(content)) => (title, content),
+        (title, content) => {
+            return Err(NatsError::Discard(format!(
+                "标题或内容为空，拒收 [{}]: event_code={}, title={title:?}, content={content:?}",
+                subject, message_msg.event_code
+            )));
+        }
+    };
 
     let now_ms = chrono::Utc::now().timestamp_millis() as u64;
 
@@ -489,14 +511,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //   失败只打日志。这类消息的语义就是 at-most-once。
 
     if !msg.persisted {
-        publish_best_effort(
-            msg,
-            &message_msg,
-            title.as_deref(),
-            content.as_deref(),
-            now_ms,
-        )
-        .await;
+        publish_best_effort(msg, &message_msg, &title, &content, ext.as_deref(), now_ms).await;
         return Ok(());
     }
 
@@ -584,9 +599,10 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
         annotations: Some(annotations_json),
-        // 库列是 not null：没有模板的消息落空串，投递任务里仍是 None
-        title: Some(title.clone().unwrap_or_default()),
-        content: Some(content.clone().unwrap_or_default()),
+        // 库列是 not null：走到这里标题内容已经校验过非空
+        title: Some(title.clone()),
+        content: Some(content.clone()),
+        ext: Some(ext.clone()),
         remark: None,
         _current_ms: Some(U64(now_ms)),
         _current_user_id: U64(0),
@@ -611,8 +627,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     let task_ctx = TaskContext {
         msg,
         message_msg: &message_msg,
-        title: title.as_deref(),
-        content: content.as_deref(),
+        title: &title,
+        content: &content,
+        ext: ext.as_deref(),
         create_ms: now_ms,
     };
     let mut tasks: Vec<DeliveryMsg> = Vec::new();
@@ -625,7 +642,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             id: Some(U64(target_id_val)),
             delivery_id: Some(delivery_id.into()),
             target_category_id: Some(target.target_category.id.into()),
-            target_id: Some(target.target_id.into()),
+            // 广播目标（target_id 为空）也要落一行：投递记录得说明「这次覆盖了
+            // 哪个类别」，否则渠道记录挂不到目标上，状态也没法逐级汇总
+            target_id: Some(target.target_id.map(U64)),
             deliver_target_status: Some(DeliverTargetStatus::Delivering),
             _current_ms: Some(U64(now_ms)),
             _current_user_id: U64(0),
@@ -693,7 +712,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     for task in tasks {
         if let Err(e) = wkr::publish_task(&task).await {
             error!(
-                "发布投递任务失败: channel={}, target_id={}, error={e}",
+                "发布投递任务失败: channel={}, target_id={:?}, error={e}",
                 task.channel_code, task.target_id
             );
             // 发不出去就不会有发送结果回来，就地记失败，避免渠道一直挂在「投递中」
@@ -719,11 +738,36 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 struct TaskContext<'a> {
     msg: &'a MessageCache,
     message_msg: &'a MessageMsg,
-    /// 渲染结果，模板为 `null` 时是 `None`
-    title: Option<&'a str>,
-    /// 渲染结果，模板为 `null` 时是 `None`
-    content: Option<&'a str>,
+    /// 渲染结果，已校验非空
+    title: &'a str,
+    /// 渲染结果，已校验非空
+    content: &'a str,
+    /// 渲染结果，可为空
+    ext: Option<&'a str>,
     create_ms: u64,
+}
+
+/// # 按优先级取一个已渲染的字段
+///
+/// 模板有值就用模板（运营配置的优先级高于发布方），模板为 `null` 才用发布方
+/// 给的值。渲染结果全是空白等同于没有——空串会让消费方的 `is_some()` 判断
+/// 失效，也过不了标题内容的非空校验。
+fn pick(
+    template: Option<&str>,
+    from_publisher: Option<&str>,
+    labels: &HashMap<String, String>,
+    annotations: &HashMap<String, String>,
+) -> Option<String> {
+    let rendered = match template {
+        Some(template) => render_template(template, labels, annotations),
+        None => from_publisher?.to_string(),
+    };
+
+    if rendered.trim().is_empty() {
+        None
+    } else {
+        Some(rendered)
+    }
 }
 
 /// # 组装一条投递任务
@@ -748,11 +792,9 @@ fn build_task(
         message_category_id: ctx.msg.category.id,
         business_id: ctx.message_msg.business_id,
         business_trigger_ms: ctx.message_msg.business_trigger_ms,
-        // 原始变量原样带下去：模板渲染出的标题正文只是其中一种用法
-        labels: ctx.message_msg.labels.clone(),
-        annotations: ctx.message_msg.annotations.clone(),
-        title: ctx.title.map(str::to_string),
-        content: ctx.content.map(str::to_string),
+        title: ctx.title.to_string(),
+        content: ctx.content.to_string(),
+        ext: ctx.ext.map(str::to_string),
         create_ms: ctx.create_ms,
         target_category_id: target.target_category.id,
         target_id: target.target_id,
@@ -768,8 +810,9 @@ fn build_task(
 async fn publish_best_effort(
     msg: &MessageCache,
     message_msg: &MessageMsg,
-    title: Option<&str>,
-    content: Option<&str>,
+    title: &str,
+    content: &str,
+    ext: Option<&str>,
     create_ms: u64,
 ) {
     let ctx = TaskContext {
@@ -777,6 +820,7 @@ async fn publish_best_effort(
         message_msg,
         title,
         content,
+        ext,
         create_ms,
     };
 
@@ -785,7 +829,7 @@ async fn publish_best_effort(
             let task = build_task(&ctx, (None, None, None), target, channel);
             if let Err(e) = wkr::publish_task(&task).await {
                 warn!(
-                    "发布非持久化投递任务失败，已丢弃: channel={}, target_id={}, error={e}",
+                    "发布非持久化投递任务失败，已丢弃: channel={}, target_id={:?}, error={e}",
                     task.channel_code, task.target_id
                 );
             }
@@ -796,6 +840,38 @@ async fn publish_best_effort(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 模板优先于发布方：模板是运营配的，发布方给的值只在模板缺席时兜底
+    #[test]
+    fn pick_prefers_template_over_publisher() {
+        let labels = HashMap::from([("name".to_string(), "张三".to_string())]);
+        let annotations = HashMap::new();
+
+        assert_eq!(
+            pick(
+                Some("你好 {name}"),
+                Some("发布方的标题"),
+                &labels,
+                &annotations
+            ),
+            Some("你好 张三".to_string())
+        );
+        assert_eq!(
+            pick(None, Some("发布方的标题"), &labels, &annotations),
+            Some("发布方的标题".to_string())
+        );
+        assert_eq!(pick(None, None, &labels, &annotations), None);
+    }
+
+    /// 渲染出空白等同于没有：空串会骗过 is_some()，也过不了非空校验
+    #[test]
+    fn pick_treats_blank_as_absent() {
+        let empty = HashMap::new();
+
+        // 模板配了但渲染出空白：算没有，不回落到发布方（模板已接管这个字段）
+        assert_eq!(pick(Some("   "), Some("有值"), &empty, &empty), None);
+        assert_eq!(pick(None, Some(""), &empty, &empty), None);
+    }
 
     /// NATS stream / consumer 名允许的字符集
     fn is_valid_nats_name(name: &str) -> bool {

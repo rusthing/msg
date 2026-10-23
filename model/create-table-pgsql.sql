@@ -141,6 +141,7 @@ create table msg_delivery (
    annotations          TEXT                 null,
    title                VARCHAR(150)         not null,
    content              TEXT                 not null,
+   ext                  TEXT                 null,
    remark               VARCHAR(50)          null,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
@@ -198,6 +199,10 @@ comment on column msg_delivery.title is
 
 comment on column msg_delivery.content is
 '内容';
+
+comment on column msg_delivery.ext is
+'附加内容
+模板渲染结果，格式不约定';
 
 comment on column msg_delivery.remark is
 '备注';
@@ -385,7 +390,7 @@ create table msg_delivery_target (
    id                   INT8                 not null,
    delivery_id          INT8                 not null,
    target_category_id   INT8                 not null,
-   target_id            INT8                 not null,
+   target_id            INT8                 null,
    deliver_target_status INT2                 not null default 0,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
@@ -408,7 +413,7 @@ comment on column msg_delivery_target.target_category_id is
 '目标类别ID';
 
 comment on column msg_delivery_target.target_id is
-'目标ID';
+'目标ID（为空表示该目标类别下的全部目标，即按类别广播）';
 
 comment on column msg_delivery_target.deliver_target_status is
 '投递状态
@@ -449,6 +454,18 @@ delivery_id
 create  index Relationship_12_FK on msg_delivery_target (
 target_category_id
 );
+
+/*==============================================================*/
+/* Index: ak_delivery_id_and_target_category_id_msg_delivery_target */
+/*==============================================================*/
+-- 手工维护：PowerDesigner 不支持部分索引（带 where 的唯一索引），
+-- 上面那条 (delivery_id, target_category_id, target_id) 唯一约束在
+-- target_id 为 null 时管不住重复（SQL 里 null 互不相等），广播行会被插多条。
+-- 索引名必须保持 ak_{列名_and}_{表名} 的格式，robotech 的重复键识别
+-- 是按这个名字回查字段列表的（见 unique_keys_utils.rs）。
+create unique index ak_delivery_id_and_target_category_id_msg_delivery_target
+   on msg_delivery_target (delivery_id, target_category_id)
+   where target_id is null;
 
 /*==============================================================*/
 /* Table: msg_event_source                                      */
@@ -514,6 +531,7 @@ create table msg_message (
    persisted            BOOL                 not null default true,
    title_template       VARCHAR(150)         null,
    content_template     TEXT                 null,
+   ext_template         TEXT                 null,
    remark               VARCHAR(50)          null,
    enabled              BOOL                 not null default true,
    creater_id           INT8                 not null,
@@ -551,11 +569,15 @@ comment on column msg_message.persisted is
 
 comment on column msg_message.title_template is
 '标题模板
-为null的话从annotations中取title设置为标题';
+为null的话用发布方给的title作为标题';
 
 comment on column msg_message.content_template is
 '内容模板
-为null的话从annotations中取content设置为内容';
+为null的话用发布方给的content作为内容';
+
+comment on column msg_message.ext_template is
+'附加内容模板
+渲染结果原样下发，格式不约定；为null时用发布方给的附加内容';
 
 comment on column msg_message.remark is
 '备注';
@@ -712,7 +734,7 @@ create table msg_message_target (
    id                   INT8                 not null,
    message_id           INT8                 not null,
    target_category_id   INT8                 not null,
-   target_id            INT8                 not null,
+   target_id            INT8                 null,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
@@ -734,7 +756,7 @@ comment on column msg_message_target.target_category_id is
 '目标类别ID';
 
 comment on column msg_message_target.target_id is
-'目标ID';
+'目标ID（为空表示该目标类别下的全部目标，即按类别广播）';
 
 comment on column msg_message_target.creater_id is
 '创建者ID';
@@ -768,6 +790,18 @@ message_id
 create  index Relationship_11_FK on msg_message_target (
 target_category_id
 );
+
+/*==============================================================*/
+/* Index: ak_message_id_and_target_category_id_msg_message_target */
+/*==============================================================*/
+-- 手工维护：PowerDesigner 不支持部分索引（带 where 的唯一索引），
+-- 上面那条 (message_id, target_category_id, target_id) 唯一约束在
+-- target_id 为 null 时管不住重复（SQL 里 null 互不相等），广播行会被插多条。
+-- 索引名必须保持 ak_{列名_and}_{表名} 的格式，robotech 的重复键识别
+-- 是按这个名字回查字段列表的（见 unique_keys_utils.rs）。
+create unique index ak_message_id_and_target_category_id_msg_message_target
+   on msg_message_target (message_id, target_category_id)
+   where target_id is null;
 
 /*==============================================================*/
 /* Table: msg_target_category                                   */

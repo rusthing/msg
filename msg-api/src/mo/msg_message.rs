@@ -19,6 +19,8 @@ pub struct Model {
     pub title_template: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub content_template: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub ext_template: Option<String>,
     pub remark: Option<String>,
     pub enabled: bool,
     pub creater_id: i64,

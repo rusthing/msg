@@ -26,6 +26,8 @@ pub struct MsgDeliveryDto {
     pub title: String,
     /// 内容
     pub content: String,
+    /// 附加内容（模板渲染结果，格式不约定，可为空）
+    pub ext: Option<String>,
     /// 备注
     pub remark: Option<String>,
 }

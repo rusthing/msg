@@ -1,13 +1,21 @@
 //! # 大屏连接注册表
 //!
-//! 维护「目标 ID → 当前连着的连接」的映射，websocket 渠道发送时按
-//! `target_id` 找到连接把消息塞进它的待发队列。
+//! 维护「目标类别 → 目标 ID → 当前连着的连接」的映射，websocket 渠道发送时
+//! 按目标定位连接，把消息塞进它的待发队列。
 //!
-//! ## 为什么 key 只有 target_id
+//! ## 为什么要带目标类别
 //!
-//! websocket 渠道只服务大屏这一类目标（`msg_target_category` 里的「大屏」），
-//! 一类目标一个渠道，不会出现「用户 8888」与「大屏 8888」同时挂在 websocket 上，
-//! 所以不需要再带类别前缀。
+//! 目标 ID 只在类别内唯一：大屏 8888 与用户 8888 是两个目标。websocket 渠道
+//! 目前只服务大屏，但注册表按 (类别, 目标) 记一份，发送侧就不用假设「这个渠道
+//! 只可能有一种目标」，以后同一条渠道服务多类目标也不用改结构。
+//!
+//! 两级 map 而不是一级 `(类别, 目标)` 元组：投递任务有两种粒度——
+//!
+//! - **指定目标**：按 (类别, 目标) 直接定位；
+//! - **按类别广播**（`target_id` 为空）：只给类别，遍历该类别下的全部目标。
+//!
+//! 广播是定位消息这类高频消息的常态，一级 map 每次都要扫全部连接，
+//! 屏一多就白跑。
 //!
 //! ## 队列与背压
 //!
@@ -39,8 +47,8 @@ struct Conn {
     sender: mpsc::Sender<String>,
 }
 
-/// 注册表：`target_id` → 该目标的连接列表
-static CONNS: OnceLock<RwLock<HashMap<u64, Vec<Conn>>>> = OnceLock::new();
+/// 注册表：`目标类别 ID` → `目标 ID` → 该目标的连接列表
+static CONNS: OnceLock<RwLock<HashMap<u64, HashMap<u64, Vec<Conn>>>>> = OnceLock::new();
 
 /// 连接序号分配器
 static NEXT_CONN_ID: AtomicU64 = AtomicU64::new(1);
@@ -48,7 +56,7 @@ static NEXT_CONN_ID: AtomicU64 = AtomicU64::new(1);
 /// 关闭信号发送端
 static SHUTDOWN: OnceLock<broadcast::Sender<()>> = OnceLock::new();
 
-fn conns() -> &'static RwLock<HashMap<u64, Vec<Conn>>> {
+fn conns() -> &'static RwLock<HashMap<u64, HashMap<u64, Vec<Conn>>>> {
     CONNS.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
@@ -77,6 +85,7 @@ pub fn close_all() {
 /// 连接任务无论正常退出还是 panic 都不会留下僵尸连接。
 #[derive(Debug)]
 pub struct ConnGuard {
+    category_id: u64,
     target_id: u64,
     conn_id: u64,
 }
@@ -84,11 +93,18 @@ pub struct ConnGuard {
 impl Drop for ConnGuard {
     fn drop(&mut self) {
         let mut guard = conns().write().unwrap();
-        if let Some(list) = guard.get_mut(&self.target_id) {
+        let Some(targets) = guard.get_mut(&self.category_id) else {
+            return;
+        };
+        if let Some(list) = targets.get_mut(&self.target_id) {
             list.retain(|conn| conn.id != self.conn_id);
             if list.is_empty() {
-                guard.remove(&self.target_id);
+                targets.remove(&self.target_id);
             }
+        }
+        // 该类别下一条连接都不剩时，把类别这层也摘掉，别留空壳
+        if targets.is_empty() {
+            guard.remove(&self.category_id);
         }
     }
 }
@@ -96,34 +112,64 @@ impl Drop for ConnGuard {
 /// # 注册一条连接
 ///
 /// 同一个 `target_id` 可以有多条连接（大屏刷新页面、多开），都会收到消息。
-pub fn register(target_id: u64, sender: mpsc::Sender<String>) -> ConnGuard {
+///
+/// `category_id` 是 `msg_target_category.id`，由握手时上报的类别编码解析而来。
+pub fn register(category_id: u64, target_id: u64, sender: mpsc::Sender<String>) -> ConnGuard {
     let conn_id = NEXT_CONN_ID.fetch_add(1, Ordering::Relaxed);
     conns()
         .write()
         .unwrap()
+        .entry(category_id)
+        .or_default()
         .entry(target_id)
         .or_default()
         .push(Conn {
             id: conn_id,
             sender,
         });
-    ConnGuard { target_id, conn_id }
+    ConnGuard {
+        category_id,
+        target_id,
+        conn_id,
+    }
 }
 
-/// # 向某个目标的所有连接推送
+/// # 向目标推送
+///
+/// `target_id` 为 `Some` 时只发给该目标；为 `None` 时发给该类别下的全部目标
+/// （按类别广播）。两种粒度都由这里落地，调用方不用自己遍历连接。
 ///
 /// ## 返回值
-/// `true` 表示至少写入了一条连接的队列；`false` 表示该目标当前没有连接，
+/// `true` 表示至少写入了一条连接的队列；`false` 表示本实例没有可投的连接，
 /// 或所有连接的队列都满了/已关闭。
-pub fn send(target_id: u64, text: String) -> bool {
+///
+/// 广播时返回 `false` 不代表投递失败：屏可能连在别的实例上，那边会发。
+pub fn send(category_id: u64, target_id: Option<u64>, text: String) -> bool {
     let guard = conns().read().unwrap();
-    let Some(list) = guard.get(&target_id) else {
+    let Some(targets) = guard.get(&category_id) else {
         return false;
     };
 
+    match target_id {
+        Some(target_id) => targets
+            .get(&target_id)
+            .map(|list| push(list, target_id, &text))
+            .unwrap_or(false),
+        None => {
+            let mut delivered = false;
+            for (target_id, list) in targets {
+                delivered |= push(list, *target_id, &text);
+            }
+            delivered
+        }
+    }
+}
+
+/// 把一份内容塞进一组连接的待发队列
+fn push(list: &[Conn], target_id: u64, text: &str) -> bool {
     let mut delivered = false;
     for conn in list {
-        match conn.sender.try_send(text.clone()) {
+        match conn.sender.try_send(text.to_string()) {
             Ok(()) => delivered = true,
             Err(mpsc::error::TrySendError::Full(_)) => {
                 warn!(
@@ -140,5 +186,10 @@ pub fn send(target_id: u64, text: String) -> bool {
 
 /// # 当前连接总数（含同一目标的多条连接）
 pub fn connection_count() -> usize {
-    conns().read().unwrap().values().map(Vec::len).sum()
+    conns()
+        .read()
+        .unwrap()
+        .values()
+        .map(|targets| targets.values().map(Vec::len).sum::<usize>())
+        .sum()
 }

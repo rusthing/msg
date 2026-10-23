@@ -62,7 +62,7 @@ use arc_swap::ArcSwapOption;
 use msg_api::cst::MSG_MESSAGE_REFRESH_SUBJECT;
 use robotech::cache::publish_cache_refresh_signal;
 use robotech::db::get_db_conn;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -116,10 +116,12 @@ pub struct MessageCache {
     pub name: String,
     /// 是否持久化（如果不持久化，投递将不会保存到数据库）
     pub persisted: bool,
-    /// 标题模板（为 null 时不产出标题，投递任务里 `title` 为 `None`）
+    /// 标题模板（为 null 时用发布方给的标题）
     pub title_template: Option<String>,
-    /// 内容模板（为 null 时不产出内容，投递任务里 `content` 为 `None`）
+    /// 内容模板（为 null 时用发布方给的内容）
     pub content_template: Option<String>,
+    /// 附加内容模板（为 null 时用发布方给的附加内容）
+    pub ext_template: Option<String>,
     /// 备注
     pub remark: Option<String>,
     /// 关联的消息类别
@@ -193,7 +195,8 @@ pub struct TargetCategoryCache {
 #[derive(Debug, Clone)]
 pub struct TargetCache {
     pub target_category: TargetCategoryCache,
-    pub target_id: u64,
+    /// 具体目标 ID；`None` 表示该目标类别下的全部目标（按类别广播）
+    pub target_id: Option<u64>,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -440,9 +443,26 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
             if let Some(tc) = target_categories.get(&link.target_category_id.0) {
                 map.entry(link.message_id.0).or_default().push(TargetCache {
                     target_category: tc.clone(),
-                    target_id: link.target_id.0,
+                    target_id: link.target_id.map(|v| v.0),
                 });
             }
+        }
+        // 同一个类别下如果登记了广播（target_id 为空），具体的那些目标就是多余的：
+        // 广播已经把该类别下的所有目标都覆盖了，留着只会让那几块屏收两遍。
+        // 在缓存里就地剔掉，投递侧不用再判断。
+        for targets in map.values_mut() {
+            let broadcast_categories: HashSet<u64> = targets
+                .iter()
+                .filter(|target| target.target_id.is_none())
+                .map(|target| target.target_category.id)
+                .collect();
+            if broadcast_categories.is_empty() {
+                continue;
+            }
+            targets.retain(|target| {
+                target.target_id.is_none()
+                    || !broadcast_categories.contains(&target.target_category.id)
+            });
         }
         map
     };
@@ -472,6 +492,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
                     persisted: m.persisted,
                     title_template: m.title_template,
                     content_template: m.content_template,
+                    ext_template: m.ext_template,
                     remark: m.remark,
                     category,
                     source,

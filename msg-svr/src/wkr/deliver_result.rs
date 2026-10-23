@@ -28,12 +28,27 @@ use msg_api::msg::DeliveryMsg;
 use robotech::api::U64;
 use robotech::db::get_db_conn;
 use sea_orm::DatabaseConnection;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 /// # 记录一次发送结果
 ///
 /// 只处理持久化消息；非持久化消息直接返回（它们本来就没有投递记录）。
 pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome) {
+    // 广播任务的「本实例没连接」不算失败：屏可能连在别的实例上，那边会把
+    // 这条渠道记成送达。这里跟着记一笔失败，就会把别人的成功覆盖掉——
+    // 多实例部署下渠道状态完全取决于谁最后回写。所以广播只回写送达/发送失败，
+    // 没连接就当这次没轮到本实例。
+    //
+    // 代价：所有实例都没连接时，渠道状态停在「投递中」。大屏离线本来就不补投，
+    // 这个状态没有下游依赖，接受。
+    if task.target_id.is_none() && matches!(outcome, SendOutcome::NoConnection) {
+        debug!(
+            "广播投递本实例无连接，跳过回写: category_id={}, event_code={}",
+            task.target_category_id, task.event_code
+        );
+        return;
+    }
+
     let (Some(delivery_channel_id), Some(delivery_target_id), Some(delivery_id)) = (
         task.delivery_channel_id,
         task.delivery_target_id,
@@ -41,7 +56,7 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome) {
     ) else {
         if task.persisted {
             warn!(
-                "持久化投递任务缺少投递 ID，跳过回写: event_code={}, target_id={}",
+                "持久化投递任务缺少投递 ID，跳过回写: event_code={}, target_id={:?}",
                 task.event_code, task.target_id
             );
         }

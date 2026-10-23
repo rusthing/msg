@@ -5242,7 +5242,7 @@ DAT 1790584396</a:History>
 <a:ModificationDate>1790239013</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>标题模板
-为null的话从annotations中取title设置为标题</a:Comment>
+为null的话用发布方给的title作为标题</a:Comment>
 <a:History>ORG {5B8CEF56-E98F-4539-87A7-2E6B60D76DEC}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(150)</a:DataType>
@@ -5258,9 +5258,24 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790239013</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>内容模板
-为null的话从annotations中取content设置为内容</a:Comment>
+为null的话用发布方给的content作为内容</a:Comment>
 <a:History>ORG {A5ECBF53-DC9F-4567-A258-F71E3A1A6053}
 DAT 1790046262</a:History>
+<a:DataType>TEXT</a:DataType>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o327">
+<a:ObjectID>39D440BC-3112-4098-B478-66CEA4FA1F46</a:ObjectID>
+<a:Name>附加内容模板</a:Name>
+<a:Code>ext_template</a:Code>
+<a:CreationDate>1792733861</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1792733861</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>附加内容模板
+渲染结果原样下发，格式不约定；为null时用发布方给的附加内容</a:Comment>
+<a:History>ORG {39D440BC-3112-4098-B478-66CEA4FA1F46}
+DAT 1792733861</a:History>
 <a:DataType>TEXT</a:DataType>
 <a:GlobalObjectID/>
 </o:Column>
@@ -6628,6 +6643,21 @@ DAT 1790046262</a:History>
 <a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
+<o:Column Id="o328">
+<a:ObjectID>F5DAB36E-AD6C-4639-9A71-0CDFE05E5BFD</a:ObjectID>
+<a:Name>附加内容</a:Name>
+<a:Code>ext</a:Code>
+<a:CreationDate>1792733861</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1792733861</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>附加内容
+模板渲染结果，格式不约定</a:Comment>
+<a:History>ORG {F5DAB36E-AD6C-4639-9A71-0CDFE05E5BFD}
+DAT 1792733861</a:History>
+<a:DataType>TEXT</a:DataType>
+<a:GlobalObjectID/>
+</o:Column>
 <o:Column Id="o152">
 <a:ObjectID>AC1682BF-95A0-4C03-B483-BDD860293842</a:ObjectID>
 <a:Name>备注</a:Name>
@@ -6986,11 +7016,12 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304466</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
 <a:History>ORG {89ADB177-C5A2-4AD5-A9EC-9AB094F110DE}
 DAT 1790046262</a:History>
 <a:DataType>INT8</a:DataType>
 <a:Length>8</a:Length>
-<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:Column.Mandatory>0</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
 <o:Column Id="o175">
@@ -7568,11 +7599,12 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304466</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
 <a:History>ORG {63A0DB2D-3EDA-4863-81BB-88A52566925E}
 DAT 1790046262</a:History>
 <a:DataType>INT8</a:DataType>
 <a:Length>8</a:Length>
-<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:Column.Mandatory>0</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
 <o:Column Id="o211">

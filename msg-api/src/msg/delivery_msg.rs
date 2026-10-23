@@ -8,21 +8,26 @@
 //! 字段与投递三张表一一对应，没有额外加工出来的概念：
 //!
 //! - 消息内容：`msg_delivery` 的 `event_code` / `message_id` / `event_source_id` /
-//!   `message_category_id` / `business_id` / `business_trigger_ms` / `labels` /
-//!   `annotations` / `title` / `content` / `create_ms`；
+//!   `message_category_id` / `business_id` / `business_trigger_ms` / `title` /
+//!   `content` / `ext` / `create_ms`；
 //! - 投递目标：`msg_delivery_target` 的 `target_category_id` / `target_id`；
 //! - 投递渠道：`msg_delivery_channel` 的 `channel_id`，外加 `msg_channel.code`
 //!   （发布主题的末段，消费方靠它认领任务）。
 //!
-//! `labels` / `annotations` 是发布方原样上报的结构化数据：模板拿它当变量拼文案，
-//! 接收方也拿它做业务处理（大屏按 `lon` / `lat` 落点、按 `levelId` 切楼层）。
-//! 渲染出标题不等于原始信息就没用了，两者一起下发。
+//! ## 标题与内容必填，ext 可选
 //!
-//! ## 标题与内容可以为空
+//! `title` / `content` 一定有值：先按 `msg_message` 的模板渲染，模板为 `null`
+//! 时取发布方给的值，两边都空 `msg-svr` 直接拒收（`Discard`），不会把一条
+//! 没有正文的消息发出来。
 //!
-//! `title` / `content` 取自 `msg_message.title_template` / `content_template`：
-//! 有模板就有值，模板为 `null` 就没有，不做额外兜底。只剩结构化数据的消息
-//! （纯遥测）照样投递，接收方按 `labels` / `annotations` 自己处理。
+//! `ext` 可以没有。模板渲染出的文本格式不做任何约定——可能是 JSON，也可能
+//! 是一段话，消费方自己判断怎么解。
+//!
+//! ## 结构化字段要显式渲染
+//!
+//! 发布方上报的 `labels` / `annotations` **不在任务里**：它们是模板的输入，
+//! 不是投递的产物。大屏要坐标，就在内容模板里把 `lon` / `lat` 渲染进
+//! `content` 的 JSON，只留在 `msg_delivery` 的快照里给排查用。
 //!
 //! ## 持久化与否决定整条链路的语义
 //!
@@ -36,7 +41,6 @@
 //! 因此消费方必须先看 `persisted` 再决定要不要写库，不能默认 ID 一定存在。
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use typed_builder::TypedBuilder;
 
 /// 一次投递任务（一个目标的一个渠道）
@@ -79,32 +83,22 @@ pub struct DeliveryMsg {
     #[serde(default)]
     pub business_trigger_ms: Option<u64>,
 
-    /// 路由标签（`msg_delivery.labels` 的快照）
-    ///
-    /// 发布方原样上报的 key-value：既是模板变量，也是投递内容的一部分，
-    /// 接收方按 key 取业务字段做联动，不依赖标题里有没有拼出来。
-    #[serde(default)]
-    #[builder(default)]
-    pub labels: HashMap<String, String>,
-    /// 可读标注（`msg_delivery.annotations` 的快照）
-    ///
-    /// 同 [`Self::labels`]：模板变量与投递内容两用。坐标、楼层、绑定对象
-    /// 这些展示侧要用的字段都在这里，大屏拿它落点、画图标。
-    #[serde(default)]
-    #[builder(default)]
-    pub annotations: HashMap<String, String>,
-
     /// 已渲染的标题（`msg_delivery.title`）
     ///
-    /// 由 `msg_message.title_template` 渲染得来。模板为 `null` 时是 `None`，
-    /// 不从 `annotations` 兜底。
-    #[serde(default)]
-    pub title: Option<String>,
+    /// 一定非空：`msg_message.title_template` 有值就用模板，没有就用发布方
+    /// 给的 `title`，两边都空的消息在 `msg-svr` 就被拒了。
+    pub title: String,
     /// 已渲染的内容（`msg_delivery.content`）
     ///
-    /// 同 [`Self::title`]：模板决定有没有，不做兜底。
-    #[serde(default)]
-    pub content: Option<String>,
+    /// 同 [`Self::title`]，一定非空。格式不限定：要下发的结构化数据（坐标、
+    /// 楼层这类）由内容模板渲染成 JSON 放这里。
+    pub content: String,
+    /// 附加内容（`msg_delivery.ext`）
+    ///
+    /// 可选，格式不做约定：模板渲染出的文本原样带下去，消费方自己判断是
+    /// JSON 还是人话。没有就整个字段不出现。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ext: Option<String>,
     /// 消息创建时间戳（毫秒，`msg_delivery.create_ms`）
     pub create_ms: u64,
 
@@ -113,7 +107,12 @@ pub struct DeliveryMsg {
     /// 目标 ID（`msg_delivery_target.target_id`）
     ///
     /// websocket 渠道用它定位长连接：大屏连接上来时上报的 `targetId` 就是这个值。
-    pub target_id: u64,
+    ///
+    /// 为 `None` 表示**按目标类别广播**：这条任务发给该类别下的全部目标，
+    /// 由每个实例展开到自己本地的连接（大屏这类动态接入的目标没法逐个登记）。
+    /// 消费方不能假定它一定有值。
+    #[serde(default)]
+    pub target_id: Option<u64>,
     /// 渠道 ID（`msg_delivery_channel.channel_id`）
     pub channel_id: u64,
     /// 渠道编码（`msg_channel.code`）

@@ -58,14 +58,18 @@ pub struct MsgMessageConfig {
     #[serde(default = "persisted_default")]
     #[builder(default = persisted_default())]
     pub persisted: bool,
-    /// 标题模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时不产出标题）
+    /// 标题模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时用发布方给的标题）
     #[serde(default)]
     #[builder(default)]
     pub title_template: Option<String>,
-    /// 内容模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时不产出内容）
+    /// 内容模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时用发布方给的内容）
     #[serde(default)]
     #[builder(default)]
     pub content_template: Option<String>,
+    /// 附加内容模板（渲染结果原样下发，格式不约定；为 null 时用发布方给的附加内容）
+    #[serde(default)]
+    #[builder(default)]
+    pub ext_template: Option<String>,
     /// 备注
     #[serde(default)]
     #[builder(default)]
@@ -96,6 +100,7 @@ impl MsgMessageConfig {
             persisted: Some(self.persisted),
             title_template: Some(self.title_template.clone()),
             content_template: Some(self.content_template.clone()),
+            ext_template: Some(self.ext_template.clone()),
             remark: Some(self.remark.clone()),
             _current_user_id: U64(SYS_OPERATOR_USER_ID),
             ..Default::default()

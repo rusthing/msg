@@ -26,6 +26,8 @@ pub struct Model {
     pub title: String,
     #[sea_orm(column_type = "Text")]
     pub content: String,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub ext: Option<String>,
     pub remark: Option<String>,
     pub creater_id: i64,
     pub create_ms: i64,

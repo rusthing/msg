@@ -33,19 +33,41 @@ pub struct MessageMsg {
     pub business_trigger_ms: Option<u64>,
     /// 路由标签：一组结构化的 key-value，匹配、分组、路由都只看它
     ///
-    /// 同时是模板变量：`title_template` / `content_template` 里的 `{key}`
-    /// 会从 `labels` 与 [`Self::annotations`] 中取值。渲染之后它仍然原样跟着
-    /// 投递任务下发（见 [`crate::msg::DeliveryMsg::labels`]），接收方还要拿它
-    /// 做业务联动。
+    /// **只是模板变量**：`title_template` / `content_template` /
+    /// `ext_template` 里的 `{key}` 会从 `labels` 与 [`Self::annotations`]
+    /// 中取值（同名时以 `labels` 为准）。
+    ///
+    /// 渲染完就不再随投递任务下发，只留在 `msg_delivery.labels` 的快照里
+    /// 供排查。接收方要用的字段，必须写进模板变成 `content` 或 `ext`。
     #[serde(default)]
     #[builder(default)]
     pub labels: HashMap<String, String>,
     /// 可读标注：详细描述、坐标这类展示用字段
     ///
-    /// 与 `labels` 一样，既是模板的输入变量（同名时以 `labels` 为准），
-    /// 也是投递任务的一部分：大屏拿 `lon` / `lat` / `levelId` 在地图上落点，
-    /// 这些字段拼不进标题，只能原样下发。
+    /// 与 `labels` 一样只是模板的输入变量（同名时以 `labels` 为准），
+    /// 不随投递下发。大屏要落点，就得把坐标写进 `content_template`，
+    /// 由模板渲染成 JSON 文本交给大屏解析。
     #[serde(default)]
     #[builder(default)]
     pub annotations: HashMap<String, String>,
+    /// 发布方自带的标题
+    ///
+    /// **可选**。`msg_message.title_template` 有值时以模板渲染结果为准，
+    /// 这个值只在模板为 `null` 时使用。两边都空 `msg-svr` 直接拒收。
+    #[serde(default)]
+    #[builder(default)]
+    pub title: Option<String>,
+    /// 发布方自带的内容
+    ///
+    /// **可选**，取舍规则同 [`Self::title`]。
+    #[serde(default)]
+    #[builder(default)]
+    pub content: Option<String>,
+    /// 发布方自带的附加内容
+    ///
+    /// **可选**，取舍规则同 [`Self::title`]。格式不做任何约定：
+    /// 可以是 JSON、可以是人话，接收方自己判断怎么解。
+    #[serde(default)]
+    #[builder(default)]
+    pub ext: Option<String>,
 }

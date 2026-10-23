@@ -1,8 +1,11 @@
 //! # websocket 渠道发送器
 //!
-//! 把投递任务整条推给连在本实例上的大屏：渲染好的标题正文、发布方原始上报的
-//! `labels` / `annotations`（坐标、楼层这些落点要用的字段）、投递三张表的行 ID
-//! 与目标/渠道字段都在一帧里，大屏收到就能渲染并在地图上定位，不必再回查接口。
+//! 把投递任务整条推给连在本实例上的大屏：渲染好的标题、内容、附加内容，
+//! 投递三张表的行 ID 与目标/渠道字段都在一帧里，大屏收到就能渲染，不必再回查接口。
+//!
+//! 落点要用的坐标不在独立字段里：它们由内容模板渲染进 `content`，大屏按约定的
+//! 格式解析 `content` 即可。发布方上报的 `labels` / `annotations` 只是模板的
+//! 输入，不随这一帧下发。
 //!
 //! 目标不在本实例（或压根没连）时返回 [`SendOutcome::NoConnection`]：
 //! websocket 是 at-most-once，没有连接就没有必要重试，也不需要补投——
@@ -14,7 +17,7 @@ use async_trait::async_trait;
 use msg_api::cst::MSG_CHANNEL_CODE_WEBSOCKET;
 use msg_api::msg::DeliveryMsg;
 use serde::Serialize;
-use tracing::warn;
+use tracing::{debug, warn};
 
 /// websocket 渠道发送器
 pub struct WebSocketSender;
@@ -36,16 +39,30 @@ impl ChannelSender for WebSocketSender {
             Err(e) => return SendOutcome::Failed(format!("推送内容序列化失败: {e}")),
         };
 
-        if conn::send(task.target_id, text) {
+        // target_id 为空是按类别广播：本实例把这个类别下的连接全发一遍，
+        // 别的实例收到同一条任务也会各自发各自的连接
+        if conn::send(task.target_category_id, task.target_id, text) {
             // 地址只用于排查：哪个目标、连在哪个实例上
             SendOutcome::Delivered {
-                address: format!("target:{}", task.target_id),
+                address: match task.target_id {
+                    Some(target_id) => format!("target:{target_id}"),
+                    None => format!("category:{}", task.target_category_id),
+                },
             }
         } else {
-            warn!(
-                "目标未连接，消息丢弃: target_id={}, event_code={}",
-                task.target_id, task.event_code
-            );
+            // 广播时「本实例没有连接」是常态（屏可能连在别的实例上），
+            // 不能当成投递失败，否则多实例部署下每个实例都会记一次失败
+            if task.target_id.is_some() {
+                warn!(
+                    "目标未连接，消息丢弃: target_id={:?}, event_code={}",
+                    task.target_id, task.event_code
+                );
+            } else {
+                debug!(
+                    "本实例没有该类别下的连接，跳过: category_id={}, event_code={}",
+                    task.target_category_id, task.event_code
+                );
+            }
             SendOutcome::NoConnection
         }
     }
@@ -68,7 +85,6 @@ struct WsPush<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     fn task() -> DeliveryMsg {
         DeliveryMsg {
@@ -82,19 +98,19 @@ mod tests {
             message_category_id: 5,
             business_id: None,
             business_trigger_ms: None,
-            labels: HashMap::from([("locatorCode".to_string(), "L1".to_string())]),
-            annotations: HashMap::from([("lon".to_string(), "113.9".to_string())]),
-            title: Some("张三 进入 1F".to_string()),
-            content: Some("1F 东侧".to_string()),
+            title: "张三 进入 1F".to_string(),
+            // 定位消息的落点就在内容里，大屏靠它在地图上定位
+            content: r#"{"text":"1F 东侧","lon":113.9,"lat":22.5}"#.to_string(),
+            ext: Some("extra".to_string()),
             create_ms: 1_700_000_000_000,
             target_category_id: 11,
-            target_id: 8888,
+            target_id: Some(8888),
             channel_id: 2,
             channel_code: "websocket".to_string(),
         }
     }
 
-    /// 一帧里该有的字段一个都不能少：大屏靠 `annotations` 落点，靠行 ID 回执
+    /// 一帧里该有的字段一个都不能少：大屏靠 `content` 落点，靠行 ID 回执
     #[test]
     fn push_carries_whole_task() {
         let task = task();
@@ -109,8 +125,12 @@ mod tests {
         let data = &frame["data"];
         assert_eq!(frame["type"], "message");
         assert_eq!(data["title"], "张三 进入 1F");
-        assert_eq!(data["labels"]["locatorCode"], "L1");
-        assert_eq!(data["annotations"]["lon"], "113.9");
+        // 内容是 JSON 文本，原样透传，不在推送侧二次解析
+        let content: serde_json::Value =
+            serde_json::from_str(data["content"].as_str().expect("content 不是字符串"))
+                .expect("content 不是合法 JSON");
+        assert_eq!(content["lon"], 113.9);
+        assert_eq!(data["ext"], "extra");
         assert_eq!(data["eventSourceId"], 3);
         assert_eq!(data["messageCategoryId"], 5);
         assert_eq!(data["targetCategoryId"], 11);
@@ -118,16 +138,16 @@ mod tests {
         assert_eq!(data["channelId"], 2);
         assert_eq!(data["createMs"], 1_700_000_000_000i64);
         assert_eq!(data["persisted"], false);
+
+        // 模板输入不下发：这两份只在 msg_delivery 快照里
+        assert!(data.get("labels").is_none());
+        assert!(data.get("annotations").is_none());
     }
 
-    /// 没有模板就没有标题正文，不能补成空串或从 annotations 里捞
+    /// 没有附加内容时整个字段不出现，消费方用 `is_some()` 判断才有效
     #[test]
-    fn missing_template_keeps_title_and_content_null() {
-        let task = DeliveryMsg {
-            title: None,
-            content: None,
-            ..task()
-        };
+    fn absent_ext_is_omitted_from_frame() {
+        let task = DeliveryMsg { ext: None, ..task() };
 
         let text = serde_json::to_string(&WsPush {
             kind: "message",
@@ -136,7 +156,6 @@ mod tests {
         .expect("帧序列化失败");
         let frame: serde_json::Value = serde_json::from_str(&text).expect("帧反序列化失败");
 
-        assert!(frame["data"]["title"].is_null());
-        assert!(frame["data"]["content"].is_null());
+        assert!(frame["data"].get("ext").is_none());
     }
 }
