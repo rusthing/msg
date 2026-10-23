@@ -4,7 +4,7 @@ use robotech::macros::vo;
 pub struct MsgMessageVo {
     /// ID
     pub id: u64,
-    /// 消息来源ID
+    /// 事件来源ID
     pub event_source_id: u64,
     /// 消息类别ID
     pub category_id: u64,
@@ -14,9 +14,9 @@ pub struct MsgMessageVo {
     pub name: String,
     /// 是否持久化（如果不持久化，投递将不会保存到数据库）
     pub persisted: bool,
-    /// 标题模板（为null的话从annotations中取title设置为标题）
+    /// 标题模板（`{var}` 取消息 labels 与 annotations；为 null 时不产出标题）
     pub title_template: Option<String>,
-    /// 内容模板（为null的话从annotations中取content设置为内容）
+    /// 内容模板（`{var}` 取消息 labels 与 annotations；为 null 时不产出内容）
     pub content_template: Option<String>,
     /// 备注
     pub remark: Option<String>,

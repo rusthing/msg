@@ -2,7 +2,7 @@ use robotech::macros::crud_dto;
 
 #[crud_dto]
 pub struct MsgMessageDto {
-    /// 消息来源ID
+    /// 事件来源ID
     pub event_source_id: u64,
     /// 消息类别ID
     pub category_id: u64,
