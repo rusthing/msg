@@ -116,9 +116,9 @@ pub struct MessageCache {
     pub name: String,
     /// 是否持久化（如果不持久化，投递将不会保存到数据库）
     pub persisted: bool,
-    /// 标题模板（为 null 的话从 annotations 中取 title 设置为标题）
+    /// 标题模板（为 null 时不产出标题，投递任务里 `title` 为 `None`）
     pub title_template: Option<String>,
-    /// 内容模板（为 null 的话从 annotations 中取 content 设置为内容）
+    /// 内容模板（为 null 时不产出内容，投递任务里 `content` 为 `None`）
     pub content_template: Option<String>,
     /// 备注
     pub remark: Option<String>,

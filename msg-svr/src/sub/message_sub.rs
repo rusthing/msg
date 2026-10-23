@@ -21,7 +21,7 @@
 //!
 //! 注意：消息模板缓存（`build_message_cache`）不会触发队列重新订阅。
 
-use crate::cache::{ChannelCache, MessageCache, get_message_cache};
+use crate::cache::{ChannelCache, MessageCache, TargetCache, get_message_cache};
 use crate::config::get_msg_config;
 use crate::dto::MsgMessageQueueQueryDto;
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
@@ -415,15 +415,15 @@ async fn start_subscription_for_queue(
 /// 1. 解析 JSON 负载
 /// 2. 从缓存查找消息模板（按 `event_code`）
 /// 3. 校验队列匹配
-/// 4. 渲染标题和内容（模板变量取 `labels` 与 `annotations`；模板为 null 时从 `annotations` 取）
+/// 4. 渲染标题和内容（模板变量取 `labels` 与 `annotations`；模板为 null 就不产出该字段）
 /// 5. 幂等检查（`(event_code, business_id, business_trigger_ms)` 唯一约束；
 ///    非持久化消息在第 4 步后就返回，不走到这里）
 /// 6. 创建 `msg_delivery` 投递记录（含 labels / annotations 快照，供排查）
 /// 7. 为每个目标创建 `msg_delivery_target`
 /// 8. 为每个（目标 × 渠道）组合创建 `msg_delivery_channel`
 ///
-/// 投递任务带上完整的一条消息：渲染好的标题正文、原始 `labels` / `annotations`、
-/// 以及消息类别与来源的编码名称。模板只把变量拼成文案，不吞掉输入——接收方
+/// 投递任务与投递三张表一一对应：渲染好的标题正文、原始 `labels` / `annotations`、
+/// 三张表的行 ID 与目标/渠道字段。模板只把变量拼成文案，不吞掉输入——接收方
 /// 还要用结构化字段做业务处理（大屏按坐标落点、按楼层切图）。
 ///
 /// ## 返回值
@@ -460,47 +460,43 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //   模板只负责把 labels 与 annotations 拼成可读文案，渲染结果和原始变量
     //   一起下发：接收方既要文案，也要结构化字段。
     //
-    //   title_template 不为 null → 用 labels + annotations 做变量替换
-    //   title_template 为 null    → 取 annotations["title"]
+    //   title_template 有值 → 用 labels + annotations 做变量替换
+    //   title_template 为 null → 不产出标题（任务里 title 为 None）
     //
-    //   content_template 不为 null → 用 labels + annotations 做变量替换
-    //   content_template 为 null    → 取 annotations["content"]
+    //   content_template 同理。
+    //
+    //   不为 null 的模板也不会去 annotations 里找同名键兜底：文案的形态由
+    //   模板决定，没有模板就是没有。
 
-    let title = match &msg.title_template {
-        Some(tpl) => render_template(tpl, &message_msg.labels, &message_msg.annotations),
-        None => message_msg
-            .annotations
-            .get("title")
-            .cloned()
-            .unwrap_or_default(),
-    };
+    let title = msg
+        .title_template
+        .as_ref()
+        .map(|tpl| render_template(tpl, &message_msg.labels, &message_msg.annotations));
 
-    let content = match &msg.content_template {
-        Some(tpl) => render_template(tpl, &message_msg.labels, &message_msg.annotations),
-        None => message_msg
-            .annotations
-            .get("content")
-            .cloned()
-            .unwrap_or_default(),
-    };
+    let content = msg
+        .content_template
+        .as_ref()
+        .map(|tpl| render_template(tpl, &message_msg.labels, &message_msg.annotations));
 
-    if title.is_empty() && content.is_empty() {
-        // 模板和 annotations 都取不到内容，重投多少次都一样
-        return Err(NatsError::Discard("标题和内容均为空，无法投递".into()));
-    }
-
-    info!("内容渲染完成: title={title}");
+    info!("内容渲染完成: title={title:?}, content={content:?}");
 
     let now_ms = chrono::Utc::now().timestamp_millis() as u64;
 
     // ── 4. 非持久化消息：不落库、不回写，发不出去就丢 ──
     //
-    //   `msg_message.persisted = false` 的消息没有投递记录（三级 ID 全空），
+    //   `msg_message.persisted = false` 的消息没有投递记录（三张表的行 ID 全空），
     //   也没有幂等可言（没地方存），所以直接按缓存里的目标×渠道拆任务发出去，
     //   失败只打日志。这类消息的语义就是 at-most-once。
 
     if !msg.persisted {
-        publish_best_effort(msg, &message_msg, &title, &content, now_ms).await;
+        publish_best_effort(
+            msg,
+            &message_msg,
+            title.as_deref(),
+            content.as_deref(),
+            now_ms,
+        )
+        .await;
         return Ok(());
     }
 
@@ -588,9 +584,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
         annotations: Some(annotations_json),
-        // 后面还要用它们组装投递任务（任务里带的是渲染好的文案）
-        title: Some(title.clone()),
-        content: Some(content.clone()),
+        // 库列是 not null：没有模板的消息落空串，投递任务里仍是 None
+        title: Some(title.clone().unwrap_or_default()),
+        content: Some(content.clone().unwrap_or_default()),
         remark: None,
         _current_ms: Some(U64(now_ms)),
         _current_user_id: U64(0),
@@ -615,9 +611,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     let task_ctx = TaskContext {
         msg,
         message_msg: &message_msg,
-        title: &title,
-        content: &content,
-        created_ms: now_ms,
+        title: title.as_deref(),
+        content: content.as_deref(),
+        create_ms: now_ms,
     };
     let mut tasks: Vec<DeliveryMsg> = Vec::new();
 
@@ -677,7 +673,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                                 Some(created_target.id.0),
                                 Some(channel_id_val),
                             ),
-                            target.target_id,
+                            target,
                             channel,
                         ));
                     }
@@ -719,23 +715,26 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
 /// # 组装投递任务时共用的上下文
 ///
-/// 持久化与非持久化两条路径只有「投递 ID 有没有」不同，其余都取自这里。
+/// 持久化与非持久化两条路径只有「三张表的行 ID 有没有」不同，其余都取自这里。
 struct TaskContext<'a> {
     msg: &'a MessageCache,
     message_msg: &'a MessageMsg,
-    title: &'a str,
-    content: &'a str,
-    created_ms: u64,
+    /// 渲染结果，模板为 `null` 时是 `None`
+    title: Option<&'a str>,
+    /// 渲染结果，模板为 `null` 时是 `None`
+    content: Option<&'a str>,
+    create_ms: u64,
 }
 
 /// # 组装一条投递任务
 ///
-/// `ids` 是 `(delivery_id, delivery_target_id, delivery_channel_id)`：
-/// 持久化消息带真实 ID，非持久化消息全为 `None`。
+/// `ids` 是 `(msg_delivery.id, msg_delivery_target.id, msg_delivery_channel.id)`：
+/// 持久化消息带真实行 ID，非持久化消息全为 `None`。其余字段直接对应投递三张表
+/// 的列，不做额外加工。
 fn build_task(
     ctx: &TaskContext<'_>,
     ids: (Option<u64>, Option<u64>, Option<u64>),
-    target_id: u64,
+    target: &TargetCache,
     channel: &ChannelCache,
 ) -> DeliveryMsg {
     DeliveryMsg {
@@ -745,22 +744,20 @@ fn build_task(
         delivery_channel_id: ids.2,
         event_code: ctx.msg.event_code.clone(),
         message_id: ctx.msg.id,
-        message_name: ctx.msg.name.clone(),
-        category_code: ctx.msg.category.code.clone(),
-        category_name: ctx.msg.category.name.clone(),
-        source_code: ctx.msg.source.code.clone(),
-        source_name: ctx.msg.source.name.clone(),
-        channel_id: channel.id,
-        channel_code: channel.code.clone(),
-        target_id,
+        event_source_id: ctx.msg.source.id,
+        message_category_id: ctx.msg.category.id,
         business_id: ctx.message_msg.business_id,
         business_trigger_ms: ctx.message_msg.business_trigger_ms,
         // 原始变量原样带下去：模板渲染出的标题正文只是其中一种用法
         labels: ctx.message_msg.labels.clone(),
         annotations: ctx.message_msg.annotations.clone(),
-        title: ctx.title.to_string(),
-        content: ctx.content.to_string(),
-        created_ms: ctx.created_ms,
+        title: ctx.title.map(str::to_string),
+        content: ctx.content.map(str::to_string),
+        create_ms: ctx.create_ms,
+        target_category_id: target.target_category.id,
+        target_id: target.target_id,
+        channel_id: channel.id,
+        channel_code: channel.code.clone(),
     }
 }
 
@@ -771,21 +768,21 @@ fn build_task(
 async fn publish_best_effort(
     msg: &MessageCache,
     message_msg: &MessageMsg,
-    title: &str,
-    content: &str,
-    created_ms: u64,
+    title: Option<&str>,
+    content: Option<&str>,
+    create_ms: u64,
 ) {
     let ctx = TaskContext {
         msg,
         message_msg,
         title,
         content,
-        created_ms,
+        create_ms,
     };
 
     for target in &msg.targets {
         for channel in &target.target_category.channels {
-            let task = build_task(&ctx, (None, None, None), target.target_id, channel);
+            let task = build_task(&ctx, (None, None, None), target, channel);
             if let Err(e) = wkr::publish_task(&task).await {
                 warn!(
                     "发布非持久化投递任务失败，已丢弃: channel={}, target_id={}, error={e}",

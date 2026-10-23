@@ -40,7 +40,7 @@ pub struct MessageMsg {
     #[serde(default)]
     #[builder(default)]
     pub labels: HashMap<String, String>,
-    /// 可读标注：标题、详细描述、坐标这类展示用字段
+    /// 可读标注：详细描述、坐标这类展示用字段
     ///
     /// 与 `labels` 一样，既是模板的输入变量（同名时以 `labels` 为准），
     /// 也是投递任务的一部分：大屏拿 `lon` / `lat` / `levelId` 在地图上落点，

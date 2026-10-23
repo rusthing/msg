@@ -1,8 +1,8 @@
 //! # websocket 渠道发送器
 //!
 //! 把投递任务整条推给连在本实例上的大屏：渲染好的标题正文、发布方原始上报的
-//! `labels` / `annotations`（坐标、楼层这些落点要用的字段）、消息类别与来源、
-//! 各级投递 ID 都在一帧里，大屏收到就能渲染并在地图上定位，不必再回查接口。
+//! `labels` / `annotations`（坐标、楼层这些落点要用的字段）、投递三张表的行 ID
+//! 与目标/渠道字段都在一帧里，大屏收到就能渲染并在地图上定位，不必再回查接口。
 //!
 //! 目标不在本实例（或压根没连）时返回 [`SendOutcome::NoConnection`]：
 //! websocket 是 at-most-once，没有连接就没有必要重试，也不需要补投——
@@ -70,32 +70,34 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    /// 一帧里的业务字段一个都不能少：大屏靠 `annotations` 落点、靠类别分组
-    #[test]
-    fn push_carries_whole_task() {
-        let task = DeliveryMsg {
+    fn task() -> DeliveryMsg {
+        DeliveryMsg {
             persisted: false,
             delivery_id: None,
             delivery_target_id: None,
             delivery_channel_id: None,
             event_code: "position.updated".to_string(),
             message_id: 7,
-            message_name: "定位更新".to_string(),
-            category_code: "telemetry".to_string(),
-            category_name: "遥测".to_string(),
-            source_code: "dtw".to_string(),
-            source_name: "数字孪生".to_string(),
-            channel_id: 2,
-            channel_code: "websocket".to_string(),
-            target_id: 8888,
+            event_source_id: 3,
+            message_category_id: 5,
             business_id: None,
             business_trigger_ms: None,
-            labels: HashMap::from([("deviceId".to_string(), "L1".to_string())]),
+            labels: HashMap::from([("locatorCode".to_string(), "L1".to_string())]),
             annotations: HashMap::from([("lon".to_string(), "113.9".to_string())]),
-            title: "张三 进入 1F".to_string(),
-            content: "1F 东侧".to_string(),
-            created_ms: 1_700_000_000_000,
-        };
+            title: Some("张三 进入 1F".to_string()),
+            content: Some("1F 东侧".to_string()),
+            create_ms: 1_700_000_000_000,
+            target_category_id: 11,
+            target_id: 8888,
+            channel_id: 2,
+            channel_code: "websocket".to_string(),
+        }
+    }
+
+    /// 一帧里该有的字段一个都不能少：大屏靠 `annotations` 落点，靠行 ID 回执
+    #[test]
+    fn push_carries_whole_task() {
+        let task = task();
 
         let text = serde_json::to_string(&WsPush {
             kind: "message",
@@ -107,11 +109,34 @@ mod tests {
         let data = &frame["data"];
         assert_eq!(frame["type"], "message");
         assert_eq!(data["title"], "张三 进入 1F");
-        assert_eq!(data["labels"]["deviceId"], "L1");
+        assert_eq!(data["labels"]["locatorCode"], "L1");
         assert_eq!(data["annotations"]["lon"], "113.9");
-        assert_eq!(data["categoryCode"], "telemetry");
-        assert_eq!(data["sourceCode"], "dtw");
+        assert_eq!(data["eventSourceId"], 3);
+        assert_eq!(data["messageCategoryId"], 5);
+        assert_eq!(data["targetCategoryId"], 11);
         assert_eq!(data["targetId"], 8888);
+        assert_eq!(data["channelId"], 2);
+        assert_eq!(data["createMs"], 1_700_000_000_000i64);
         assert_eq!(data["persisted"], false);
+    }
+
+    /// 没有模板就没有标题正文，不能补成空串或从 annotations 里捞
+    #[test]
+    fn missing_template_keeps_title_and_content_null() {
+        let task = DeliveryMsg {
+            title: None,
+            content: None,
+            ..task()
+        };
+
+        let text = serde_json::to_string(&WsPush {
+            kind: "message",
+            data: &task,
+        })
+        .expect("帧序列化失败");
+        let frame: serde_json::Value = serde_json::from_str(&text).expect("帧反序列化失败");
+
+        assert!(frame["data"]["title"].is_null());
+        assert!(frame["data"]["content"].is_null());
     }
 }

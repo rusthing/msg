@@ -58,11 +58,11 @@ pub struct MsgMessageConfig {
     #[serde(default = "persisted_default")]
     #[builder(default = persisted_default())]
     pub persisted: bool,
-    /// 标题模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时取 annotations.title）
+    /// 标题模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时不产出标题）
     #[serde(default)]
     #[builder(default)]
     pub title_template: Option<String>,
-    /// 内容模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时取 annotations.content）
+    /// 内容模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时不产出内容）
     #[serde(default)]
     #[builder(default)]
     pub content_template: Option<String>,
