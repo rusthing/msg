@@ -7,6 +7,7 @@ pub mod msg_dead_letter;
 pub mod msg_delivery;
 pub mod msg_delivery_channel;
 pub mod msg_delivery_channel_log;
+pub mod msg_delivery_queue;
 pub mod msg_delivery_target;
 pub mod msg_event_source;
 pub mod msg_message;

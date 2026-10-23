@@ -95,7 +95,8 @@ mod tests {
             create_ms: 1_700_000_000_000,
             target_category_code: "screen".to_string(),
             target_category_id: 11,
-            target_id: 0,
+            // 空串 = 该类别下的全部目标（按类别广播）
+            target_id: String::new(),
             channel_id: 2,
             channel_code: "websocket".to_string(),
         }
@@ -127,7 +128,7 @@ mod tests {
         // 大屏按类别编码认领：帧里必须有它，光有类别 ID 对不上连接
         assert_eq!(data["targetCategoryCode"], "screen");
         assert_eq!(data["targetCategoryId"], 11);
-        assert_eq!(data["targetId"], 0);
+        assert_eq!(data["targetId"], "");
         assert_eq!(data["channelId"], 2);
         assert_eq!(data["createMs"], 1_700_000_000_000i64);
         assert_eq!(data["persisted"], false);
@@ -140,7 +141,10 @@ mod tests {
     /// 没有附加内容时整个字段不出现，消费方用 `is_some()` 判断才有效
     #[test]
     fn absent_ext_is_omitted_from_frame() {
-        let task = DeliveryMsg { ext: None, ..task() };
+        let task = DeliveryMsg {
+            ext: None,
+            ..task()
+        };
 
         let text = serde_json::to_string(&WsPush {
             kind: "message",

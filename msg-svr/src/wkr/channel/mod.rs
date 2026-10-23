@@ -9,9 +9,10 @@
 //! 1. 在 `msg_channel` 里加一条渠道，`code` 只用 `[A-Za-z0-9_-]`；
 //! 2. 实现一个 `ChannelSender`，`code()` 返回同样的值；
 //! 3. 在 [`init_senders`] 里注册；
-//! 4. 为该渠道的投递主题（`msg.delivery.{code}`）起订阅。
+//! 4. 在 `msg_delivery_queue` 里为这个渠道配一条投递队列（主题 + 是否持久化），
+//!    执行器按表自动建立订阅。
 //!
-//! 投递侧（`msg-svr` 发任务的地方）不需要任何改动——它只按渠道表里的 code
+//! 投递侧（`msg-svr` 发任务的地方）不需要任何改动——它按渠道的投递队列配置
 //! 发到对应主题。
 
 pub mod websocket;

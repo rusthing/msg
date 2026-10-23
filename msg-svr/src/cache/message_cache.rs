@@ -195,8 +195,8 @@ pub struct TargetCategoryCache {
 #[derive(Debug, Clone)]
 pub struct TargetCache {
     pub target_category: TargetCategoryCache,
-    /// 具体目标 ID；`0` 表示该目标类别下的全部目标（按类别广播）
-    pub target_id: u64,
+    /// 目标标识；空串表示该目标类别下的全部目标（按类别广播）
+    pub target_id: String,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -443,11 +443,11 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
             if let Some(tc) = target_categories.get(&link.target_category_id.0) {
                 map.entry(link.message_id.0).or_default().push(TargetCache {
                     target_category: tc.clone(),
-                    target_id: link.target_id.0,
+                    target_id: link.target_id,
                 });
             }
         }
-        // 同一个类别下如果登记了广播（target_id = 0），具体的那些目标就是多余的：
+        // 同一个类别下如果登记了广播（target_id 为空串），具体的那些目标就是多余的：
         // 广播已经把该类别下的所有目标都覆盖了，留着只会让那几块屏收两遍。
         // 在缓存里就地剔掉，投递侧不用再判断。
         for targets in map.values_mut() {

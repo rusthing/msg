@@ -1,7 +1,7 @@
 //! # 投递任务
 //!
-//! `msg-svr` 渲染完消息后，按「目标 × 渠道」拆任务，发布到
-//! `msg.delivery.{渠道编码}`，由该渠道的发送方消费。
+//! `msg-svr` 渲染完消息后，按「目标 × 渠道」拆任务，发布到该渠道的投递队列
+//! （`msg_delivery_queue.code`），由该渠道的发送方消费。
 //!
 //! ## 任务里带什么
 //!
@@ -111,16 +111,21 @@ pub struct DeliveryMsg {
     pub target_category_code: String,
     /// 投递目标类别 ID（`msg_delivery_target.target_category_id`）
     pub target_category_id: u64,
-    /// 目标 ID（`msg_delivery_target.target_id`）
+    /// 目标标识（`msg_delivery_target.target_id`）
     ///
-    /// `0` 表示**该目标类别下的全部目标**（按类别广播）：大屏这类动态接入的
+    /// **空串**表示该目标类别下的全部目标（按类别广播）：大屏这类动态接入的
     /// 目标没法逐个登记，发布方只能声明「发给大屏这一类」，由每个实例展开到
     /// 自己本地的连接。
-    pub target_id: u64,
+    ///
+    /// 非空时是目标的业务标识（大屏就是它握手时上报的编码，用户 / 角色 / 分组
+    /// 则是各自的外部主键）。任务原样带下去，目前 websocket 仍按类别广播到该类
+    /// 别下的全部连接——按标识精确路由要等连接注册表加上「目标」这一维。
+    pub target_id: String,
     /// 渠道 ID（`msg_delivery_channel.channel_id`）
     pub channel_id: u64,
     /// 渠道编码（`msg_channel.code`）
     ///
-    /// 同时是投递主题 `msg.delivery.{code}` 的末段。
+    /// 投递侧按它查 `msg_delivery_queue` 决定主题与是否持久化，消费方按它认领
+    /// 任务（选择对应的渠道发送器）。
     pub channel_code: String,
 }

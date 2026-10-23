@@ -3,6 +3,7 @@ pub mod msg_dead_letter_ctrl;
 pub mod msg_delivery_channel_ctrl;
 pub mod msg_delivery_channel_log_ctrl;
 pub mod msg_delivery_ctrl;
+pub mod msg_delivery_queue_ctrl;
 pub mod msg_delivery_target_ctrl;
 pub mod msg_event_source_ctrl;
 pub mod msg_message_category_ctrl;

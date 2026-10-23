@@ -2,6 +2,7 @@ mod msg_channel_router;
 mod msg_dead_letter_router;
 mod msg_delivery_channel_log_router;
 mod msg_delivery_channel_router;
+mod msg_delivery_queue_router;
 mod msg_delivery_router;
 mod msg_delivery_target_router;
 mod msg_event_source_router;

@@ -5,6 +5,7 @@ pub use super::msg_dead_letter::Entity as MsgDeadLetter;
 pub use super::msg_delivery::Entity as MsgDelivery;
 pub use super::msg_delivery_channel::Entity as MsgDeliveryChannel;
 pub use super::msg_delivery_channel_log::Entity as MsgDeliveryChannelLog;
+pub use super::msg_delivery_queue::Entity as MsgDeliveryQueue;
 pub use super::msg_delivery_target::Entity as MsgDeliveryTarget;
 pub use super::msg_event_source::Entity as MsgEventSource;
 pub use super::msg_message::Entity as MsgMessage;

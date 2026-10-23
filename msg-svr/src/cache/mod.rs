@@ -53,6 +53,10 @@
 //! 没有读取方需要队列快照，因此不进缓存。队列变更直接驱动订阅同步，
 //! 见 [`crate::sub::reload_queue_subscriptions`]；启动装配在
 //! [`crate::utils::setup_queue_refresh`]，与本模块的 [`setup_cache`] 平级。
+//!
+//! 投递队列（`msg_delivery_queue`）不在这里：发布侧每次投递都要查「这个渠道
+//! 发到哪个主题」，快照得常驻内存，因此和投递订阅状态一起放在
+//! [`crate::wkr::sub`] 里维护。
 
 mod cache_utils;
 mod message_cache;

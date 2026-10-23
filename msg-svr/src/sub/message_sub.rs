@@ -279,7 +279,10 @@ pub async fn sync_queue_subscriptions(queues: &HashSet<QueueSpec>) {
 ///
 /// - JetStream 模式：写入 consumer 的 `deliver_group`
 /// - Core NATS 模式：作为 `queue_subscribe` 的组名
-const QUEUE_GROUP: &str = "msg-svr";
+///
+/// 投递侧（[`crate::wkr::sub`]）的 JetStream 队列也用这个名字，两边靠
+/// Stream / Consumer 名区分，不冲突。
+pub(crate) const QUEUE_GROUP: &str = "msg-svr";
 
 /// NATS 资源名中 subject 片段的最大长度
 ///
@@ -298,7 +301,10 @@ const MAX_NAME_TOKEN_LEN: usize = 24;
 /// - **发生过替换或截断时追加原值的短哈希**，避免 `a.b` 与 `a-b` 归一后撞名，
 ///   也避免截断后两个长 subject 撞名；
 /// - 全是合法字符且不超长的 subject **原样保留**，已有 stream / consumer 不受影响。
-fn nats_name_token(subject: &str) -> String {
+///
+/// 投递侧（[`crate::wkr::sub`]）也用它派生投递队列的 Stream / Consumer 名；
+/// 两边 subject 不同（`msg.message` vs `msg.delivery.websocket`），派生结果不会撞。
+pub(crate) fn nats_name_token(subject: &str) -> String {
     let mut token: String = subject
         .chars()
         .map(|c| {
@@ -528,10 +534,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //   不落库就没地方存幂等键，硬投出去只会让同一条消息反复生成投递记录。
     //   服务端也不兜底：补 now 会让每次重投都算新消息，补 0 又会吞掉后续真实触发。
 
-    let (Some(business_id), Some(business_trigger_ms)) = (
-        message_msg.business_id,
-        message_msg.business_trigger_ms,
-    ) else {
+    let (Some(business_id), Some(business_trigger_ms)) =
+        (message_msg.business_id, message_msg.business_trigger_ms)
+    else {
         return Err(NatsError::Discard(format!(
             "持久化消息缺少幂等键 [{}]: business_id={:?}, business_trigger_ms={:?}",
             subject, message_msg.business_id, message_msg.business_trigger_ms
@@ -611,9 +616,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     MsgDeliverySvc::add(delivery_add, Some(db.as_ref()))
         .await
         .map_err(|e| {
-            NatsError::Handle(format!(
-                "创建投递记录失败 (business_id={business_id}): {e}"
-            ))
+            NatsError::Handle(format!("创建投递记录失败 (business_id={business_id}): {e}"))
         })?;
 
     info!(
@@ -642,9 +645,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             id: Some(U64(target_id_val)),
             delivery_id: Some(delivery_id.into()),
             target_category_id: Some(target.target_category.id.into()),
-            // 广播目标（target_id = 0）也要落一行：投递记录得说明「这次覆盖了
+            // 广播目标（target_id 为空串）也要落一行：投递记录得说明「这次覆盖了
             // 哪个类别」，否则渠道记录挂不到目标上，状态也没法逐级汇总
-            target_id: Some(U64(target.target_id)),
+            target_id: Some(target.target_id.clone()),
             deliver_target_status: Some(DeliverTargetStatus::Delivering),
             _current_ms: Some(U64(now_ms)),
             _current_user_id: U64(0),
@@ -798,7 +801,7 @@ fn build_task(
         create_ms: ctx.create_ms,
         target_category_code: target.target_category.code.clone(),
         target_category_id: target.target_category.id,
-        target_id: target.target_id,
+        target_id: target.target_id.clone(),
         channel_id: channel.id,
         channel_code: channel.code.clone(),
     }

@@ -26,6 +26,7 @@
 //! |------|----------|
 //! | `refresh.msg.message` | 消息及其投递配置（模板、渠道、来源、类别、目标） |
 //! | `refresh.msg.queue` | 消息队列订阅 |
+//! | `refresh.msg.delivery-queue` | 投递队列（按渠道配的投递主题与持久化方式） |
 
 use robotech::refresh::RefreshSubject;
 
@@ -41,3 +42,10 @@ pub const MSG_MESSAGE_REFRESH_SUBJECT: RefreshSubject =
 /// 消息队列变更时发布，各节点收到后直接从 DB 查询队列并同步 NATS 订阅，
 /// 不经过缓存。
 pub const MSG_QUEUE_REFRESH_SUBJECT: RefreshSubject = robotech::refresh_subject!("msg", "queue");
+
+/// 投递队列刷新主题
+///
+/// 投递队列变更时发布：各节点重新查库、替换「渠道 → 投递队列」快照，
+/// 并按新的主题 / 持久化方式重建投递订阅。
+pub const MSG_DELIVERY_QUEUE_REFRESH_SUBJECT: RefreshSubject =
+    robotech::refresh_subject!("msg", "delivery-queue");

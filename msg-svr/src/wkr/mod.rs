@@ -1,8 +1,8 @@
 //! # 投递执行器（wkr）
 //!
 //! `msg-svr` 在自己的进程里跑投递执行：一条消息渲染完、记账完，就按
-//! 「目标 × 渠道」拆成投递任务发到 `msg.delivery.{渠道编码}`，
-//! 本模块订阅这些主题并把消息真正发出去。
+//! 「目标 × 渠道」拆成投递任务发到该渠道的投递队列
+//! （`msg_delivery_queue.code`），本模块订阅这些主题并把消息真正发出去。
 //!
 //! ## 为什么和执行在一个进程
 //!
@@ -15,8 +15,8 @@
 //!
 //! - 连接：`/msg/ws`（[`ws_handler`]），大屏带 `targetCategory`（目标类别编码）
 //!   连上来，按编码登记；
-//! - 投递：订阅 `msg.delivery.websocket`（[`sub`]），Core NATS 广播，
-//!   每个实例都收到，各自查本地连接表；
+//! - 投递：按 `msg_delivery_queue` 订阅（[`sub`]），websocket 是 Core NATS
+//!   广播——每个实例都收到，各自查本地连接表；
 //! - 发送：按渠道编码分发到 [`channel::ChannelSender`]；
 //! - 回写：持久化消息才写状态（[`deliver_result`]），非持久化的发完就结束。
 //!
@@ -35,20 +35,16 @@ mod sub;
 mod ws_handler;
 
 use crate::config::get_msg_config;
-use arc_swap::ArcSwapOption;
 use axum::Router;
 use axum::routing::get;
 use linkme::distributed_slice;
-use msg_api::cst::delivery_subject;
+use msg_api::cst::MSG_DELIVERY_QUEUE_REFRESH_SUBJECT;
 use msg_api::msg::DeliveryMsg;
 use robotech::mq::nats::{self, NatsError};
+use robotech::refresh;
 use robotech::web::ROUTER_SLICE;
 use std::sync::OnceLock;
-use tokio::task::JoinHandle;
-use tracing::{info, warn};
-
-/// 当前投递任务订阅句柄
-static DELIVERY_SUBSCRIPTION: ArcSwapOption<JoinHandle<()>> = ArcSwapOption::const_empty();
+use tracing::{error, info, warn};
 
 /// # 注册 websocket 路由
 ///
@@ -65,32 +61,54 @@ fn build_wkr_router() -> Router {
 
 /// # 装配投递执行器
 ///
-/// 幂等：配置热更新会重复调用，每次先断开旧连接、停掉旧订阅，再重建。
+/// 幂等：配置热更新会重复调用，每次先断开旧连接，再按最新的投递队列同步订阅。
+/// 刷新信号订阅由框架按主题去重，重复注册只会复用已有订阅。
 pub async fn setup_wkr() -> anyhow::Result<()> {
     // 长连接先断：旧连接上挂的是旧订阅发出来的消息，重建后由新连接承担
     conn::close_all();
-    if let Some(old) = DELIVERY_SUBSCRIPTION.swap(None) {
-        old.abort();
-    }
 
     channel::init_senders();
     watch_terminate_signal();
 
-    let handle = sub::start_delivery_subscription().await?;
-    DELIVERY_SUBSCRIPTION.store(Some(handle));
+    // 投递队列变更：各节点重新查库、换快照并增删订阅
+    refresh::subscribe(&MSG_DELIVERY_QUEUE_REFRESH_SUBJECT, || async {
+        sub::reload_delivery_queues().await
+    })
+    .await?;
+
+    // 首次同步：订阅必须先于业务队列就绪，否则刚进来的消息直接发不出去
+    sub::reload_delivery_queues().await?;
 
     Ok(())
 }
 
+/// # 投递队列写操作后发布刷新信号
+///
+/// 用于 `#[svc(after_write = ...)]`：队列配置写成功后通知所有节点重建订阅。
+pub async fn on_delivery_queue_refresh() {
+    if let Err(e) = refresh::publish(&MSG_DELIVERY_QUEUE_REFRESH_SUBJECT).await {
+        error!("发布投递队列刷新信号失败: {e}");
+    }
+}
+
 /// # 发布一条投递任务
 ///
-/// 走 Core NATS：websocket 需要「所有实例都收到、各自查本地连接」的广播语义，
-/// 不需要 JetStream 的持久化与应答（大屏离线就是这次没送达，不补投）。
+/// 主题与是否持久化都取自该渠道的投递队列配置：
 ///
-/// 发布失败（NATS 断连）时由调用方决定怎么记账，这里只透传错误。
+/// - `persisted = false` → Core NATS，at-most-once（websocket 就靠它做广播）
+/// - `persisted = true` → JetStream，等服务器 ACK
+///
+/// 渠道没配投递队列时直接报错：没有队列就没有订阅方，发出去只会蒸发。
+/// 发布失败（NATS 断连）由调用方决定怎么记账，这里只透传错误。
 pub async fn publish_task(task: &DeliveryMsg) -> Result<(), NatsError> {
-    let subject = delivery_subject(&task.channel_code);
-    nats::publish(&subject, task, false).await?;
+    let Some(queue) = sub::get_delivery_queue(&task.channel_code) else {
+        return Err(NatsError::Publish(format!(
+            "渠道 {} 没有投递队列配置，任务无处投递",
+            task.channel_code
+        )));
+    };
+
+    nats::publish(&queue.subject, task, queue.persisted).await?;
     Ok(())
 }
 

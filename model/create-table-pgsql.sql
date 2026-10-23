@@ -384,13 +384,83 @@ delivery_channel_id
 );
 
 /*==============================================================*/
+/* Table: msg_delivery_queue                                    */
+/*==============================================================*/
+create table msg_delivery_queue (
+   id                   INT8                 not null,
+   channel_id           INT8                 not null,
+   code                 VARCHAR(50)          not null,
+   name                 VARCHAR(50)          not null,
+   persisted            BOOL                 not null default false,
+   remark               VARCHAR(50)          null,
+   creater_id           INT8                 not null,
+   create_ms            INT8                 not null,
+   updater_id           INT8                 not null,
+   update_ms            INT8                 not null,
+   constraint PK_MSG_DELIVERY_QUEUE primary key (id),
+   constraint AK_CODE_MSG_DELIVERY_QUEUE unique (code),
+   constraint AK_NAME_MSG_DELIVERY_QUEUE unique (name),
+   constraint AK_CHANNEL_ID_MSG_DELIVERY_QUEUE unique (channel_id)
+);
+
+comment on table msg_delivery_queue is
+'投递队列
+按渠道配置，消息中心据此订阅投递主题并决定是否持久化';
+
+comment on column msg_delivery_queue.id is
+'ID';
+
+comment on column msg_delivery_queue.channel_id is
+'渠道ID';
+
+comment on column msg_delivery_queue.code is
+'编码
+投递主题，订阅与投递都用它';
+
+comment on column msg_delivery_queue.name is
+'名称';
+
+comment on column msg_delivery_queue.persisted is
+'是否持久化
+持久化走 JetStream（落盘、重投、队列组负载均衡）；不持久化走 Core NATS 广播';
+
+comment on column msg_delivery_queue.remark is
+'备注';
+
+comment on column msg_delivery_queue.creater_id is
+'创建者ID';
+
+comment on column msg_delivery_queue.create_ms is
+'创建时间戳';
+
+comment on column msg_delivery_queue.updater_id is
+'更新者ID';
+
+comment on column msg_delivery_queue.update_ms is
+'更新时间戳';
+
+/*==============================================================*/
+/* Index: msg_delivery_queue_PK                                 */
+/*==============================================================*/
+create unique index msg_delivery_queue_PK on msg_delivery_queue (
+id
+);
+
+/*==============================================================*/
+/* Index: Relationship_18_FK                                    */
+/*==============================================================*/
+create  index Relationship_18_FK on msg_delivery_queue (
+channel_id
+);
+
+/*==============================================================*/
 /* Table: msg_delivery_target                                   */
 /*==============================================================*/
 create table msg_delivery_target (
    id                   INT8                 not null,
    delivery_id          INT8                 not null,
    target_category_id   INT8                 not null,
-   target_id            INT8                 not null,
+   target_id            VARCHAR(100)         not null,
    deliver_target_status INT2                 not null default 0,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
@@ -413,8 +483,8 @@ comment on column msg_delivery_target.target_category_id is
 '目标类别ID';
 
 comment on column msg_delivery_target.target_id is
-'目标ID
-目标类型为大屏时填0，表示该类别下的全部目标（大屏动态接入，不逐个登记）';
+'目标标识
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）';
 
 comment on column msg_delivery_target.deliver_target_status is
 '投递状态
@@ -723,7 +793,7 @@ create table msg_message_target (
    id                   INT8                 not null,
    message_id           INT8                 not null,
    target_category_id   INT8                 not null,
-   target_id            INT8                 not null,
+   target_id            VARCHAR(100)         not null,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
@@ -745,8 +815,8 @@ comment on column msg_message_target.target_category_id is
 '目标类别ID';
 
 comment on column msg_message_target.target_id is
-'目标ID
-目标类型为大屏时填0，表示该类别下的全部目标（大屏动态接入，不逐个登记）';
+'目标标识
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）';
 
 comment on column msg_message_target.creater_id is
 '创建者ID';
@@ -921,6 +991,11 @@ alter table msg_delivery_channel
 alter table msg_delivery_channel_log
    add constraint fk_delivery_channel_id__from__msg_delivery_channel foreign key (delivery_channel_id)
       references msg_delivery_channel (id)
+      on delete restrict on update restrict;
+
+alter table msg_delivery_queue
+   add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
+      references msg_channel (id)
       on delete restrict on update restrict;
 
 alter table msg_delivery_target

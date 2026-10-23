@@ -3,6 +3,7 @@ mod msg_dead_letter_api_doc;
 mod msg_delivery_api_doc;
 mod msg_delivery_channel_api_doc;
 mod msg_delivery_channel_log_api_doc;
+mod msg_delivery_queue_api_doc;
 mod msg_delivery_target_api_doc;
 mod msg_event_source_api_doc;
 mod msg_message_api_doc;
