@@ -3062,9 +3062,10 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304171</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
+<a:Comment>目标ID
+目标类型为大屏时填0，表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
 <a:DataType>LI</a:DataType>
-<a:LogicalAttribute.Mandatory>0</a:LogicalAttribute.Mandatory>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o124">
@@ -3373,9 +3374,10 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304180</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
+<a:Comment>目标ID
+目标类型为大屏时填0，表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
 <a:DataType>LI</a:DataType>
-<a:LogicalAttribute.Mandatory>0</a:LogicalAttribute.Mandatory>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o146">

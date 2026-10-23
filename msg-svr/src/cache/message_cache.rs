@@ -59,7 +59,7 @@
 //! - `setup_local_cache` 由 `cache_utils::setup_cache` 调用
 
 use arc_swap::ArcSwapOption;
-use msg_api::cst::MSG_MESSAGE_REFRESH_SUBJECT;
+use msg_api::cst::{MSG_MESSAGE_REFRESH_SUBJECT, TARGET_ID_ALL};
 use robotech::cache::publish_cache_refresh_signal;
 use robotech::db::get_db_conn;
 use std::collections::{HashMap, HashSet};
@@ -195,8 +195,8 @@ pub struct TargetCategoryCache {
 #[derive(Debug, Clone)]
 pub struct TargetCache {
     pub target_category: TargetCategoryCache,
-    /// 具体目标 ID；`None` 表示该目标类别下的全部目标（按类别广播）
-    pub target_id: Option<u64>,
+    /// 具体目标 ID；`0` 表示该目标类别下的全部目标（按类别广播）
+    pub target_id: u64,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -443,24 +443,24 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
             if let Some(tc) = target_categories.get(&link.target_category_id.0) {
                 map.entry(link.message_id.0).or_default().push(TargetCache {
                     target_category: tc.clone(),
-                    target_id: link.target_id.map(|v| v.0),
+                    target_id: link.target_id.0,
                 });
             }
         }
-        // 同一个类别下如果登记了广播（target_id 为空），具体的那些目标就是多余的：
+        // 同一个类别下如果登记了广播（target_id = 0），具体的那些目标就是多余的：
         // 广播已经把该类别下的所有目标都覆盖了，留着只会让那几块屏收两遍。
         // 在缓存里就地剔掉，投递侧不用再判断。
         for targets in map.values_mut() {
             let broadcast_categories: HashSet<u64> = targets
                 .iter()
-                .filter(|target| target.target_id.is_none())
+                .filter(|target| target.target_id == TARGET_ID_ALL)
                 .map(|target| target.target_category.id)
                 .collect();
             if broadcast_categories.is_empty() {
                 continue;
             }
             targets.retain(|target| {
-                target.target_id.is_none()
+                target.target_id == TARGET_ID_ALL
                     || !broadcast_categories.contains(&target.target_category.id)
             });
         }

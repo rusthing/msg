@@ -40,8 +40,9 @@ pub async fn start_delivery_subscription() -> anyhow::Result<Arc<JoinHandle<()>>
         } else {
             // 非持久化：不落库、不回写，成败都到此为止
             debug!(
-                "非持久化消息已投递: event_code={}, target_id={:?}, outcome={}",
+                "非持久化消息已投递: event_code={}, category={}, target_id={}, outcome={}",
                 task.event_code,
+                task.target_category_code,
                 task.target_id,
                 outcome.detail()
             );

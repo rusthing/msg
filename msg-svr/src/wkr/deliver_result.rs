@@ -23,6 +23,7 @@ use crate::svc::{
 };
 use crate::wkr::channel::SendOutcome;
 use idworker::next_id;
+use msg_api::cst::TARGET_ID_ALL;
 use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
 use msg_api::msg::DeliveryMsg;
 use robotech::api::U64;
@@ -41,10 +42,10 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome) {
     //
     // 代价：所有实例都没连接时，渠道状态停在「投递中」。大屏离线本来就不补投，
     // 这个状态没有下游依赖，接受。
-    if task.target_id.is_none() && matches!(outcome, SendOutcome::NoConnection) {
+    if task.target_id == TARGET_ID_ALL && matches!(outcome, SendOutcome::NoConnection) {
         debug!(
-            "广播投递本实例无连接，跳过回写: category_id={}, event_code={}",
-            task.target_category_id, task.event_code
+            "广播投递本实例无连接，跳过回写: category={}, event_code={}",
+            task.target_category_code, task.event_code
         );
         return;
     }
@@ -56,7 +57,7 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome) {
     ) else {
         if task.persisted {
             warn!(
-                "持久化投递任务缺少投递 ID，跳过回写: event_code={}, target_id={:?}",
+                "持久化投递任务缺少投递 ID，跳过回写: event_code={}, target_id={}",
                 task.event_code, task.target_id
             );
         }

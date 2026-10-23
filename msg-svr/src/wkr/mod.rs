@@ -13,7 +13,8 @@
 //!
 //! ## 由谁驱动
 //!
-//! - 连接：`/msg/ws`（[`ws_handler`]），大屏带 `targetId` 连上来；
+//! - 连接：`/msg/ws`（[`ws_handler`]），大屏带 `targetCategory`（目标类别编码）
+//!   连上来，按编码登记；
 //! - 投递：订阅 `msg.delivery.websocket`（[`sub`]），Core NATS 广播，
 //!   每个实例都收到，各自查本地连接表；
 //! - 发送：按渠道编码分发到 [`channel::ChannelSender`]；

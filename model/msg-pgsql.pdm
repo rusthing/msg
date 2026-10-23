@@ -7016,12 +7016,13 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304466</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
+<a:Comment>目标ID
+目标类型为大屏时填0，表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
 <a:History>ORG {89ADB177-C5A2-4AD5-A9EC-9AB094F110DE}
 DAT 1790046262</a:History>
 <a:DataType>INT8</a:DataType>
 <a:Length>8</a:Length>
-<a:Column.Mandatory>0</a:Column.Mandatory>
+<a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
 <o:Column Id="o175">
@@ -7599,12 +7600,13 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790304466</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>为空表示该目标类别下的全部目标，即按类别广播</a:Comment>
+<a:Comment>目标ID
+目标类型为大屏时填0，表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
 <a:History>ORG {63A0DB2D-3EDA-4863-81BB-88A52566925E}
 DAT 1790046262</a:History>
 <a:DataType>INT8</a:DataType>
 <a:Length>8</a:Length>
-<a:Column.Mandatory>0</a:Column.Mandatory>
+<a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
 <o:Column Id="o211">

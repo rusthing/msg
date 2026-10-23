@@ -7,7 +7,7 @@
 //! 格式解析 `content` 即可。发布方上报的 `labels` / `annotations` 只是模板的
 //! 输入，不随这一帧下发。
 //!
-//! 目标不在本实例（或压根没连）时返回 [`SendOutcome::NoConnection`]：
+//! 目标类别下没有连接（或压根没连）时返回 [`SendOutcome::NoConnection`]：
 //! websocket 是 at-most-once，没有连接就没有必要重试，也不需要补投——
 //! 大屏自己刷新列表即可。
 
@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use msg_api::cst::MSG_CHANNEL_CODE_WEBSOCKET;
 use msg_api::msg::DeliveryMsg;
 use serde::Serialize;
-use tracing::{debug, warn};
+use tracing::warn;
 
 /// websocket 渠道发送器
 pub struct WebSocketSender;
@@ -39,30 +39,20 @@ impl ChannelSender for WebSocketSender {
             Err(e) => return SendOutcome::Failed(format!("推送内容序列化失败: {e}")),
         };
 
-        // target_id 为空是按类别广播：本实例把这个类别下的连接全发一遍，
-        // 别的实例收到同一条任务也会各自发各自的连接
-        if conn::send(task.target_category_id, task.target_id, text) {
-            // 地址只用于排查：哪个目标、连在哪个实例上
+        // 按目标类别编码找连接：大屏连上来时上报的就是这个编码，
+        // 本实例把这个类别下的连接全发一遍，别的实例收到同一条任务也会各自发
+        if conn::send(&task.target_category_code, text) {
+            // 地址只用于排查：这条投递落在哪个类别的连接上
             SendOutcome::Delivered {
-                address: match task.target_id {
-                    Some(target_id) => format!("target:{target_id}"),
-                    None => format!("category:{}", task.target_category_id),
-                },
+                address: format!("category:{}", task.target_category_code),
             }
         } else {
-            // 广播时「本实例没有连接」是常态（屏可能连在别的实例上），
-            // 不能当成投递失败，否则多实例部署下每个实例都会记一次失败
-            if task.target_id.is_some() {
-                warn!(
-                    "目标未连接，消息丢弃: target_id={:?}, event_code={}",
-                    task.target_id, task.event_code
-                );
-            } else {
-                debug!(
-                    "本实例没有该类别下的连接，跳过: category_id={}, event_code={}",
-                    task.target_category_id, task.event_code
-                );
-            }
+            // 「本实例没有连接」不是投递失败：屏可能连在别的实例上，
+            // 那边会把这条渠道记成送达
+            warn!(
+                "本实例没有该类别下的连接，消息丢弃: category={}, event_code={}",
+                task.target_category_code, task.event_code
+            );
             SendOutcome::NoConnection
         }
     }
@@ -103,8 +93,9 @@ mod tests {
             content: r#"{"text":"1F 东侧","lon":113.9,"lat":22.5}"#.to_string(),
             ext: Some("extra".to_string()),
             create_ms: 1_700_000_000_000,
+            target_category_code: "screen".to_string(),
             target_category_id: 11,
-            target_id: Some(8888),
+            target_id: 0,
             channel_id: 2,
             channel_code: "websocket".to_string(),
         }
@@ -133,8 +124,10 @@ mod tests {
         assert_eq!(data["ext"], "extra");
         assert_eq!(data["eventSourceId"], 3);
         assert_eq!(data["messageCategoryId"], 5);
+        // 大屏按类别编码认领：帧里必须有它，光有类别 ID 对不上连接
+        assert_eq!(data["targetCategoryCode"], "screen");
         assert_eq!(data["targetCategoryId"], 11);
-        assert_eq!(data["targetId"], 8888);
+        assert_eq!(data["targetId"], 0);
         assert_eq!(data["channelId"], 2);
         assert_eq!(data["createMs"], 1_700_000_000_000i64);
         assert_eq!(data["persisted"], false);

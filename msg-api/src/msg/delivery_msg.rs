@@ -10,7 +10,8 @@
 //! - 消息内容：`msg_delivery` 的 `event_code` / `message_id` / `event_source_id` /
 //!   `message_category_id` / `business_id` / `business_trigger_ms` / `title` /
 //!   `content` / `ext` / `create_ms`；
-//! - 投递目标：`msg_delivery_target` 的 `target_category_id` / `target_id`；
+//! - 投递目标：`msg_delivery_target` 的 `target_category_id` / `target_id`，
+//!   外加 `msg_target_category.code`（消费方按类别编码决定发不发）；
 //! - 投递渠道：`msg_delivery_channel` 的 `channel_id`，外加 `msg_channel.code`
 //!   （发布主题的末段，消费方靠它认领任务）。
 //!
@@ -102,17 +103,20 @@ pub struct DeliveryMsg {
     /// 消息创建时间戳（毫秒，`msg_delivery.create_ms`）
     pub create_ms: u64,
 
+    /// 投递目标类别编码（`msg_target_category.code`）
+    ///
+    /// 消费方按它认领任务：websocket 渠道拿它和连接上报的类别编码比对，
+    /// 对上了才发。任务里带编码而不是类别 ID——ID 是库里的主键，客户端
+    /// 不该知道，大屏连上来时上报的也是编码。
+    pub target_category_code: String,
     /// 投递目标类别 ID（`msg_delivery_target.target_category_id`）
     pub target_category_id: u64,
     /// 目标 ID（`msg_delivery_target.target_id`）
     ///
-    /// websocket 渠道用它定位长连接：大屏连接上来时上报的 `targetId` 就是这个值。
-    ///
-    /// 为 `None` 表示**按目标类别广播**：这条任务发给该类别下的全部目标，
-    /// 由每个实例展开到自己本地的连接（大屏这类动态接入的目标没法逐个登记）。
-    /// 消费方不能假定它一定有值。
-    #[serde(default)]
-    pub target_id: Option<u64>,
+    /// `0` 表示**该目标类别下的全部目标**（按类别广播）：大屏这类动态接入的
+    /// 目标没法逐个登记，发布方只能声明「发给大屏这一类」，由每个实例展开到
+    /// 自己本地的连接。
+    pub target_id: u64,
     /// 渠道 ID（`msg_delivery_channel.channel_id`）
     pub channel_id: u64,
     /// 渠道编码（`msg_channel.code`）

@@ -642,9 +642,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             id: Some(U64(target_id_val)),
             delivery_id: Some(delivery_id.into()),
             target_category_id: Some(target.target_category.id.into()),
-            // 广播目标（target_id 为空）也要落一行：投递记录得说明「这次覆盖了
+            // 广播目标（target_id = 0）也要落一行：投递记录得说明「这次覆盖了
             // 哪个类别」，否则渠道记录挂不到目标上，状态也没法逐级汇总
-            target_id: Some(target.target_id.map(U64)),
+            target_id: Some(U64(target.target_id)),
             deliver_target_status: Some(DeliverTargetStatus::Delivering),
             _current_ms: Some(U64(now_ms)),
             _current_user_id: U64(0),
@@ -712,7 +712,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     for task in tasks {
         if let Err(e) = wkr::publish_task(&task).await {
             error!(
-                "发布投递任务失败: channel={}, target_id={:?}, error={e}",
+                "发布投递任务失败: channel={}, target_id={}, error={e}",
                 task.channel_code, task.target_id
             );
             // 发不出去就不会有发送结果回来，就地记失败，避免渠道一直挂在「投递中」
@@ -796,6 +796,7 @@ fn build_task(
         content: ctx.content.to_string(),
         ext: ctx.ext.map(str::to_string),
         create_ms: ctx.create_ms,
+        target_category_code: target.target_category.code.clone(),
         target_category_id: target.target_category.id,
         target_id: target.target_id,
         channel_id: channel.id,
@@ -829,7 +830,7 @@ async fn publish_best_effort(
             let task = build_task(&ctx, (None, None, None), target, channel);
             if let Err(e) = wkr::publish_task(&task).await {
                 warn!(
-                    "发布非持久化投递任务失败，已丢弃: channel={}, target_id={:?}, error={e}",
+                    "发布非持久化投递任务失败，已丢弃: channel={}, target_id={}, error={e}",
                     task.channel_code, task.target_id
                 );
             }

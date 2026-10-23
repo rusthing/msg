@@ -12,14 +12,14 @@ pub const MSG_DELIVERY_TOPIC: &str = "msg.delivery";
 /// 与 `ChannelSender::code` 的取值，三处必须一致。
 pub const MSG_CHANNEL_CODE_WEBSOCKET: &str = "websocket";
 
-/// 大屏目标类别编码
+/// 目标 ID 的通配值：表示该目标类别下的全部目标
 ///
-/// 对应 `msg_target_category.code`：目标类别是消息中心的共享字典
-/// （用户 / 角色 / 分组 / 大屏），大屏这一类用 `screen`。
+/// 大屏这类目标是动态接入的（哪块屏连上来才存在），发布方没法在登记消息时
+/// 逐个写目标 ID，用 0 声明「发给这一类的全部目标」。投递时各实例把它展开到
+/// 本地该类别下的连接。
 ///
-/// 大屏握手时可以省略 `targetCategory`，省略即按这个类别处理——老客户端
-/// 只报 `targetId` 也能连上。发布方登记「消息发给大屏这一类」时用的也是它。
-pub const MSG_TARGET_CATEGORY_CODE_SCREEN: &str = "screen";
+/// 0 是约定值，雪花 ID 不会生成 0，所以不会与真实目标撞车。
+pub const TARGET_ID_ALL: u64 = 0;
 
 /// # 拼出某个渠道的投递主题
 ///

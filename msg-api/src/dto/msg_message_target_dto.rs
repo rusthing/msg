@@ -8,7 +8,7 @@ pub struct MsgMessageTargetDto {
     pub target_category_id: u64,
     /// 目标ID（用户 / 角色 / 分组 / 大屏的 ID）
     ///
-    /// 为空表示该目标类别下的全部目标，即按类别广播：大屏这类动态接入的
-    /// 目标没法逐个登记，只能声明「发给大屏这一类」。
-    pub target_id: Option<u64>,
+    /// 大屏这类动态接入的目标填 0，表示该类别下的全部目标：发布方没法在
+    /// 登记时知道有哪些屏，只能声明「发给大屏这一类」。
+    pub target_id: u64,
 }
