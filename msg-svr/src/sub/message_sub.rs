@@ -422,8 +422,9 @@ async fn start_subscription_for_queue(
 /// 7. 为每个目标创建 `msg_delivery_target`
 /// 8. 为每个（目标 × 渠道）组合创建 `msg_delivery_channel`
 ///
-/// 投递任务只带渲染后的标题与正文：模板是编译，`labels` / `annotations` 是
-/// 编译期输入，产物下发之后不再需要原始变量。
+/// 投递任务带上完整的一条消息：渲染好的标题正文、原始 `labels` / `annotations`、
+/// 以及消息类别与来源的编码名称。模板只把变量拼成文案，不吞掉输入——接收方
+/// 还要用结构化字段做业务处理（大屏按坐标落点、按楼层切图）。
 ///
 /// ## 返回值
 ///
@@ -456,8 +457,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     // ── 3. 渲染标题和内容 ──
     //
-    //   模板是「编译」：labels 与 annotations 是输入变量，渲染出的标题和正文
-    //   是产物。产物之后的投递链路只带这两样，原始变量不再下发。
+    //   模板只负责把 labels 与 annotations 拼成可读文案，渲染结果和原始变量
+    //   一起下发：接收方既要文案，也要结构化字段。
     //
     //   title_template 不为 null → 用 labels + annotations 做变量替换
     //   title_template 为 null    → 取 annotations["title"]
@@ -510,8 +511,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //   只按 business_id 查会把「同一个业务对象的另一个事件」误判成重复，
     //   直接静默漏投。
     //
-    //   两个业务字段在 `MessageMsg` 里都是可选的：发布方没有业务对象可指时
-    //   （遥测这类不落库的消息）会留空。落库的消息必须有，缺了就地拒收——
+    //   两个业务字段在 `MessageMsg` 里都是可选的：发布方没有业务对象可指时会留空
+    //   （不落库的消息填不填都不参与幂等，见下面的分支）。落库的消息必须有，
+    //   缺了就地拒收——
     //   不落库就没地方存幂等键，硬投出去只会让同一条消息反复生成投递记录。
     //   服务端也不兜底：补 now 会让每次重投都算新消息，补 0 又会吞掉后续真实触发。
 
@@ -743,11 +745,19 @@ fn build_task(
         delivery_channel_id: ids.2,
         event_code: ctx.msg.event_code.clone(),
         message_id: ctx.msg.id,
+        message_name: ctx.msg.name.clone(),
+        category_code: ctx.msg.category.code.clone(),
+        category_name: ctx.msg.category.name.clone(),
+        source_code: ctx.msg.source.code.clone(),
+        source_name: ctx.msg.source.name.clone(),
         channel_id: channel.id,
         channel_code: channel.code.clone(),
         target_id,
         business_id: ctx.message_msg.business_id,
         business_trigger_ms: ctx.message_msg.business_trigger_ms,
+        // 原始变量原样带下去：模板渲染出的标题正文只是其中一种用法
+        labels: ctx.message_msg.labels.clone(),
+        annotations: ctx.message_msg.annotations.clone(),
         title: ctx.title.to_string(),
         content: ctx.content.to_string(),
         created_ms: ctx.created_ms,

@@ -12,9 +12,9 @@ pub struct MessageMsg {
     /// **可选**。与 `event_code`、`business_trigger_ms` 一起构成幂等键
     /// `(event_code, business_id, business_trigger_ms)`，三者都在时才判重。
     ///
-    /// 留空的情形：发布方没有业务对象可指（例如设备遥测这类按条计的位置上报），
-    /// 消息本身不落 `msg_delivery`，也就没有幂等可言。这类消息的语义是
-    /// at-most-once，服务端不会替它补一个业务 ID。
+    /// 留空的情形：发布方没有业务对象可指。不落库的消息（`persisted = false`）
+    /// 填不填都不参与幂等——没有投递记录可存幂等键，语义就是 at-most-once；
+    /// 有业务对象时照样可以填，服务端会原样带进投递任务。
     ///
     /// 落库的消息（`msg_message.persisted = true`）必须给出这个值，
     /// 否则 `msg-svr` 在幂等阶段直接失败（`Discard`）。
@@ -34,14 +34,17 @@ pub struct MessageMsg {
     /// 路由标签：一组结构化的 key-value，匹配、分组、路由都只看它
     ///
     /// 同时是模板变量：`title_template` / `content_template` 里的 `{key}`
-    /// 会从 `labels` 与 [`Self::annotations`] 中取值。
+    /// 会从 `labels` 与 [`Self::annotations`] 中取值。渲染之后它仍然原样跟着
+    /// 投递任务下发（见 [`crate::msg::DeliveryMsg::labels`]），接收方还要拿它
+    /// 做业务联动。
     #[serde(default)]
     #[builder(default)]
     pub labels: HashMap<String, String>,
     /// 可读标注：标题、详细描述、坐标这类展示用字段
     ///
-    /// 与 `labels` 一样只是模板的输入变量，同名时以 `labels` 为准。
-    /// 渲染完成后只剩标题与正文，这两份都不会跟着投递下发。
+    /// 与 `labels` 一样，既是模板的输入变量（同名时以 `labels` 为准），
+    /// 也是投递任务的一部分：大屏拿 `lon` / `lat` / `levelId` 在地图上落点，
+    /// 这些字段拼不进标题，只能原样下发。
     #[serde(default)]
     #[builder(default)]
     pub annotations: HashMap<String, String>,
