@@ -5192,6 +5192,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:History>ORG {A1FE1E39-B334-4B86-90C3-1B73E5BC81FE}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -5208,7 +5210,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790146041</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>事件编码
-在应用中定义，事件触发时传递出来</a:Comment>
+在应用中定义，事件触发时传递出来
+@len 1..=50</a:Comment>
 <a:History>ORG {A3FDD551-7A88-4471-8767-424A8ADCA869}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -5242,7 +5245,8 @@ DAT 1790584396</a:History>
 <a:ModificationDate>1790239013</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>标题模板
-为null的话用发布方给的title作为标题</a:Comment>
+为null的话用发布方给的title作为标题
+@len 0..=150</a:Comment>
 <a:History>ORG {5B8CEF56-E98F-4539-87A7-2E6B60D76DEC}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(150)</a:DataType>
@@ -5258,7 +5262,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790239013</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>内容模板
-为null的话用发布方给的content作为内容</a:Comment>
+为null的话用发布方给的content作为内容
+@len 0..</a:Comment>
 <a:History>ORG {A5ECBF53-DC9F-4567-A258-F71E3A1A6053}
 DAT 1790046262</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -5273,7 +5278,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1792733861</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>附加内容模板
-渲染结果原样下发，格式不约定；为null时用发布方给的附加内容</a:Comment>
+渲染结果原样下发，格式不约定；为null时用发布方给的附加内容
+@len 0..</a:Comment>
 <a:History>ORG {39D440BC-3112-4098-B478-66CEA4FA1F46}
 DAT 1792733861</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -5287,6 +5293,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {71A87BFA-42B7-4F0E-8471-5459B885C3CD}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -5901,6 +5909,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:History>ORG {6BBC06EE-E707-4585-B2FB-EAC262C3A592}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -5916,6 +5926,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:History>ORG {E3DAF712-D300-4299-9D6E-B6A09E3AB695}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -5931,6 +5943,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {12932FEE-6D91-4314-A128-6332508A3325}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -6182,7 +6196,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790067473</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-用于订阅消息中间件队列的名称</a:Comment>
+用于订阅消息中间件队列的名称
+@len 1..=50</a:Comment>
 <a:History>ORG {CF72A8C2-211A-4F61-97DB-B08F32CA838D}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -6198,6 +6213,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:History>ORG {C6955927-E8C0-4BE6-BDC0-5C29DD34AF2C}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -6228,6 +6245,8 @@ DAT 1790067466</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {61EA8519-8518-4250-9C2C-0E80534722E7}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -6475,7 +6494,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790301863</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>事件编码
-在应用中定义，事件触发时传递出来</a:Comment>
+在应用中定义，事件触发时传递出来
+@len 1..=50</a:Comment>
 <a:History>ORG {3F7E2D1D-7979-4D56-8439-60CE54355AFA}
 DAT 1790301829</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -6571,11 +6591,7 @@ DAT 1790254901</a:History>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递部分成功
-2: 投递全部成功
-3: 投递全部失败
-</a:Comment>
+@enum DeliverStatus default=Delivering 0=Delivering:投递中, 1=PartialSuccess:投递部分成功, 2=AllSuccess:投递全部成功, 3=AllFailed:投递全部失败</a:Comment>
 <a:History>ORG {40A90AF9-7A21-4295-99F6-CF812B8AE2F4}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
@@ -6593,7 +6609,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790239013</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>路由标签
-一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本</a:Comment>
+一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本
+@len 0..</a:Comment>
 <a:History>ORG {16FEAF75-62A9-483F-A56F-7441C1552AE7}
 DAT 1790239005</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -6608,7 +6625,8 @@ DAT 1790239005</a:History>
 <a:ModificationDate>1790239013</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>标注
-放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示</a:Comment>
+放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示
+@len 0..</a:Comment>
 <a:History>ORG {305CC6DA-40D7-4EAE-BB31-83A8DE2058C0}
 DAT 1790239005</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -6622,6 +6640,8 @@ DAT 1790239005</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>标题
+@len 1..=150</a:Comment>
 <a:History>ORG {15B15193-A5DF-44E0-B976-A633474CA3C5}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(150)</a:DataType>
@@ -6637,6 +6657,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>内容
+@len 1..</a:Comment>
 <a:History>ORG {CC70234E-5B77-4CBD-9088-A2DE008F54DA}
 DAT 1790046262</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -6652,7 +6674,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1792733861</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>附加内容
-模板渲染结果，格式不约定</a:Comment>
+模板渲染结果，格式不约定
+@len 0..</a:Comment>
 <a:History>ORG {F5DAB36E-AD6C-4639-9A71-0CDFE05E5BFD}
 DAT 1792733861</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -6666,6 +6689,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {ACA85807-A12A-4C4B-822A-BDBA223F6964}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -7017,7 +7042,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790304466</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>目标标识
-空串表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）
+@len 0..=100</a:Comment>
 <a:History>ORG {89ADB177-C5A2-4AD5-A9EC-9AB094F110DE}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(100)</a:DataType>
@@ -7310,6 +7336,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790254908</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:History>ORG {6E39C83A-9911-467E-9232-FEFFB97959CA}
 DAT 1790254901</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -7325,6 +7353,8 @@ DAT 1790254901</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:History>ORG {577CE559-2E12-48D6-B1AA-DE4B4596EB79}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -7340,6 +7370,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>配置
+@len 0..</a:Comment>
 <a:History>ORG {350A14D9-3389-4E66-8618-2CBC8404F35A}
 DAT 1790046262</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -7353,6 +7385,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {CDDF9988-B864-4843-B95F-57BB5A219214}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -7601,7 +7635,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790304466</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>目标标识
-空串表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）
+@len 0..=100</a:Comment>
 <a:History>ORG {63A0DB2D-3EDA-4863-81BB-88A52566925E}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(100)</a:DataType>
@@ -7618,10 +7653,7 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790067473</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-3: 目标已读</a:Comment>
+@enum DeliverTargetStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败, 3=Read:目标已读</a:Comment>
 <a:History>ORG {48601467-771E-4F6D-9048-608FDB032A5D}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
@@ -7947,10 +7979,7 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-</a:Comment>
+@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
 <a:History>ORG {FD6A9CDA-EEFC-4555-8BA7-B14F2FCF57DE}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
@@ -7967,6 +7996,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>投递地址
+@len 0..=80</a:Comment>
 <a:History>ORG {E46D40A5-1670-4403-9E51-ED0215BBCA6C}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(80)</a:DataType>
@@ -8257,10 +8288,7 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-</a:Comment>
+@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
 <a:History>ORG {DAFF22CF-E117-49BC-A678-6E97E2A862F0}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
@@ -8277,6 +8305,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>投递地址
+@len 0..=80</a:Comment>
 <a:History>ORG {5DDB8265-93E9-48F2-89F5-4A0EF42CAB30}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(80)</a:DataType>
@@ -8291,6 +8321,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>投递详情
+@len 0..</a:Comment>
 <a:History>ORG {73913E28-F9DF-41AF-8D1B-076218588AED}
 DAT 1790046262</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -8477,6 +8509,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:History>ORG {C32D81C6-5579-4777-BCD0-16C4BE59B7B6}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -8492,6 +8526,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:History>ORG {B6E5A9D2-C2D0-424F-AC33-36DD0603F505}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -8507,6 +8543,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {776C8959-ADC1-4756-945A-E2A08C85E34A}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -8757,6 +8795,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:History>ORG {41B42879-1D25-4C3E-9FA0-3E0D24F9361D}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -8772,6 +8812,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:History>ORG {997E3898-B58E-4D2D-ABF4-8BBED785394A}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -8787,6 +8829,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {8BA2944B-E706-4804-90DA-046AE6F65B03}
 DAT 1790046262</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -9037,6 +9081,8 @@ DAT 1792298241</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>原消息主题
+@len 1..=150</a:Comment>
 <a:History>ORG {FBC49590-C3AA-4A38-B3E2-AB0EDEA8AACA}
 DAT 1792298241</a:History>
 <a:DataType>VARCHAR(150)</a:DataType>
@@ -9052,6 +9098,8 @@ DAT 1792298241</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>死信原因
+@len 1..</a:Comment>
 <a:History>ORG {B2D7F586-1A23-4E3B-95BA-C15429DCBD9D}
 DAT 1792298241</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -9066,6 +9114,8 @@ DAT 1792298241</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>消息内容
+@len 1..</a:Comment>
 <a:History>ORG {9154EEFD-F596-4EAB-A006-C8CF62069F34}
 DAT 1792298241</a:History>
 <a:DataType>TEXT</a:DataType>
@@ -9111,6 +9161,8 @@ DAT 1792298241</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {00BD2C22-25B9-4AD0-8A44-07B262509E24}
 DAT 1792298241</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -9285,7 +9337,8 @@ DAT 1792744490</a:History>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-投递主题，订阅与投递都用它</a:Comment>
+投递主题，订阅与投递都用它
+@len 1..=50</a:Comment>
 <a:History>ORG {FF8375B4-72D8-45EB-A924-1794B7F70C66}
 DAT 1792744490</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -9301,6 +9354,8 @@ DAT 1792744490</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:History>ORG {20D5838C-D601-4E4E-B411-0EB536BCA609}
 DAT 1792744490</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>
@@ -9333,6 +9388,8 @@ DAT 1792744490</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:History>ORG {323F317D-1E01-4288-9E80-23B42CDD978F}
 DAT 1792744490</a:History>
 <a:DataType>VARCHAR(50)</a:DataType>

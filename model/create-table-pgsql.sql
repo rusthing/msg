@@ -30,16 +30,20 @@ comment on column msg_channel.id is
 'ID';
 
 comment on column msg_channel.code is
-'编码';
+'编码
+@len 1..=50';
 
 comment on column msg_channel.name is
-'名称';
+'名称
+@len 1..=50';
 
 comment on column msg_channel.options is
-'配置';
+'配置
+@len 0..';
 
 comment on column msg_channel.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_channel.enabled is
 '启用';
@@ -89,13 +93,16 @@ comment on column msg_dead_letter.id is
 'ID';
 
 comment on column msg_dead_letter.subject is
-'原消息主题';
+'原消息主题
+@len 1..=150';
 
 comment on column msg_dead_letter.reason is
-'死信原因';
+'死信原因
+@len 1..';
 
 comment on column msg_dead_letter.payload is
-'消息内容';
+'消息内容
+@len 1..';
 
 comment on column msg_dead_letter.delivered is
 '投递次数';
@@ -104,7 +111,8 @@ comment on column msg_dead_letter.handled is
 '已处理';
 
 comment on column msg_dead_letter.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_dead_letter.creater_id is
 '创建者ID';
@@ -159,7 +167,8 @@ comment on column msg_delivery.id is
 
 comment on column msg_delivery.event_code is
 '事件编码
-在应用中定义，事件触发时传递出来';
+在应用中定义，事件触发时传递出来
+@len 1..=50';
 
 comment on column msg_delivery.message_id is
 '消息ID';
@@ -180,32 +189,34 @@ comment on column msg_delivery.business_trigger_ms is
 
 comment on column msg_delivery.deliver_status is
 '投递状态
-0: 投递中
-1: 投递部分成功
-2: 投递全部成功
-3: 投递全部失败
-';
+@enum DeliverStatus default=Delivering 0=Delivering:投递中, 1=PartialSuccess:投递部分成功, 2=AllSuccess:投递全部成功, 3=AllFailed:投递全部失败';
 
 comment on column msg_delivery.labels is
 '路由标签
-一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本';
+一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本
+@len 0..';
 
 comment on column msg_delivery.annotations is
 '标注
-放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示';
+放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示
+@len 0..';
 
 comment on column msg_delivery.title is
-'标题';
+'标题
+@len 1..=150';
 
 comment on column msg_delivery.content is
-'内容';
+'内容
+@len 1..';
 
 comment on column msg_delivery.ext is
 '附加内容
-模板渲染结果，格式不约定';
+模板渲染结果，格式不约定
+@len 0..';
 
 comment on column msg_delivery.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_delivery.creater_id is
 '创建者ID';
@@ -278,13 +289,11 @@ comment on column msg_delivery_channel.channel_id is
 
 comment on column msg_delivery_channel.deliver_channel_status is
 '投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-';
+@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败';
 
 comment on column msg_delivery_channel.address is
-'投递地址';
+'投递地址
+@len 0..=80';
 
 comment on column msg_delivery_channel.creater_id is
 '创建者ID';
@@ -346,16 +355,15 @@ comment on column msg_delivery_channel_log.delivery_channel_id is
 
 comment on column msg_delivery_channel_log.deliver_channel_status is
 '投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-';
+@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败';
 
 comment on column msg_delivery_channel_log.address is
-'投递地址';
+'投递地址
+@len 0..=80';
 
 comment on column msg_delivery_channel_log.detail is
-'投递详情';
+'投递详情
+@len 0..';
 
 comment on column msg_delivery_channel_log.creater_id is
 '创建者ID';
@@ -415,17 +423,20 @@ comment on column msg_delivery_queue.channel_id is
 
 comment on column msg_delivery_queue.code is
 '编码
-投递主题，订阅与投递都用它';
+投递主题，订阅与投递都用它
+@len 1..=50';
 
 comment on column msg_delivery_queue.name is
-'名称';
+'名称
+@len 1..=50';
 
 comment on column msg_delivery_queue.persisted is
 '是否持久化
 持久化走 JetStream（落盘、重投、队列组负载均衡）；不持久化走 Core NATS 广播';
 
 comment on column msg_delivery_queue.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_delivery_queue.creater_id is
 '创建者ID';
@@ -484,14 +495,12 @@ comment on column msg_delivery_target.target_category_id is
 
 comment on column msg_delivery_target.target_id is
 '目标标识
-空串表示该类别下的全部目标（大屏动态接入，不逐个登记）';
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）
+@len 0..=100';
 
 comment on column msg_delivery_target.deliver_target_status is
 '投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-3: 目标已读';
+@enum DeliverTargetStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败, 3=Read:目标已读';
 
 comment on column msg_delivery_target.creater_id is
 '创建者ID';
@@ -551,13 +560,16 @@ comment on column msg_event_source.id is
 'ID';
 
 comment on column msg_event_source.code is
-'编码';
+'编码
+@len 1..=50';
 
 comment on column msg_event_source.name is
-'名称';
+'名称
+@len 1..=50';
 
 comment on column msg_event_source.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_event_source.creater_id is
 '创建者ID';
@@ -616,11 +628,13 @@ comment on column msg_message.category_id is
 '消息类别ID';
 
 comment on column msg_message.name is
-'名称';
+'名称
+@len 1..=50';
 
 comment on column msg_message.event_code is
 '事件编码
-在应用中定义，事件触发时传递出来';
+在应用中定义，事件触发时传递出来
+@len 1..=50';
 
 comment on column msg_message.persisted is
 '是否持久化
@@ -628,18 +642,22 @@ comment on column msg_message.persisted is
 
 comment on column msg_message.title_template is
 '标题模板
-为null的话用发布方给的title作为标题';
+为null的话用发布方给的title作为标题
+@len 0..=150';
 
 comment on column msg_message.content_template is
 '内容模板
-为null的话用发布方给的content作为内容';
+为null的话用发布方给的content作为内容
+@len 0..';
 
 comment on column msg_message.ext_template is
 '附加内容模板
-渲染结果原样下发，格式不约定；为null时用发布方给的附加内容';
+渲染结果原样下发，格式不约定；为null时用发布方给的附加内容
+@len 0..';
 
 comment on column msg_message.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_message.enabled is
 '启用';
@@ -702,13 +720,16 @@ comment on column msg_message_category.id is
 'ID';
 
 comment on column msg_message_category.code is
-'编码';
+'编码
+@len 1..=50';
 
 comment on column msg_message_category.name is
-'名称';
+'名称
+@len 1..=50';
 
 comment on column msg_message_category.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_message_category.creater_id is
 '创建者ID';
@@ -756,16 +777,19 @@ comment on column msg_message_queue.id is
 
 comment on column msg_message_queue.code is
 '编码
-用于订阅消息中间件队列的名称';
+用于订阅消息中间件队列的名称
+@len 1..=50';
 
 comment on column msg_message_queue.name is
-'名称';
+'名称
+@len 1..=50';
 
 comment on column msg_message_queue.persisted is
 '是否持久化';
 
 comment on column msg_message_queue.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_message_queue.creater_id is
 '创建者ID';
@@ -816,7 +840,8 @@ comment on column msg_message_target.target_category_id is
 
 comment on column msg_message_target.target_id is
 '目标标识
-空串表示该类别下的全部目标（大屏动态接入，不逐个登记）';
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）
+@len 0..=100';
 
 comment on column msg_message_target.creater_id is
 '创建者ID';
@@ -876,13 +901,16 @@ comment on column msg_target_category.id is
 'ID';
 
 comment on column msg_target_category.code is
-'编码';
+'编码
+@len 1..=50';
 
 comment on column msg_target_category.name is
-'名称';
+'名称
+@len 1..=50';
 
 comment on column msg_target_category.remark is
-'备注';
+'备注
+@len 0..=50';
 
 comment on column msg_target_category.creater_id is
 '创建者ID';

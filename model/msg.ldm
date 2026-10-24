@@ -2246,6 +2246,8 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789978736</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2260,7 +2262,8 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:ModificationDate>1790144772</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>事件编码
-在应用中定义，事件触发时传递出来</a:Comment>
+在应用中定义，事件触发时传递出来
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2290,7 +2293,8 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:ModificationDate>1790233756</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>标题模板
-为null的话用发布方给的title作为标题</a:Comment>
+为null的话用发布方给的title作为标题
+@len 0..=150</a:Comment>
 <a:DataType>VA150</a:DataType>
 <a:Length>150</a:Length>
 <a:GlobalObjectID/>
@@ -2304,7 +2308,8 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:ModificationDate>1790236929</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>内容模板
-为null的话用发布方给的content作为内容</a:Comment>
+为null的话用发布方给的content作为内容
+@len 0..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -2317,7 +2322,8 @@ LABL 0 新宋体,8,N</a:FontList>
 <a:ModificationDate>1792733861</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>附加内容模板
-渲染结果原样下发，格式不约定；为null时用发布方给的附加内容</a:Comment>
+渲染结果原样下发，格式不约定；为null时用发布方给的附加内容
+@len 0..</a:Comment>
 <a:History>ORG {6C03CA3B-C991-4694-87A5-F52B805B45FC}
 DAT 1792733861</a:History>
 <a:DataType>TXT</a:DataType>
@@ -2331,6 +2337,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789977574</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -2474,6 +2482,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790291907</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2487,6 +2497,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790300978</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2500,6 +2512,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789979507</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -2630,7 +2644,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790067221</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-用于订阅消息中间件队列的名称</a:Comment>
+用于订阅消息中间件队列的名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2644,6 +2659,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790043131</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2670,6 +2687,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789980333</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -2829,7 +2848,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-投递主题，订阅与投递都用它</a:Comment>
+投递主题，订阅与投递都用它
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2843,6 +2863,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -2871,6 +2893,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -2993,7 +3017,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790300428</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>事件编码
-在应用中定义，事件触发时传递出来</a:Comment>
+在应用中定义，事件触发时传递出来
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3075,11 +3100,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790046024</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递部分成功
-2: 投递全部成功
-3: 投递全部失败
-</a:Comment>
+@enum DeliverStatus default=Delivering 0=Delivering:投递中, 1=PartialSuccess:投递部分成功, 2=AllSuccess:投递全部成功, 3=AllFailed:投递全部失败</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3094,7 +3115,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790236855</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>路由标签
-一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本</a:Comment>
+一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本
+@len 0..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -3107,7 +3129,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790236855</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>标注
-放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示</a:Comment>
+放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示
+@len 0..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -3119,6 +3142,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789981694</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>标题
+@len 1..=150</a:Comment>
 <a:DataType>VA150</a:DataType>
 <a:Length>150</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3132,6 +3157,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790039263</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>内容
+@len 1..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
@@ -3145,7 +3172,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1792733861</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>附加内容
-模板渲染结果，格式不约定</a:Comment>
+模板渲染结果，格式不约定
+@len 0..</a:Comment>
 <a:History>ORG {86CCF4EB-022A-4089-905E-91FC4465C5D1}
 DAT 1792733861</a:History>
 <a:DataType>TXT</a:DataType>
@@ -3159,6 +3187,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789981001</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -3303,7 +3333,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790304171</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>目标标识
-空串表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）
+@len 0..=100</a:Comment>
 <a:DataType>VA100</a:DataType>
 <a:Length>100</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3422,6 +3453,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790253311</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3435,6 +3468,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789983724</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3448,6 +3483,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790040479</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>配置
+@len 0..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -3459,6 +3496,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1789983724</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -3616,7 +3655,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790304180</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>目标标识
-空串表示该类别下的全部目标（大屏动态接入，不逐个登记）</a:Comment>
+空串表示该类别下的全部目标（大屏动态接入，不逐个登记）
+@len 0..=100</a:Comment>
 <a:DataType>VA100</a:DataType>
 <a:Length>100</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3631,10 +3671,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790066347</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-3: 目标已读</a:Comment>
+@enum DeliverTargetStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败, 3=Read:目标已读</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3779,10 +3816,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790041284</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-</a:Comment>
+@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3796,6 +3830,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790044584</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>投递地址
+@len 0..=80</a:Comment>
 <a:DataType>VA80</a:DataType>
 <a:Length>80</a:Length>
 <a:GlobalObjectID/>
@@ -3912,10 +3948,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790041260</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-0: 投递中
-1: 投递成功
-2: 投递失败
-</a:Comment>
+@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3929,6 +3962,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790044606</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>投递地址
+@len 0..=80</a:Comment>
 <a:DataType>VA80</a:DataType>
 <a:Length>80</a:Length>
 <a:GlobalObjectID/>
@@ -3941,6 +3976,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790041697</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>投递详情
+@len 0..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -4070,6 +4107,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790300904</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -4083,6 +4122,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790300928</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -4096,6 +4137,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790040598</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -4226,6 +4269,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790300153</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>编码
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -4239,6 +4284,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790300194</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>名称
+@len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -4252,6 +4299,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790042776</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
@@ -4486,6 +4535,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>原消息主题
+@len 1..=150</a:Comment>
 <a:DataType>VA150</a:DataType>
 <a:Length>150</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -4499,6 +4550,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>死信原因
+@len 1..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
@@ -4511,6 +4564,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>消息内容
+@len 1..</a:Comment>
 <a:DataType>TXT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
@@ -4549,6 +4604,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1792298241</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>备注
+@len 0..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
