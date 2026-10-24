@@ -4,6 +4,7 @@ use robotech::macros::crud_dto;
 #[crud_dto]
 pub struct MsgDeliveryDto {
     /// 事件编码（在应用中定义，事件触发时传递出来）
+    /// @len 1..=50
     pub event_code: String,
     /// 消息ID
     pub message_id: u64,
@@ -19,15 +20,21 @@ pub struct MsgDeliveryDto {
     #[db_default]
     pub deliver_status: DeliverStatus,
     /// 路由标签（一组结构化的 key-value，所有规则匹配、分组、路由、静默、维护窗口的过滤条件，都只针对 labels 做键值匹配或正则匹配，不碰任何自由文本）
+    /// @len 0..
     pub labels: Option<String>,
     /// 标注（放标题、详细描述、建议处理步骤这类可读文本，不参与任何匹配逻辑，只用于通知渲染和界面展示）
+    /// @len 0..
     pub annotations: Option<String>,
     /// 标题
+    /// @len 1..=150
     pub title: String,
     /// 内容
+    /// @len 1..
     pub content: String,
     /// 附加内容（模板渲染结果，格式不约定，可为空）
+    /// @len 0..
     pub ext: Option<String>,
     /// 备注
+    /// @len 0..=50
     pub remark: Option<String>,
 }

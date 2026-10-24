@@ -1,11 +1,17 @@
 //! # websocket 渠道发送器
 //!
-//! 把投递任务整条推给连在本实例上的大屏：渲染好的标题、内容、附加内容，
-//! 投递三张表的行 ID 与目标/渠道字段都在一帧里，大屏收到就能渲染，不必再回查接口。
+//! 推给大屏的一帧只有三个字段——事件编码、标题、内容：
 //!
-//! 落点要用的坐标不在独立字段里：它们由内容模板渲染进 `content`，大屏按约定的
-//! 格式解析 `content` 即可。发布方上报的 `labels` / `annotations` 只是模板的
-//! 输入，不随这一帧下发。
+//! ```json
+//! {"eventCode":"…","title":"…","content":"…"}
+//! ```
+//!
+//! 大屏收到就能渲染，不必再回查接口。落点要用的坐标不在独立字段里：它们由内容
+//! 模板渲染进 `content`，大屏按约定的格式解析 `content` 即可。发布方上报的
+//! `labels` / `annotations` 只是模板的输入，不随这一帧下发。
+//!
+//! 投递三张表的行 ID 与目标/渠道字段也不下发：大屏是只收不发的长连接
+//! （见 [`crate::wkr::ws_handler`]），拿不到回执，这些字段没有任何消费方。
 //!
 //! 目标类别下没有连接（或压根没连）时返回 [`SendOutcome::NoConnection`]：
 //! websocket 是 at-most-once，没有连接就没有必要重试，也不需要补投——
@@ -30,8 +36,9 @@ impl ChannelSender for WebSocketSender {
 
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome {
         let push = WsPush {
-            kind: "message",
-            data: task,
+            event_code: &task.event_code,
+            title: &task.title,
+            content: &task.content,
         };
 
         let text = match serde_json::to_string(&push) {
@@ -59,17 +66,17 @@ impl ChannelSender for WebSocketSender {
 }
 
 /// 推给大屏的一帧
+///
+/// 只放渲染结果，不放投递元数据：字段越少，大屏侧解析越稳，帧也越小。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WsPush<'a> {
-    /// 帧类型，目前只有 `message`
-    #[serde(rename = "type")]
-    kind: &'static str,
-    /// 投递任务本身
-    ///
-    /// 直接引用 [`DeliveryMsg`]，任务加字段时帧自动跟上，不会再出现
-    /// 「只推了标题正文、业务字段漏掉」的情况。
-    data: &'a DeliveryMsg,
+    /// 事件编码（`msg_delivery.event_code`），大屏按它决定怎么渲染
+    event_code: &'a str,
+    /// 渲染好的标题
+    title: &'a str,
+    /// 渲染好的内容；定位消息的落点就在这段 JSON 文本里
+    content: &'a str,
 }
 
 #[cfg(test)]
@@ -102,57 +109,48 @@ mod tests {
         }
     }
 
-    /// 一帧里该有的字段一个都不能少：大屏靠 `content` 落点，靠行 ID 回执
+    /// 一帧只有三个字段：事件编码、标题、内容
     #[test]
-    fn push_carries_whole_task() {
+    fn frame_carries_render_result() {
         let task = task();
 
         let text = serde_json::to_string(&WsPush {
-            kind: "message",
-            data: &task,
+            event_code: &task.event_code,
+            title: &task.title,
+            content: &task.content,
         })
         .expect("帧序列化失败");
         let frame: serde_json::Value = serde_json::from_str(&text).expect("帧反序列化失败");
 
-        let data = &frame["data"];
-        assert_eq!(frame["type"], "message");
-        assert_eq!(data["title"], "张三 进入 1F");
+        assert_eq!(frame["eventCode"], "position.updated");
+        assert_eq!(frame["title"], "张三 进入 1F");
         // 内容是 JSON 文本，原样透传，不在推送侧二次解析
         let content: serde_json::Value =
-            serde_json::from_str(data["content"].as_str().expect("content 不是字符串"))
+            serde_json::from_str(frame["content"].as_str().expect("content 不是字符串"))
                 .expect("content 不是合法 JSON");
         assert_eq!(content["lon"], 113.9);
-        assert_eq!(data["ext"], "extra");
-        assert_eq!(data["eventSourceId"], 3);
-        assert_eq!(data["messageCategoryId"], 5);
-        // 大屏按类别编码认领：帧里必须有它，光有类别 ID 对不上连接
-        assert_eq!(data["targetCategoryCode"], "screen");
-        assert_eq!(data["targetCategoryId"], 11);
-        assert_eq!(data["targetId"], "");
-        assert_eq!(data["channelId"], 2);
-        assert_eq!(data["createMs"], 1_700_000_000_000i64);
-        assert_eq!(data["persisted"], false);
-
-        // 模板输入不下发：这两份只在 msg_delivery 快照里
-        assert!(data.get("labels").is_none());
-        assert!(data.get("annotations").is_none());
     }
 
-    /// 没有附加内容时整个字段不出现，消费方用 `is_some()` 判断才有效
+    /// 投递元数据不下发：任务里有 ext、行 ID、目标/渠道字段，帧里一个都不能出现
     #[test]
-    fn absent_ext_is_omitted_from_frame() {
-        let task = DeliveryMsg {
-            ext: None,
-            ..task()
-        };
+    fn delivery_metadata_is_not_pushed() {
+        let task = task();
 
         let text = serde_json::to_string(&WsPush {
-            kind: "message",
-            data: &task,
+            event_code: &task.event_code,
+            title: &task.title,
+            content: &task.content,
         })
         .expect("帧序列化失败");
         let frame: serde_json::Value = serde_json::from_str(&text).expect("帧反序列化失败");
 
-        assert!(frame["data"].get("ext").is_none());
+        let mut keys: Vec<&str> = frame
+            .as_object()
+            .expect("帧不是对象")
+            .keys()
+            .map(|key| key.as_str())
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["content", "eventCode", "title"]);
     }
 }

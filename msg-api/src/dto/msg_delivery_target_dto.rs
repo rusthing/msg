@@ -11,6 +11,7 @@ pub struct MsgDeliveryTargetDto {
     ///
     /// 空串表示这次投递覆盖的是该类别下的全部目标（按类别广播），
     /// 没有具体目标可记。
+    /// @len 0..=100
     pub target_id: String,
     /// 投递状态（0-投递中、1-投递成功、2-投递失败、3-目标已读）
     #[db_default]

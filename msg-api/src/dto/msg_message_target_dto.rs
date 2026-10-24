@@ -10,5 +10,6 @@ pub struct MsgMessageTargetDto {
     ///
     /// 空串表示该类别下的全部目标：大屏这类动态接入的目标，发布方没法在
     /// 登记时知道有哪些屏，只能声明「发给大屏这一类」。
+    /// @len 0..=100
     pub target_id: String,
 }
