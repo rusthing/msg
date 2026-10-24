@@ -189,7 +189,11 @@ comment on column msg_delivery.business_trigger_ms is
 
 comment on column msg_delivery.deliver_status is
 '投递状态
-@enum DeliverStatus default=Delivering 0=Delivering:投递中, 1=PartialSuccess:投递部分成功, 2=AllSuccess:投递全部成功, 3=AllFailed:投递全部失败';
+@enum DeliverStatus default=Delivering
+  0=Delivering      投递中
+  1=PartialSuccess  投递部分成功
+  2=AllSuccess      投递全部成功
+  3=AllFailed       投递全部失败';
 
 comment on column msg_delivery.labels is
 '路由标签
@@ -289,7 +293,10 @@ comment on column msg_delivery_channel.channel_id is
 
 comment on column msg_delivery_channel.deliver_channel_status is
 '投递状态
-@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败';
+@enum DeliverChannelStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败';
 
 comment on column msg_delivery_channel.address is
 '投递地址
@@ -355,7 +362,10 @@ comment on column msg_delivery_channel_log.delivery_channel_id is
 
 comment on column msg_delivery_channel_log.deliver_channel_status is
 '投递状态
-@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败';
+@enum DeliverChannelStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败';
 
 comment on column msg_delivery_channel_log.address is
 '投递地址
@@ -500,7 +510,11 @@ comment on column msg_delivery_target.target_id is
 
 comment on column msg_delivery_target.deliver_target_status is
 '投递状态
-@enum DeliverTargetStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败, 3=Read:目标已读';
+@enum DeliverTargetStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败
+  3=Read        目标已读';
 
 comment on column msg_delivery_target.creater_id is
 '创建者ID';

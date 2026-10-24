@@ -3100,7 +3100,11 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790046024</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverStatus default=Delivering 0=Delivering:投递中, 1=PartialSuccess:投递部分成功, 2=AllSuccess:投递全部成功, 3=AllFailed:投递全部失败</a:Comment>
+@enum DeliverStatus default=Delivering
+  0=Delivering      投递中
+  1=PartialSuccess  投递部分成功
+  2=AllSuccess      投递全部成功
+  3=AllFailed       投递全部失败</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3671,7 +3675,11 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790066347</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverTargetStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败, 3=Read:目标已读</a:Comment>
+@enum DeliverTargetStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败
+  3=Read        目标已读</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3816,7 +3824,10 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790041284</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
+@enum DeliverChannelStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3948,7 +3959,10 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790041260</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
+@enum DeliverChannelStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>

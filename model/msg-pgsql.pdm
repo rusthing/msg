@@ -6591,7 +6591,11 @@ DAT 1790254901</a:History>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverStatus default=Delivering 0=Delivering:投递中, 1=PartialSuccess:投递部分成功, 2=AllSuccess:投递全部成功, 3=AllFailed:投递全部失败</a:Comment>
+@enum DeliverStatus default=Delivering
+  0=Delivering      投递中
+  1=PartialSuccess  投递部分成功
+  2=AllSuccess      投递全部成功
+  3=AllFailed       投递全部失败</a:Comment>
 <a:History>ORG {40A90AF9-7A21-4295-99F6-CF812B8AE2F4}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
@@ -7653,7 +7657,11 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790067473</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverTargetStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败, 3=Read:目标已读</a:Comment>
+@enum DeliverTargetStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败
+  3=Read        目标已读</a:Comment>
 <a:History>ORG {48601467-771E-4F6D-9048-608FDB032A5D}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
@@ -7979,7 +7987,10 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
+@enum DeliverChannelStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败</a:Comment>
 <a:History>ORG {FD6A9CDA-EEFC-4555-8BA7-B14F2FCF57DE}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
@@ -8288,7 +8299,10 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790046262</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>投递状态
-@enum DeliverChannelStatus default=Delivering 0=Delivering:投递中, 1=Success:投递成功, 2=Failed:投递失败</a:Comment>
+@enum DeliverChannelStatus default=Delivering
+  0=Delivering  投递中
+  1=Success     投递成功
+  2=Failed      投递失败</a:Comment>
 <a:History>ORG {DAFF22CF-E117-49BC-A678-6E97E2A862F0}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>
