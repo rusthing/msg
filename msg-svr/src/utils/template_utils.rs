@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_render_template_json_missing_variable_is_null() {
         let labels = vars(&[("locatorCode", "L001")]);
-        let template = r#"{"code":{locatorCode:json},"level":{levelId:json}}"#;
+        let template = r#"{"code":{locatorCode:json},"level":{floor:json}}"#;
         let result = render_template(template, &labels, &HashMap::new());
         assert_eq!(result, r#"{"code":"L001","level":null}"#);
         let parsed: serde_json::Value = serde_json::from_str(&result).expect("渲染结果不是合法 JSON");
