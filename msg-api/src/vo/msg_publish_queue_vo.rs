@@ -1,14 +1,15 @@
 use robotech::macros::vo;
 
 #[vo]
-pub struct MsgMessageQueueVo {
+pub struct MsgPublishQueueVo {
     /// ID
     pub id: u64,
-    /// 编码，用于订阅消息中间件队列的名称
+    /// 编码，发布主题，订阅与发布都用它
     pub code: String,
     /// 名称
     pub name: String,
     /// 是否持久化
+    /// 持久化走 JetStream（发布方等 ACK，服务重启后补消费）；不持久化走 Core NATS，发出即不管送达
     pub persisted: bool,
     /// 备注
     pub remark: Option<String>,

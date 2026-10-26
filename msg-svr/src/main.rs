@@ -3,7 +3,7 @@ use config::Value;
 use msg_svr::cache::setup_cache;
 use msg_svr::config::{AppConfig, set_msg_config};
 use msg_svr::sub::setup_dead_letter_subscription;
-use msg_svr::utils::setup_queue_refresh;
+use msg_svr::utils::setup_publish_queue_refresh;
 use msg_svr::wkr::setup_wkr;
 use robotech::app::setup_id_worker;
 use robotech::db::setup_db_conn;
@@ -46,8 +46,8 @@ async fn setup(
     // 投递执行器：先于业务队列订阅，避免消息刚进来时还没有投递订阅
     setup_wkr().await?;
 
-    // 队列刷新：注册刷新信号订阅 + 入口队列保底 + 首次同步订阅
-    setup_queue_refresh().await?;
+    // 队列刷新：注册刷新信号订阅 + 普通消息队列保底 + 首次同步订阅
+    setup_publish_queue_refresh().await?;
 
     Ok(())
 }

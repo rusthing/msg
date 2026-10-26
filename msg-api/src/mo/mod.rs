@@ -12,7 +12,7 @@ pub mod msg_delivery_target;
 pub mod msg_event_source;
 pub mod msg_message;
 pub mod msg_message_category;
-pub mod msg_message_queue;
 pub mod msg_message_target;
+pub mod msg_publish_queue;
 pub mod msg_target_category;
 pub mod msg_target_category_channel;

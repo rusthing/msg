@@ -20,8 +20,8 @@ pub mod msg_delivery_target_dto;
 pub mod msg_event_source_dto;
 pub mod msg_message_category_dto;
 pub mod msg_message_dto;
-pub mod msg_message_queue_dto;
 pub mod msg_message_target_dto;
+pub mod msg_publish_queue_dto;
 pub mod msg_target_category_channel_dto;
 pub mod msg_target_category_dto;
 
@@ -35,7 +35,7 @@ pub use msg_delivery_target_dto::*;
 pub use msg_event_source_dto::*;
 pub use msg_message_category_dto::*;
 pub use msg_message_dto::*;
-pub use msg_message_queue_dto::*;
 pub use msg_message_target_dto::*;
+pub use msg_publish_queue_dto::*;
 pub use msg_target_category_channel_dto::*;
 pub use msg_target_category_dto::*;

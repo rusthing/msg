@@ -6158,14 +6158,14 @@ INS COLNCOL {E3DAF712-D300-4299-9D6E-B6A09E3AB695}</a:History>
 </c:PrimaryKey>
 </o:Table><o:Table Id="o48">
 <a:ObjectID>E2A0A930-773D-4502-958E-86414534AA4C</a:ObjectID>
-<a:Name>消息队列</a:Name>
-<a:Code>msg_message_queue</a:Code>
+<a:Name>发布队列</a:Name>
+<a:Code>msg_publish_queue</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790296995</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>消息队列
-由客户端启动时自动注册上来，消息中心自动热更新订阅这些队列</a:Comment>
+<a:Comment>发布队列
+发布方注册自己的发布主题，消息中心据此订阅并决定是否持久化</a:Comment>
 <a:History>ORG {6DA9C6B4-9174-47F3-B846-A28DB792458A}
 DAT 1790046262
 MOV COLNCOL</a:History>
@@ -6196,7 +6196,7 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790067473</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-用于订阅消息中间件队列的名称
+发布主题，订阅与发布都用它
 @len 1..=50</a:Comment>
 <a:History>ORG {CF72A8C2-211A-4F61-97DB-B08F32CA838D}
 DAT 1790046262</a:History>
@@ -6230,6 +6230,8 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790067473</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>是否持久化
+持久化走 JetStream（发布方等 ACK，服务重启后补消费）；不持久化走 Core NATS，发出即不管送达</a:Comment>
 <a:History>ORG {39BB8409-2EB3-40E1-A0FA-BEF3A667AB8C}
 DAT 1790067466</a:History>
 <a:DefaultValue>true</a:DefaultValue>
@@ -6364,8 +6366,8 @@ DAT 1790046262</a:History>
 <c:Indexes>
 <o:Index Id="o134">
 <a:ObjectID>35F2182B-F1F7-44A8-B52F-01A10981CB95</a:ObjectID>
-<a:Name>msg_message_queue_PK</a:Name>
-<a:Code>msg_message_queue_PK</a:Code>
+<a:Name>msg_publish_queue_PK</a:Name>
+<a:Code>msg_publish_queue_PK</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790067473</a:ModificationDate>
@@ -6394,8 +6396,8 @@ DAT 1790046262</a:History>
 </o:Index>
 <o:Index Id="o136">
 <a:ObjectID>518DF594-2668-4C10-B695-B57471E043EC</a:ObjectID>
-<a:Name>msg_message_queue_AK</a:Name>
-<a:Code>msg_message_queue_AK</a:Code>
+<a:Name>msg_publish_queue_AK</a:Name>
+<a:Code>msg_publish_queue_AK</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790067473</a:ModificationDate>
@@ -6424,8 +6426,8 @@ DAT 1790046262</a:History>
 </o:Index>
 <o:Index Id="o138">
 <a:ObjectID>4758054D-713B-4722-8B13-EAD97CCF55F8</a:ObjectID>
-<a:Name>msg_message_queue_AK2</a:Name>
-<a:Code>msg_message_queue_AK2</a:Code>
+<a:Name>msg_publish_queue_AK2</a:Name>
+<a:Code>msg_publish_queue_AK2</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790067473</a:ModificationDate>

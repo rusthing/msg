@@ -2569,14 +2569,14 @@ DAT 1792733861</a:History>
 </c:Attributes>
 </o:Entity><o:Entity Id="o47">
 <a:ObjectID>6DA9C6B4-9174-47F3-B846-A28DB792458A</a:ObjectID>
-<a:Name>消息队列</a:Name>
-<a:Code>message_queue</a:Code>
+<a:Name>发布队列</a:Name>
+<a:Code>publish_queue</a:Code>
 <a:CreationDate>1789980333</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790294251</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>消息队列
-由客户端启动时自动注册上来，消息中心自动热更新订阅这些队列</a:Comment>
+<a:Comment>发布队列
+发布方注册自己的发布主题，消息中心据此订阅并决定是否持久化</a:Comment>
 <a:GlobalObjectID/>
 <c:Identifiers>
 <o:Identifier Id="o87">
@@ -2644,7 +2644,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790067221</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-用于订阅消息中间件队列的名称
+发布主题，订阅与发布都用它
 @len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
@@ -2674,6 +2674,8 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790066869</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
+<a:Comment>是否持久化
+持久化走 JetStream（发布方等 ACK，服务重启后补消费）；不持久化走 Core NATS，发出即不管送达</a:Comment>
 <a:DefaultValue>true</a:DefaultValue>
 <a:DataType>BL</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>

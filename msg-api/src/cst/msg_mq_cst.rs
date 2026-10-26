@@ -1,5 +1,17 @@
-/// 消息主题
-pub const MSG_MESSAGE_TOPIC: &str = "msg.message";
+/// 发布主题前缀
+///
+/// 发布主题**不是代码拼出来的**：它配置在 `msg_publish_queue.code` 里
+/// （一个业务方一条队列，订阅与发布共用这一份）。约定取 `{前缀}.{队列名}`，
+/// 例如 `msg.publish.normal`（普通消息）、`msg.publish.telemetry`（遥测）。
+///
+/// 这里保留前缀，供种子数据与排查时对照。
+pub const MSG_PUBLISH_TOPIC_PREFIX: &str = "msg.publish.";
+
+/// 普通消息的发布主题
+///
+/// 业务方没有单独声明发布队列时都用它；msg-svr 启动时把它保底注册进
+/// `msg_publish_queue`，保证这个 subject 一定有订阅与 JetStream stream。
+pub const MSG_PUBLISH_NORMAL_TOPIC: &str = "msg.publish.normal";
 
 /// 投递主题前缀
 ///
@@ -8,7 +20,7 @@ pub const MSG_MESSAGE_TOPIC: &str = "msg.message";
 /// 例如 `msg.delivery.websocket`，改主题只需改这张表。
 ///
 /// 这里保留前缀，供种子数据与排查时对照。
-pub const MSG_DELIVERY_TOPIC: &str = "msg.delivery";
+pub const MSG_DELIVERY_TOPIC_PREFIX: &str = "msg.delivery.";
 
 /// websocket 渠道编码
 ///

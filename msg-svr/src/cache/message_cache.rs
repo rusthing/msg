@@ -17,15 +17,15 @@
 //!
 //! ## 队列不在缓存中
 //!
-//! 消息队列表只用于决定订阅哪些 subject，订阅状态由 `crate::sub` 自己维护，
-//! 没有读取方需要队列快照。因此队列变更走另一条链路：
+//! 发布队列（`msg_publish_queue`）只用于决定订阅哪些 subject，订阅状态由
+//! `crate::sub` 自己维护，没有读取方需要队列快照。因此队列变更走另一条链路：
 //!
 //! ```text
 //! 队列写操作 → 发布刷新信号 → 各节点 direct 查库 → 对比并增删 NATS 订阅
 //! ```
 //!
-//! 详见 [`crate::sub::reload_queue_subscriptions`]；启动装配在
-//! [`crate::utils::setup_queue_refresh`]。
+//! 详见 [`crate::sub::reload_publish_queue_subscriptions`]；启动装配在
+//! [`crate::utils::setup_publish_queue_refresh`]。
 //!
 //! ## 数据结构
 //!

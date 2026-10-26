@@ -1,32 +1,33 @@
 //! # MSG Publisher
 //!
-//! 应用通过 msg-pub 向消息中心发送消息。
+//! 应用通过 msg-pub 向消息中心发送消息：`MessageMsg` 报文由 msg-svr 按模板
+//! 渲染后再投递到各渠道。
 //!
-//! ## 使用
-//!
-//! ```ignore
-//! use msg_pub::MsgPubConfig;
-//!
-//! // ApiClientConfig 来自调用方 AppConfig.api map
-//! let api_cfg = app_config.api.get("msg-svr").cloned()
-//!     .expect("AppConfig 中缺少 msg-svr 的 api 配置");
-//!
-//! msg_pub::setup(api_cfg, MsgPubConfig::default());
-//!
-//! msg_pub::publish("order_shipped", params, 1001).await?;
-//! ```
-//!
-//! ### 从配置中心加载 msg-pub 自身配置（可选）
-//!
-//! ```toml
-//! [msg.pub]
-//! publish-retry-count = 3
-//! publish-retry-interval = "2s"
-//! ```
+//! ## 用法
 //!
 //! ```ignore
-//! let pub_cfg: MsgPubConfig = config.get("msg.pub").unwrap_or_default();
-//! msg_pub::setup(api_cfg, pub_cfg);
+//! use msg_pub::msg::message_msg::MessageMsg;
+//! use msg_pub::{PublishMode, publish_message, publish_message_to};
+//!
+//! // 发到默认队列（`msg.publish.normal`），走 JetStream 并等待 ACK
+//! publish_message(message_msg).await?;
+//!
+//! // 发到自己注册的队列，按业务对可靠性的要求选模式
+//! publish_message_to("msg.publish.telemetry", message_msg, PublishMode::BestEffort).await?;
+//! ```
+//!
+//! ## 自己的发布队列
+//!
+//! 默认队列之外的 subject 必须先注册到消息中心（`msg_publish_queue` 表），
+//! 消息中心只会订阅登记过的队列——没登记的 subject 发出去没人收：
+//!
+//! ```ignore
+//! let queue = MsgPublishQueueConfig::builder()
+//!     .code("msg.publish.telemetry".to_string())
+//!     .name("遥测消息队列".to_string())
+//!     .persisted(false)
+//!     .build();
+//! api_client.publish_queue.add(&queue.into()).await?;
 //! ```
 
 mod config;
