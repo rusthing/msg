@@ -7313,7 +7313,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790296995</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>渠道
-目前支持websocket/短信/邮箱</a:Comment>
+投递的出口，一个渠道一种投递方式
+目前实现的是 websocket 长连接，新增渠道要同时实现发送器并配一条投递队列</a:Comment>
 <a:History>ORG {C660B69F-FF36-4D5B-991B-FCDEFB8B07B1}
 DAT 1790046262</a:History>
 <a:GlobalObjectID/>

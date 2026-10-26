@@ -3405,7 +3405,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790294308</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>渠道
-目前支持websocket/短信/邮箱</a:Comment>
+投递的出口，一个渠道一种投递方式
+目前实现的是 websocket 长连接，新增渠道要同时实现发送器并配一条投递队列</a:Comment>
 <a:GlobalObjectID/>
 <c:Identifiers>
 <o:Identifier Id="o128">

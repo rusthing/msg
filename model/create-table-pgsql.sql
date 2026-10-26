@@ -24,7 +24,8 @@ create table msg_channel (
 
 comment on table msg_channel is
 '渠道
-目前支持websocket/短信/邮箱';
+投递的出口，一个渠道一种投递方式
+目前实现的是 websocket 长连接，新增渠道要同时实现发送器并配一条投递队列';
 
 comment on column msg_channel.id is
 'ID';
