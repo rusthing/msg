@@ -3,8 +3,8 @@ profile = "dev"
 #[db]
 #url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
 #
-#[web]
-#port = 9002
+[web]
+port = 9002
 
 #[redis]
 #url = "redis://:xxxxxxxx@redis:6379"
