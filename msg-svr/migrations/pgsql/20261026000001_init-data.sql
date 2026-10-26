@@ -49,7 +49,7 @@ insert into msg_channel (
    'websocket',
    'websocket',
    '{"token":""}',
-   '大屏长连接',
+   'WebSocket长连接',
    true,
    0,
    (extract(epoch from now()) * 1000)::int8,
@@ -72,17 +72,17 @@ insert into msg_target_category (
    id, code, name, remark, creater_id, create_ms, updater_id, update_ms
 ) values
 (
-   1, 'user', '用户', '按用户投递：目标是平台用户ID',
+   1, 'user', '用户', '按用户投递：目标ID是用户ID',
    0, (extract(epoch from now()) * 1000)::int8,
    0, (extract(epoch from now()) * 1000)::int8
 ),
 (
-   2, 'role', '角色', '按角色投递：目标是角色ID，角色下的用户都收',
+   2, 'role', '角色', '按角色投递：目标ID是用户ID，角色下的用户都全部投递',
    0, (extract(epoch from now()) * 1000)::int8,
    0, (extract(epoch from now()) * 1000)::int8
 ),
 (
-   3, 'group', '分组', '按分组投递：目标是分组ID，分组内的用户都收',
+   3, 'group', '分组', '按分组投递：目标ID是用户ID，分组内的用户都收',
    0, (extract(epoch from now()) * 1000)::int8,
    0, (extract(epoch from now()) * 1000)::int8
 )
@@ -111,7 +111,7 @@ select
    'msg.delivery.websocket',
    'websocket 投递队列',
    false,
-   '大屏长连接广播，所有实例都收',
+   'WebSocket长连接广播，所有实例都收',
    0,
    (extract(epoch from now()) * 1000)::int8,
    0,
