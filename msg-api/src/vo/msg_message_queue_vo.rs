@@ -1,10 +1,10 @@
 use robotech::macros::vo;
 
 #[vo]
-pub struct MsgPublishQueueVo {
+pub struct MsgMessageQueueVo {
     /// ID
     pub id: u64,
-    /// 编码，发布主题，订阅与发布都用它
+    /// 编码，消息主题，订阅与发布都用它
     pub code: String,
     /// 名称
     pub name: String,

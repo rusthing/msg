@@ -1,6 +1,6 @@
 use robotech::macros::dao;
 
-/// 发布队列
+/// 消息队列
 #[dao(
     unique_keys: [
         ("code", "编码"),
@@ -12,4 +12,4 @@ use robotech::macros::dao;
         Column::Remark,
     ],
 )]
-pub struct MsgPublishQueueDao;
+pub struct MsgMessageQueueDao;

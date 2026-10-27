@@ -1,40 +1,40 @@
-//! # 发布队列订阅管理
+//! # 消息队列订阅管理
 //!
-//! 维护当前活跃的发布队列订阅句柄，队列变更时根据最新的队列信息同步订阅
+//! 维护当前活跃的消息队列订阅句柄，队列变更时根据最新的队列信息同步订阅
 //! 状态：新增队列则启动新订阅，移除的队列则停止旧的订阅线程。
 //!
 //! ## 数据流
 //!
 //! ```text
 //! 队列变更信号（启动加载 / 队列刷新信号）
-//!   → 从 DB 查询所有 msg_publish_queue
-//!   → 映射为 PublishQueueSpec（订阅只需要 code + persisted）
-//!   → sync_publish_queue_subscriptions(specs)
+//!   → 从 DB 查询所有 msg_message_queue
+//!   → 映射为 MessageQueueSpec（订阅只需要 code + persisted）
+//!   → sync_message_queue_subscriptions(specs)
 //!     → 对比旧订阅：新增 / 保留 / 移除
 //!     → 调用 NATS subscribe 启动新线程
 //!     → 停止不再需要的订阅线程
 //! ```
 //!
 //! 队列信息**不进缓存**：它唯一的用途是决定订阅哪些 subject，
-//! 而订阅状态本身由 [`PUBLISH_QUEUE_SUBSCRIBERS`] 维护。缓存一份队列数据只会
+//! 而订阅状态本身由 [`MESSAGE_QUEUE_SUBSCRIBERS`] 维护。缓存一份队列数据只会
 //! 多一份需要同步的快照，没有任何读取方。
 //!
 //! 注意：消息模板缓存（`build_message_cache`）不会触发队列重新订阅。
 
 use crate::cache::{ChannelCache, MessageCache, TargetCache, get_message_cache};
 use crate::config::get_msg_config;
-use crate::dto::MsgPublishQueueQueryDto;
-use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgPublishQueueSvc};
+use crate::dto::MsgMessageQueueQueryDto;
+use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
 use crate::utils::render_template;
-use crate::vo::MsgPublishQueueVo;
+use crate::vo::MsgMessageQueueVo;
 use crate::wkr::{self, channel::SendOutcome, deliver_result};
 use arc_swap::ArcSwapOption;
 use idworker::next_id;
-use msg_api::cst::{MSG_PUBLISH_NORMAL_TOPIC, MSG_PUBLISH_QUEUE_REFRESH_SUBJECT};
+use msg_api::cst::{MSG_MESSAGE_NORMAL_TOPIC, MSG_MESSAGE_QUEUE_REFRESH_SUBJECT};
 use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
 use msg_api::dto::{
     MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto, MsgDeliveryTargetAddDto,
-    MsgPublishQueueAddDto,
+    MsgMessageQueueAddDto,
 };
 use msg_api::msg::{DeliveryMsg, message_msg::MessageMsg};
 use robotech::api::U64;
@@ -50,24 +50,24 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
-/// # 发布队列订阅规格
+/// # 消息队列订阅规格
 ///
 /// 订阅层只关心「订阅哪个 subject、是否持久化」，
 /// 不需要完整的队列实体。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PublishQueueSpec {
+pub struct MessageQueueSpec {
     /// 队列编码，同时作为 NATS subject
     pub code: String,
     /// 是否持久化（`true` → JetStream，`false` → Core NATS）
     pub persisted: bool,
 }
 
-/// # 发布队列订阅句柄
+/// # 消息队列订阅句柄
 ///
 /// 除了订阅任务句柄，还记录「建立订阅时应用的重投上限」：配置热更新改了
 /// `msg.max-deliver` 之后，靠这个值判断哪些 consumer 需要重建。
 #[derive(Debug)]
-struct PublishQueueSubscription {
+struct MessageQueueSubscription {
     /// 订阅任务句柄
     handle: Arc<JoinHandle<()>>,
     /// 是否 JetStream 订阅（Core NATS 没有 consumer，重投上限对它无意义）
@@ -76,51 +76,51 @@ struct PublishQueueSubscription {
     max_deliver: i64,
 }
 
-/// # 全局发布队列订阅句柄
+/// # 全局消息队列订阅句柄
 ///
 /// key = `queue.code`（即 NATS subject），value = 订阅线程句柄。
 /// 使用 [`ArcSwapOption`] 实现无锁热替换。
-static PUBLISH_QUEUE_SUBSCRIBERS: ArcSwapOption<HashMap<String, PublishQueueSubscription>> =
+static MESSAGE_QUEUE_SUBSCRIBERS: ArcSwapOption<HashMap<String, MessageQueueSubscription>> =
     ArcSwapOption::const_empty();
 
-/// # 重新加载发布队列订阅
+/// # 重新加载消息队列订阅
 ///
-/// 从 DB 查询全量发布队列并同步订阅。启动时调用一次，之后每次收到队列刷新
+/// 从 DB 查询全量消息队列并同步订阅。启动时调用一次，之后每次收到队列刷新
 /// 信号都调用——这是队列变更后唯一的处理入口，没有缓存快照需要维护。
-pub async fn reload_publish_queue_subscriptions() -> anyhow::Result<()> {
-    info!("发布队列订阅同步...");
+pub async fn reload_message_queue_subscriptions() -> anyhow::Result<()> {
+    info!("消息队列订阅同步...");
 
     let db = get_db_conn()?;
-    let queues: Vec<MsgPublishQueueVo> = MsgPublishQueueSvc::list_by_query_dto(
-        MsgPublishQueueQueryDto::default(),
+    let queues: Vec<MsgMessageQueueVo> = MsgMessageQueueSvc::list_by_query_dto(
+        MsgMessageQueueQueryDto::default(),
         Some(db.as_ref()),
     )
     .await?
     .extra
     .unwrap_or_default();
 
-    let specs: HashSet<PublishQueueSpec> = queues
+    let specs: HashSet<MessageQueueSpec> = queues
         .into_iter()
-        .map(|q| PublishQueueSpec {
+        .map(|q| MessageQueueSpec {
             code: q.code,
             persisted: q.persisted,
         })
         .collect();
 
-    sync_publish_queue_subscriptions(&specs).await;
-    info!("发布队列订阅同步完成");
+    sync_message_queue_subscriptions(&specs).await;
+    info!("消息队列订阅同步完成");
     Ok(())
 }
 
 /// # 保底注册普通消息队列
 ///
-/// 业务方不单独声明发布队列时，发布方都往 [`MSG_PUBLISH_NORMAL_TOPIC`]
-/// （`msg.publish.normal`）发消息，msg-svr 不订阅这个 subject，整条链路就不通
+/// 业务方不单独声明消息队列时，发布方都往 [`MSG_MESSAGE_NORMAL_TOPIC`]
+/// （`msg.message.normal`）发消息，msg-svr 不订阅这个 subject，整条链路就不通
 /// ——既没有订阅，也没有 JetStream stream，发布方的消息直接蒸发。
 ///
 /// 队列表设计上由业务方注册，但**普通消息队列是 msg 自身的依赖**，不能指望
 /// 外部先插好数据。因此启动时直接新增一条 `persisted = true` 的记录：
-/// JetStream 订阅会创建覆盖 `msg.publish.normal` 的 stream，发布方无论等不等
+/// JetStream 订阅会创建覆盖 `msg.message.normal` 的 stream，发布方无论等不等
 /// ACK 都能被服务端落盘。
 ///
 /// 重复注册不算失败：`code` 上有唯一约束，已存在时插入会返回
@@ -128,12 +128,12 @@ pub async fn reload_publish_queue_subscriptions() -> anyhow::Result<()> {
 /// （见 dbz 注册健康检查任务的写法），这里直接当作已完成。
 ///
 /// 只在启动流程中调用一次，不参与运行期的队列刷新，避免刷新链路上多一次写库。
-pub async fn ensure_normal_publish_queue() -> anyhow::Result<()> {
+pub async fn ensure_normal_message_queue() -> anyhow::Result<()> {
     let db = get_db_conn()?;
 
-    let add_result = MsgPublishQueueSvc::add(
-        MsgPublishQueueAddDto {
-            code: Some(MSG_PUBLISH_NORMAL_TOPIC.to_string()),
+    let add_result = MsgMessageQueueSvc::add(
+        MsgMessageQueueAddDto {
+            code: Some(MSG_MESSAGE_NORMAL_TOPIC.to_string()),
             name: Some("普通消息队列".to_string()),
             persisted: Some(true),
             remark: Some(Some("msg-pub 默认发布入口".to_string())),
@@ -146,27 +146,27 @@ pub async fn ensure_normal_publish_queue() -> anyhow::Result<()> {
 
     match add_result {
         Ok(_) => {
-            info!("普通消息队列注册成功: {MSG_PUBLISH_NORMAL_TOPIC}");
+            info!("普通消息队列注册成功: {MSG_MESSAGE_NORMAL_TOPIC}");
             Ok(())
         }
         Err(SvcError::Dao(DaoError::DuplicateKey(..))) => {
-            info!("普通消息队列已存在: {MSG_PUBLISH_NORMAL_TOPIC}");
+            info!("普通消息队列已存在: {MSG_MESSAGE_NORMAL_TOPIC}");
             Ok(())
         }
         Err(e) => Err(e.into()),
     }
 }
 
-/// # 发布队列刷新信号
+/// # 消息队列刷新信号
 ///
 /// 用于 `#[svc(after_write = ...)]`：队列配置写成功后通知所有节点同步订阅。
-pub async fn on_publish_queue_refresh() {
-    if let Err(e) = robotech::refresh::publish(&MSG_PUBLISH_QUEUE_REFRESH_SUBJECT).await {
-        error!("发布队列刷新信号失败: {e}");
+pub async fn on_message_queue_refresh() {
+    if let Err(e) = robotech::refresh::publish(&MSG_MESSAGE_QUEUE_REFRESH_SUBJECT).await {
+        error!("消息队列刷新信号失败: {e}");
     }
 }
 
-/// # 同步发布队列订阅
+/// # 同步消息队列订阅
 ///
 /// 根据给定的队列集合，对比当前活跃订阅：
 /// - 队列 `code` 不存在于当前订阅 → 启动新订阅
@@ -176,7 +176,7 @@ pub async fn on_publish_queue_refresh() {
 /// - 当前订阅中的 `code` 不在 `queues` 中 → 停止
 ///
 /// 「任务已退出」必须算作不存在：连接关闭（如 NATS 配置热更新换掉 Client）
-/// 会让订阅任务自行结束，但句柄仍留在 [`PUBLISH_QUEUE_SUBSCRIBERS`] 里。只比 `code`
+/// 会让订阅任务自行结束，但句柄仍留在 [`MESSAGE_QUEUE_SUBSCRIBERS`] 里。只比 `code`
 /// 集合的话，这些死订阅永远不会被重建。
 ///
 /// 「重投上限已变更」必须重建：`get_or_create_consumer` 对已存在的 consumer
@@ -189,8 +189,8 @@ pub async fn on_publish_queue_refresh() {
 /// ## 参数
 ///
 /// - `queues`: 需要保持订阅的队列规格集合
-pub async fn sync_publish_queue_subscriptions(queues: &HashSet<PublishQueueSpec>) {
-    let current = PUBLISH_QUEUE_SUBSCRIBERS
+pub async fn sync_message_queue_subscriptions(queues: &HashSet<MessageQueueSpec>) {
+    let current = MESSAGE_QUEUE_SUBSCRIBERS
         .load_full()
         .unwrap_or_else(|| Arc::new(HashMap::new()));
 
@@ -201,7 +201,7 @@ pub async fn sync_publish_queue_subscriptions(queues: &HashSet<PublishQueueSpec>
 
     // ── 保留仍然存活的订阅，死句柄/配置已变的直接丢弃（下面会按新增重建）──
 
-    let mut next: HashMap<String, PublishQueueSubscription> = HashMap::new();
+    let mut next: HashMap<String, MessageQueueSubscription> = HashMap::new();
     let mut live_codes: HashSet<String> = HashSet::new();
 
     for (code, subscription) in current.iter() {
@@ -219,7 +219,7 @@ pub async fn sync_publish_queue_subscriptions(queues: &HashSet<PublishQueueSpec>
         }
         next.insert(
             code.clone(),
-            PublishQueueSubscription {
+            MessageQueueSubscription {
                 handle: Arc::clone(&subscription.handle),
                 persisted: subscription.persisted,
                 max_deliver: subscription.max_deliver,
@@ -260,7 +260,7 @@ pub async fn sync_publish_queue_subscriptions(queues: &HashSet<PublishQueueSpec>
 
         next.insert(
             code.clone(),
-            PublishQueueSubscription {
+            MessageQueueSubscription {
                 handle,
                 persisted,
                 max_deliver,
@@ -268,7 +268,7 @@ pub async fn sync_publish_queue_subscriptions(queues: &HashSet<PublishQueueSpec>
         );
     }
 
-    PUBLISH_QUEUE_SUBSCRIBERS.store(Some(Arc::new(next)));
+    MESSAGE_QUEUE_SUBSCRIBERS.store(Some(Arc::new(next)));
 }
 
 /// # 队列组名
@@ -292,7 +292,7 @@ const MAX_NAME_TOKEN_LEN: usize = 24;
 /// # 由 subject 派生 NATS 资源名片段
 ///
 /// JetStream 的 stream / consumer 名禁止 `.` `*` `>` `/` 和空白，
-/// 而队列 `code` 本身就是 NATS subject（例如 `msg.publish.normal`），直接拼进
+/// 而队列 `code` 本身就是 NATS subject（例如 `msg.message.normal`），直接拼进
 /// `MSG-{code}` 会被服务端拒绝，订阅压根建不起来。
 ///
 /// 规则：
@@ -302,7 +302,7 @@ const MAX_NAME_TOKEN_LEN: usize = 24;
 /// - 全是合法字符且不超长的 subject **原样保留**，已有 stream / consumer 不受影响。
 ///
 /// 投递侧（[`crate::wkr::sub`]）也用它派生投递队列的 Stream / Consumer 名；
-/// 两边 subject 不同（`msg.publish.normal` vs `msg.delivery.websocket`），
+/// 两边 subject 不同（`msg.message.normal` vs `msg.delivery.websocket`），
 /// 派生结果不会撞。
 pub(crate) fn nats_name_token(subject: &str) -> String {
     let mut token: String = subject
@@ -895,9 +895,9 @@ mod tests {
 
     #[test]
     fn dotted_subject_is_sanitized() {
-        let token = nats_name_token("msg.publish.normal");
+        let token = nats_name_token("msg.message.normal");
         assert!(is_valid_nats_name(&token), "仍含非法字符: {token}");
-        assert!(token.starts_with("msg-publish-normal-"), "token={token}");
+        assert!(token.starts_with("msg-message-normal-"), "token={token}");
     }
 
     #[test]

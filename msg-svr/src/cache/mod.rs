@@ -49,10 +49,10 @@
 //!
 //! ## 队列不在其中
 //!
-//! 发布队列（`msg_publish_queue`）只用于决定订阅哪些 subject，订阅状态由
+//! 消息队列（`msg_message_queue`）只用于决定订阅哪些 subject，订阅状态由
 //! `crate::sub` 维护，没有读取方需要队列快照，因此不进缓存。队列变更直接驱动
-//! 订阅同步，见 [`crate::sub::reload_publish_queue_subscriptions`]；启动装配在
-//! [`crate::utils::setup_publish_queue_refresh`]，与本模块的 [`setup_cache`] 平级。
+//! 订阅同步，见 [`crate::sub::reload_message_queue_subscriptions`]；启动装配在
+//! [`crate::utils::setup_message_queue_refresh`]，与本模块的 [`setup_cache`] 平级。
 //!
 //! 投递队列（`msg_delivery_queue`）不在这里：发布侧每次投递都要查「这个渠道
 //! 发到哪个主题」，快照得常驻内存，因此和投递订阅状态一起放在

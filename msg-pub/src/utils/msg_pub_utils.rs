@@ -1,10 +1,10 @@
 //! # 消息发布核心逻辑
 //!
 //! 通过 msg-api-client 的 Feign 客户端调用 msg-svr 完成模板查询、渲染和投递创建，
-//! 以及发布队列、事件来源、消息类别的注册。
+//! 以及消息队列、事件来源、消息类别的注册。
 
 use crate::utils::msg_pub_error::MsgPubError;
-use msg_api_client::cst::MSG_PUBLISH_NORMAL_TOPIC;
+use msg_api_client::cst::MSG_MESSAGE_NORMAL_TOPIC;
 use msg_api_client::msg::message_msg::MessageMsg;
 use robotech::mq::nats::publish;
 
@@ -42,7 +42,7 @@ pub enum PublishMode {
 ///
 /// ## 注意事项
 ///
-/// - 依赖 msg-svr 启动时创建的 stream（订阅 `MSG_PUBLISH_NORMAL_TOPIC` 的那个）。
+/// - 依赖 msg-svr 启动时创建的 stream（订阅 `MSG_MESSAGE_NORMAL_TOPIC` 的那个）。
 ///   首启顺序反过来（msg-svr 还没建 stream）时发布会报「no stream matches subject」，
 ///   这是**期望行为**：宁可报错，也不要无声丢弃。
 /// - 高频、可丢的场景请用 [`publish_message_with`] + [`PublishMode::BestEffort`]，
@@ -59,13 +59,13 @@ pub async fn publish_message_with(
     message_msg: MessageMsg,
     mode: PublishMode,
 ) -> Result<(), MsgPubError> {
-    publish_message_to(MSG_PUBLISH_NORMAL_TOPIC, message_msg, mode).await
+    publish_message_to(MSG_MESSAGE_NORMAL_TOPIC, message_msg, mode).await
 }
 
 /// # 发布一条消息到指定队列
 ///
 /// 与 [`publish_message_with`] 的唯一差别是目标 subject 由调用方给出。业务方
-/// 有自己的发布队列时（已通过 `msg_publish_queue` 注册给消息中心），用
+/// 有自己的消息队列时（已通过 `msg_message_queue` 注册给消息中心），用
 /// 注册的那个 `code` 发；两者必须是同一个 subject，否则「注册的队列没人发，
 /// 发的 subject 没人订阅」。
 pub async fn publish_message_to(

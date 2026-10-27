@@ -10,8 +10,6 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     #[sea_orm(unique)]
-    pub channel_id: i64,
-    #[sea_orm(unique)]
     pub code: String,
     #[sea_orm(unique)]
     pub name: String,
@@ -21,14 +19,6 @@ pub struct Model {
     pub create_ms: i64,
     pub updater_id: i64,
     pub update_ms: i64,
-    #[sea_orm(
-        belongs_to,
-        from = "channel_id",
-        to = "id",
-        on_update = "Restrict",
-        on_delete = "Restrict"
-    )]
-    pub msg_channel: BelongsTo<super::msg_channel::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

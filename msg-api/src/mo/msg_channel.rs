@@ -23,8 +23,6 @@ pub struct Model {
     #[sea_orm(has_many)]
     pub msg_delivery_channels: HasMany<super::msg_delivery_channel::Entity>,
     #[sea_orm(has_many)]
-    pub msg_delivery_queues: HasMany<super::msg_delivery_queue::Entity>,
-    #[sea_orm(has_many)]
     pub msg_target_category_channels: HasMany<super::msg_target_category_channel::Entity>,
 }
 

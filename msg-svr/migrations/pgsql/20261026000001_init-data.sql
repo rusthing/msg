@@ -1,7 +1,8 @@
 -- 初始化数据：消息中心跑起来所需的字典与入口配置
 --
--- 与 create-table 分工：那边只建结构，本文件只插数据。四段之间有依赖，顺序不能调
--- ——msg_delivery_queue.channel_id 指向 msg_channel，渠道必须先插。
+-- 与 create-table 分工：那边只建结构，本文件只插数据。四段的依赖只剩业务语义：
+-- 默认目标类别要挂到 websocket 渠道上，渠道必须先插；投递队列只认主题
+-- （`msg.delivery.{渠道编码}`），库里没有外键，顺序上不再依赖渠道行。
 --
 -- 每条记录都用个位数固定 ID：id-worker 生成的是雪花 ID（长整型大数），不会与这些
 -- 小 ID 撞。sqlx 每个迁移只执行一次，这里写 `on conflict do nothing` 是为了兼容
@@ -95,19 +96,19 @@ on conflict do nothing;
 -- 一个渠道一条投递队列：订阅哪个 subject、要不要持久化，全看这张表。
 -- 没配队列的渠道既不会被订阅，发布侧也发不出去（按渠道查不到队列就记失败）。
 --
--- `code` 就是投递主题，约定 `{前缀}.{渠道编码}`，即 msg.delivery.websocket。
+-- `code` 就是投递主题，固定为 `msg.delivery.{渠道编码}`，即 msg.delivery.websocket。
+-- 这张表不存渠道 ID：渠道编码从主题末段解析，写入时校验渠道存在
+-- （见 MsgDeliveryQueueSvc 的 before_add / before_modify），渠道被禁用后
+-- 消息中心不再为它建订阅。
 -- `persisted = false` 是 websocket 的硬要求：屏连在哪个实例上不确定，消息要让
 -- 所有实例都收到、各自查本地连接表；落 JetStream 走队列组，反而会让「A 实例收
 -- 任务、屏却连在 B 实例」的消息被别的实例吃掉。
---
--- 渠道在上面第 2 段插入，这里按 code 取它的 ID。
 insert into msg_delivery_queue (
-   id, channel_id, code, name, persisted, remark,
+   id, code, name, persisted, remark,
    creater_id, create_ms, updater_id, update_ms
 )
-select
+values (
    1,
-   c.id,
    'msg.delivery.websocket',
    'websocket 投递队列',
    false,
@@ -116,6 +117,5 @@ select
    (extract(epoch from now()) * 1000)::int8,
    0,
    (extract(epoch from now()) * 1000)::int8
-from msg_channel c
-where c.code = 'websocket'
+)
 on conflict do nothing;

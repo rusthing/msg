@@ -14,7 +14,7 @@
 //!
 //! - 第一段固定为 `refresh`，标识「刷新信号」这一框架能力。所有服务的刷新
 //!   主题都落在这个命名空间下，`nats stream ls` 里聚成一族，一眼可辨；
-//!   与业务主题（`msg.publish.*` / `msg.delivery.*`）完全隔离，不会被业务侧的
+//!   与业务主题（`msg.message.*` / `msg.delivery.*`）完全隔离，不会被业务侧的
 //!   通配 Stream 吞掉；
 //! - 第二段为服务名，第三段标识「哪一份缓存 / 配置」，新增缓存时只追加
 //!   末段，前缀规则不变；
@@ -25,7 +25,7 @@
 //! | 主题 | 刷新对象 |
 //! |------|----------|
 //! | `refresh.msg.message` | 消息及其投递配置（模板、渠道、来源、类别、目标） |
-//! | `refresh.msg.publish-queue` | 发布队列订阅 |
+//! | `refresh.msg.message-queue` | 消息队列订阅 |
 //! | `refresh.msg.delivery-queue` | 投递队列（按渠道配的投递主题与持久化方式） |
 
 use robotech::refresh::RefreshSubject;
@@ -37,16 +37,19 @@ use robotech::refresh::RefreshSubject;
 pub const MSG_MESSAGE_REFRESH_SUBJECT: RefreshSubject =
     robotech::refresh_subject!("msg", "message");
 
-/// 发布队列刷新主题
+/// 消息队列刷新主题
 ///
-/// 发布队列变更时发布，各节点收到后直接从 DB 查询队列并同步 NATS 订阅，
+/// 消息队列变更时发布，各节点收到后直接从 DB 查询队列并同步 NATS 订阅，
 /// 不经过缓存。
-pub const MSG_PUBLISH_QUEUE_REFRESH_SUBJECT: RefreshSubject =
-    robotech::refresh_subject!("msg", "publish-queue");
+pub const MSG_MESSAGE_QUEUE_REFRESH_SUBJECT: RefreshSubject =
+    robotech::refresh_subject!("msg", "message-queue");
 
 /// 投递队列刷新主题
 ///
 /// 投递队列变更时发布：各节点重新查库、替换「渠道 → 投递队列」快照，
 /// 并按新的主题 / 持久化方式重建投递订阅。
+///
+/// 渠道的启用/禁用也发这个主题（见 `wkr::on_channel_refresh`）：订阅是按主题
+/// 建的，渠道禁用后要停掉，只刷新消息缓存不够。
 pub const MSG_DELIVERY_QUEUE_REFRESH_SUBJECT: RefreshSubject =
     robotech::refresh_subject!("msg", "delivery-queue");

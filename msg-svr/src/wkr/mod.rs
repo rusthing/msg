@@ -91,6 +91,19 @@ pub async fn on_delivery_queue_refresh() {
     }
 }
 
+/// # 渠道写操作后：消息缓存与投递队列一起刷新
+///
+/// 渠道既是「消息发不发」的开关（`msg_channel.enabled`，消息缓存只加载启用的
+/// 渠道），也是「有没有人订阅」的依据（投递队列的主题末段就是渠道编码）。
+/// 所以渠道的写操作必须同时通知两处，只发消息缓存信号会留下一段时间里
+/// 「不给它生成任务、却还挂着订阅」的错位状态。
+///
+/// 用于 [`crate::svc::MsgChannelSvc`] 的 `after_write`。
+pub async fn on_channel_refresh() {
+    crate::cache::on_message_cache_refresh().await;
+    on_delivery_queue_refresh().await;
+}
+
 /// # 发布一条投递任务
 ///
 /// 主题与是否持久化都取自该渠道的投递队列配置：
@@ -103,7 +116,7 @@ pub async fn on_delivery_queue_refresh() {
 pub async fn publish_task(task: &DeliveryMsg) -> Result<(), NatsError> {
     let Some(queue) = sub::get_delivery_queue(&task.channel_code) else {
         return Err(NatsError::Publish(format!(
-            "渠道 {} 没有投递队列配置，任务无处投递",
+            "渠道 {} 没有可用的投递队列（未配置或已禁用），任务无处投递",
             task.channel_code
         )));
     };

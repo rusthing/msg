@@ -416,7 +416,6 @@ delivery_channel_id
 /*==============================================================*/
 create table msg_delivery_queue (
    id                   INT8                 not null,
-   channel_id           INT8                 not null,
    code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
    persisted            BOOL                 not null default false,
@@ -427,8 +426,7 @@ create table msg_delivery_queue (
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY_QUEUE primary key (id),
    constraint AK_CODE_MSG_DELIVERY_QUEUE unique (code),
-   constraint AK_NAME_MSG_DELIVERY_QUEUE unique (name),
-   constraint AK_CHANNEL_ID_MSG_DELIVERY_QUEUE unique (channel_id)
+   constraint AK_NAME_MSG_DELIVERY_QUEUE unique (name)
 );
 
 comment on table msg_delivery_queue is
@@ -438,12 +436,9 @@ comment on table msg_delivery_queue is
 comment on column msg_delivery_queue.id is
 'ID';
 
-comment on column msg_delivery_queue.channel_id is
-'渠道ID';
-
 comment on column msg_delivery_queue.code is
 '编码
-投递主题，订阅与投递都用它
+投递主题，固定为 msg.delivery.{渠道编码}，末段即 msg_channel.code
 @len 1..=50';
 
 comment on column msg_delivery_queue.name is
@@ -475,13 +470,6 @@ comment on column msg_delivery_queue.update_ms is
 /*==============================================================*/
 create unique index msg_delivery_queue_PK on msg_delivery_queue (
 id
-);
-
-/*==============================================================*/
-/* Index: Relationship_18_FK                                    */
-/*==============================================================*/
-create  index Relationship_18_FK on msg_delivery_queue (
-channel_id
 );
 
 /*==============================================================*/
@@ -775,9 +763,9 @@ id
 );
 
 /*==============================================================*/
-/* Table: msg_publish_queue                                     */
+/* Table: msg_message_queue                                     */
 /*==============================================================*/
-create table msg_publish_queue (
+create table msg_message_queue (
    id                   INT8                 not null,
    code                 VARCHAR(50)          not null,
    name                 VARCHAR(50)          not null,
@@ -787,51 +775,51 @@ create table msg_publish_queue (
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
-   constraint PK_MSG_PUBLISH_QUEUE primary key (id),
-   constraint AK_CODE_MSG_PUBLISH_QUEUE unique (code),
-   constraint AK_NAME_MSG_PUBLISH_QUEUE unique (name)
+   constraint PK_MSG_MESSAGE_QUEUE primary key (id),
+   constraint AK_CODE_MSG_MESSAGE_QUEUE unique (code),
+   constraint AK_NAME_MSG_MESSAGE_QUEUE unique (name)
 );
 
-comment on table msg_publish_queue is
-'发布队列
-发布方注册自己的发布主题，消息中心据此订阅并决定是否持久化';
+comment on table msg_message_queue is
+'消息队列
+发布方注册自己的消息主题，消息中心据此订阅并决定是否持久化';
 
-comment on column msg_publish_queue.id is
+comment on column msg_message_queue.id is
 'ID';
 
-comment on column msg_publish_queue.code is
+comment on column msg_message_queue.code is
 '编码
-发布主题，订阅与发布都用它
+消息主题，订阅与发布都用它
 @len 1..=50';
 
-comment on column msg_publish_queue.name is
+comment on column msg_message_queue.name is
 '名称
 @len 1..=50';
 
-comment on column msg_publish_queue.persisted is
+comment on column msg_message_queue.persisted is
 '是否持久化
 持久化走 JetStream（发布方等 ACK，服务重启后补消费）；不持久化走 Core NATS，发出即不管送达';
 
-comment on column msg_publish_queue.remark is
+comment on column msg_message_queue.remark is
 '备注
 @len 0..=50';
 
-comment on column msg_publish_queue.creater_id is
+comment on column msg_message_queue.creater_id is
 '创建者ID';
 
-comment on column msg_publish_queue.create_ms is
+comment on column msg_message_queue.create_ms is
 '创建时间戳';
 
-comment on column msg_publish_queue.updater_id is
+comment on column msg_message_queue.updater_id is
 '更新者ID';
 
-comment on column msg_publish_queue.update_ms is
+comment on column msg_message_queue.update_ms is
 '更新时间戳';
 
 /*==============================================================*/
-/* Index: msg_publish_queue_PK                                  */
+/* Index: msg_message_queue_PK                                  */
 /*==============================================================*/
-create unique index msg_publish_queue_PK on msg_publish_queue (
+create unique index msg_message_queue_PK on msg_message_queue (
 id
 );
 
@@ -1044,11 +1032,6 @@ alter table msg_delivery_channel
 alter table msg_delivery_channel_log
    add constraint fk_delivery_channel_id__from__msg_delivery_channel foreign key (delivery_channel_id)
       references msg_delivery_channel (id)
-      on delete restrict on update restrict;
-
-alter table msg_delivery_queue
-   add constraint fk_channel_id__from__msg_channel foreign key (channel_id)
-      references msg_channel (id)
       on delete restrict on update restrict;
 
 alter table msg_delivery_target

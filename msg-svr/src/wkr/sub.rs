@@ -4,11 +4,18 @@
 //!
 //! ## 订阅什么由表决定
 //!
-//! 一个渠道对应一条投递队列（`msg_delivery_queue.channel_id` 唯一）：
+//! 一个渠道对应一条投递队列，**主题就是渠道的关联**：`code` 固定为
+//! `msg.delivery.{渠道编码}`，末段即 `msg_channel.code`，表里不存渠道 ID。
 //!
-//! - `code` 是投递主题，发布与订阅共用这一份，换主题不用改代码；
+//! - `code` 是投递主题，发布与订阅共用这一份；
 //! - `persisted` 决定订阅方式：`false` 走 Core NATS 广播，`true` 走
 //!   JetStream Push + 队列组，发送失败 NAK 回服务端按 `max_deliver` 重投。
+//!
+//! ## 渠道禁用即停投
+//!
+//! 重载时查一次渠道表，主题末段对不上启用渠道的队列既不订阅、也不进发布快照
+//! （`publish_task` 会按「渠道没有投递队列」报错）。渠道被禁用没有别的开关，
+//! 就是这一处过滤——见 [`MsgChannelSvc`] 的写后回调，它会连带触发本模块重载。
 //!
 //! ## 为什么 websocket 必须是广播
 //!
@@ -20,7 +27,7 @@
 //! ## 队列快照为什么留在本模块
 //!
 //! 发布侧（[`crate::wkr::publish_task`]）要知道「这个渠道发到哪个 subject、
-//! 要不要等 ACK」，所以队列快照必须常驻内存——这点和发布队列不同
+//! 要不要等 ACK」，所以队列快照必须常驻内存——这点和消息队列不同
 //! （那边只有订阅方，收到刷新信号直接查库即可，见 [`crate::sub`]）。
 //! 快照与订阅状态一起维护在这里：
 //!
@@ -36,6 +43,7 @@ use crate::svc::{MsgChannelSvc, MsgDeliveryQueueSvc};
 use crate::wkr::channel::SendOutcome;
 use crate::wkr::{channel, deliver_result};
 use arc_swap::ArcSwapOption;
+use msg_api::cst::{MSG_DELIVERY_TOPIC_PREFIX, delivery_topic_channel_code};
 use msg_api::msg::DeliveryMsg;
 use robotech::db::get_db_conn;
 use robotech::mq::nats::{self, NatsError};
@@ -88,7 +96,8 @@ static DELIVERY_SUBSCRIBERS: ArcSwapOption<HashMap<String, DeliverySubscription>
 
 /// # 读取某渠道的投递队列
 ///
-/// 发布侧用：返回 `None` 表示这个渠道没配投递队列，任务无处投递。
+/// 发布侧用：返回 `None` 表示这个渠道没配投递队列、或渠道已禁用，
+/// 任务无处投递。
 pub fn get_delivery_queue(channel_code: &str) -> Option<DeliveryQueue> {
     DELIVERY_QUEUES
         .load_full()
@@ -97,7 +106,8 @@ pub fn get_delivery_queue(channel_code: &str) -> Option<DeliveryQueue> {
 
 /// # 重新加载投递队列
 ///
-/// 启动时调用一次，之后每次收到 `refresh.msg.delivery-queue` 都调用。
+/// 启动时调用一次，之后每次收到 `refresh.msg.delivery-queue` 都调用
+/// （渠道写操作也会发这个信号，禁用/启用要立刻反映到订阅上）。
 /// 三步：查库组装快照 → 换快照（发布侧立刻按新配置走）→ 同步订阅。
 ///
 /// 快照先于订阅替换：反过来的话，新订阅建立前发布侧还按旧主题发，
@@ -105,15 +115,15 @@ pub fn get_delivery_queue(channel_code: &str) -> Option<DeliveryQueue> {
 pub async fn reload_delivery_queues() -> anyhow::Result<()> {
     let db = get_db_conn()?;
 
-    // ── 渠道 ID → 编码：投递队列只存 channel_id，发布侧按编码认领 ──
+    // ── 渠道编码 → 是否启用：队列只存主题，渠道从主题末段解析 ──
 
-    let channels: HashMap<u64, String> =
+    let channels: HashMap<String, bool> =
         MsgChannelSvc::list_by_query_dto(MsgChannelQueryDto::default(), Some(db.as_ref()))
             .await?
             .extra
             .unwrap_or_default()
             .into_iter()
-            .map(|channel| (channel.id.0, channel.code))
+            .map(|channel| (channel.code, channel.enabled))
             .collect();
 
     let rows = MsgDeliveryQueueSvc::list_by_query_dto(
@@ -127,15 +137,33 @@ pub async fn reload_delivery_queues() -> anyhow::Result<()> {
     let queues: HashMap<String, DeliveryQueue> = rows
         .into_iter()
         .filter_map(|queue| {
-            let Some(channel_code) = channels.get(&queue.channel_id.0).cloned() else {
-                // 外键是 restrict，正常删不出这种数据；真出现了就别订阅，
-                // 也别让发布侧按它发——查不到的渠道没有发送器
+            let Some(code) = delivery_topic_channel_code(&queue.code) else {
+                // 主题不符合约定就认不出是哪个渠道，发出去也没人认领
                 warn!(
-                    "投递队列 {} 指向不存在的渠道 {}，跳过",
-                    queue.code, queue.channel_id.0
+                    "投递队列 {} 的主题不是 {MSG_DELIVERY_TOPIC_PREFIX}{{渠道编码}}，跳过",
+                    queue.code
                 );
                 return None;
             };
+            let channel_code = code.to_string();
+
+            match channels.get(&channel_code) {
+                // 渠道被删掉了：没有发送器，订阅和发布都只会白费
+                None => {
+                    warn!("投递队列 {} 指向不存在的渠道 {channel_code}，跳过", queue.code);
+                    return None;
+                }
+                // 渠道禁用：不订阅、也不进发布快照，等于立刻停投
+                Some(false) => {
+                    info!(
+                        "渠道 {channel_code} 已禁用，跳过投递队列 {}",
+                        queue.code
+                    );
+                    return None;
+                }
+                Some(true) => {}
+            }
+
             Some((
                 channel_code.clone(),
                 DeliveryQueue {

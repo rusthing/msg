@@ -22,8 +22,9 @@
 //! { "token": "xxxx" }
 //! ```
 //!
-//! `token` 为空表示不校验（联调用）；渠道表里没有 websocket 这条渠道时
-//! 直接拒绝——没有渠道配置就没人会往这个渠道投递，连上也收不到消息。
+//! `token` 为空表示不校验（联调用）；渠道表里没有 websocket 这条渠道、或这条
+//! 渠道被禁用（`enabled = false`）时直接拒绝——没有可用的渠道配置就没人会往
+//! 这个渠道投递，连上也收不到消息。
 
 use crate::config::get_msg_config;
 use crate::dto::MsgChannelQueryDto;
@@ -76,6 +77,9 @@ pub async fn upgrade(ws: WebSocketUpgrade, Query(query): Query<WsQuery>) -> Resp
 }
 
 /// 校验握手令牌
+///
+/// 顺带挡掉「渠道不存在」和「渠道已禁用」两种情形：这两种情况下消息中心
+/// 不会往这个渠道投递，放连接进来只会让大屏一直空着。
 async fn check_token(token: Option<&str>) -> Result<(), StatusCode> {
     let db = get_db_conn().map_err(|e| {
         warn!("校验 websocket 令牌失败，取数据库连接出错: {e}");
@@ -99,6 +103,13 @@ async fn check_token(token: Option<&str>) -> Result<(), StatusCode> {
         warn!("未配置 websocket 渠道（msg_channel.code={MSG_CHANNEL_CODE_WEBSOCKET}），拒绝连接");
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
+
+    // 禁用即停服：渠道被禁用后消息缓存不再为它生成投递任务、投递订阅也已停掉，
+    // 再放连接进来只会让大屏连上却永远收不到消息
+    if !channel.enabled {
+        warn!("websocket 渠道已禁用，拒绝连接");
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
 
     let expected = channel
         .options

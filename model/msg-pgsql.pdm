@@ -6158,14 +6158,14 @@ INS COLNCOL {E3DAF712-D300-4299-9D6E-B6A09E3AB695}</a:History>
 </c:PrimaryKey>
 </o:Table><o:Table Id="o48">
 <a:ObjectID>E2A0A930-773D-4502-958E-86414534AA4C</a:ObjectID>
-<a:Name>发布队列</a:Name>
-<a:Code>msg_publish_queue</a:Code>
+<a:Name>消息队列</a:Name>
+<a:Code>msg_message_queue</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1790296995</a:ModificationDate>
+<a:ModificationDate>1793020765</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>发布队列
-发布方注册自己的发布主题，消息中心据此订阅并决定是否持久化</a:Comment>
+<a:Comment>消息队列
+发布方注册自己的消息主题，消息中心据此订阅并决定是否持久化</a:Comment>
 <a:History>ORG {6DA9C6B4-9174-47F3-B846-A28DB792458A}
 DAT 1790046262
 MOV COLNCOL</a:History>
@@ -6196,7 +6196,7 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790067473</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-发布主题，订阅与发布都用它
+消息主题，订阅与发布都用它
 @len 1..=50</a:Comment>
 <a:History>ORG {CF72A8C2-211A-4F61-97DB-B08F32CA838D}
 DAT 1790046262</a:History>
@@ -6366,8 +6366,8 @@ DAT 1790046262</a:History>
 <c:Indexes>
 <o:Index Id="o134">
 <a:ObjectID>35F2182B-F1F7-44A8-B52F-01A10981CB95</a:ObjectID>
-<a:Name>msg_publish_queue_PK</a:Name>
-<a:Code>msg_publish_queue_PK</a:Code>
+<a:Name>msg_message_queue_PK</a:Name>
+<a:Code>msg_message_queue_PK</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790067473</a:ModificationDate>
@@ -6396,8 +6396,8 @@ DAT 1790046262</a:History>
 </o:Index>
 <o:Index Id="o136">
 <a:ObjectID>518DF594-2668-4C10-B695-B57471E043EC</a:ObjectID>
-<a:Name>msg_publish_queue_AK</a:Name>
-<a:Code>msg_publish_queue_AK</a:Code>
+<a:Name>msg_message_queue_AK</a:Name>
+<a:Code>msg_message_queue_AK</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790067473</a:ModificationDate>
@@ -6426,8 +6426,8 @@ DAT 1790046262</a:History>
 </o:Index>
 <o:Index Id="o138">
 <a:ObjectID>4758054D-713B-4722-8B13-EAD97CCF55F8</a:ObjectID>
-<a:Name>msg_publish_queue_AK2</a:Name>
-<a:Code>msg_publish_queue_AK2</a:Code>
+<a:Name>msg_message_queue_AK2</a:Name>
+<a:Code>msg_message_queue_AK2</a:Code>
 <a:CreationDate>1790046262</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790067473</a:ModificationDate>
@@ -9329,22 +9329,6 @@ DAT 1792744490</a:History>
 <a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
-<o:Column Id="o331">
-<a:ObjectID>35A4AA55-AF7F-400D-BDA7-02FACB653E40</a:ObjectID>
-<a:Name>渠道ID</a:Name>
-<a:Code>channel_id</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:Comment>渠道ID</a:Comment>
-<a:History>ORG {5E606425-9C95-45C5-9D4A-29246409647C}
-DAT 1792744490</a:History>
-<a:DataType>INT8</a:DataType>
-<a:Length>8</a:Length>
-<a:Column.Mandatory>1</a:Column.Mandatory>
-<a:GlobalObjectID/>
-</o:Column>
 <o:Column Id="o332">
 <a:ObjectID>DB06D619-490A-4CCA-9040-245273F9B274</a:ObjectID>
 <a:Name>编码</a:Name>
@@ -9354,7 +9338,7 @@ DAT 1792744490</a:History>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-投递主题，订阅与投递都用它
+投递主题，固定为 msg.delivery.{渠道编码}，末段即 msg_channel.code
 @len 1..=50</a:Comment>
 <a:History>ORG {FF8375B4-72D8-45EB-A924-1794B7F70C66}
 DAT 1792744490</a:History>
@@ -9520,21 +9504,6 @@ DAT 1792744490</a:History>
 <o:Column Ref="o333"/>
 </c:Key.Columns>
 </o:Key>
-<o:Key Id="o343">
-<a:ObjectID>B4912C4B-33A7-41FC-9463-5DCA32995EFC</a:ObjectID>
-<a:Name>渠道</a:Name>
-<a:Code>channel_id</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:History>ORG {5E606425-9C95-45C5-9D4A-29246409647C}
-DAT 1792744490</a:History>
-<a:GlobalObjectID/>
-<c:Key.Columns>
-<o:Column Ref="o331"/>
-</c:Key.Columns>
-</o:Key>
 </c:Keys>
 <c:Indexes>
 <o:Index Id="o344">
@@ -9623,65 +9592,6 @@ DAT 1792744490</a:History>
 </c:Column>
 <c:Elements>
 <o:Column Ref="o333"/>
-</c:Elements>
-</o:IndexColumn>
-</c:IndexColumns>
-</o:Index>
-<o:Index Id="o347">
-<a:ObjectID>91BC4BC4-4536-4AA2-95DB-F2D70AD04A0F</a:ObjectID>
-<a:Name>msg_delivery_queue_AK3</a:Name>
-<a:Code>msg_delivery_queue_AK3</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<a:Unique>1</a:Unique>
-<c:LinkedObject>
-<o:Key Ref="o343"/>
-</c:LinkedObject>
-<c:IndexColumns>
-<o:IndexColumn Id="o352">
-<a:ObjectID>D3B018EB-A2CA-46BE-8C99-7F6E6D78D4C8</a:ObjectID>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<c:Column>
-<o:Column Ref="o331"/>
-</c:Column>
-<c:Elements>
-<o:Column Ref="o331"/>
-</c:Elements>
-</o:IndexColumn>
-</c:IndexColumns>
-</o:Index>
-<o:Index Id="o348">
-<a:ObjectID>C67AF942-8163-418B-9A6B-B9786DCD3914</a:ObjectID>
-<a:Name>Relationship_18_FK</a:Name>
-<a:Code>Relationship_18_FK</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<c:LinkedObject>
-<o:Reference Ref="o354"/>
-</c:LinkedObject>
-<c:IndexColumns>
-<o:IndexColumn Id="o353">
-<a:ObjectID>4B657C2E-D000-4B02-95F3-6834B491A96C</a:ObjectID>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<c:Column>
-<o:Column Ref="o331"/>
-</c:Column>
-<c:Elements>
-<o:Column Ref="o331"/>
 </c:Elements>
 </o:IndexColumn>
 </c:IndexColumns>
@@ -10277,46 +10187,6 @@ DAT 1790046262</a:History>
 </c:Object1>
 <c:Object2>
 <o:Column Ref="o61"/>
-</c:Object2>
-</o:ReferenceJoin>
-</c:Joins>
-</o:Reference>
-<o:Reference Id="o354">
-<a:ObjectID>358A2A37-BA0E-4B5A-8D7A-CDB07D723FB8</a:ObjectID>
-<a:Name>Relationship_18</a:Name>
-<a:Code>Relationship_18</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:History>ORG {5E5E01CD-68BA-4A1F-BD30-5A2E5C3073A4}
-DAT 1792744490</a:History>
-<a:GlobalObjectID/>
-<a:Cardinality>0..*</a:Cardinality>
-<a:UpdateConstraint>1</a:UpdateConstraint>
-<a:DeleteConstraint>1</a:DeleteConstraint>
-<c:ParentTable>
-<o:Table Ref="o51"/>
-</c:ParentTable>
-<c:ChildTable>
-<o:Table Ref="o329"/>
-</c:ChildTable>
-<c:ParentKey>
-<o:Key Ref="o201"/>
-</c:ParentKey>
-<c:Joins>
-<o:ReferenceJoin Id="o355">
-<a:ObjectID>949D8C5B-0895-4D2C-B140-A17A06119012</a:ObjectID>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<c:Object1>
-<o:Column Ref="o191"/>
-</c:Object1>
-<c:Object2>
-<o:Column Ref="o331"/>
 </c:Object2>
 </o:ReferenceJoin>
 </c:Joins>

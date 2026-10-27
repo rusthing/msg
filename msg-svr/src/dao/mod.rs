@@ -8,8 +8,8 @@ mod msg_delivery_target_dao;
 mod msg_event_source_dao;
 mod msg_message_category_dao;
 mod msg_message_dao;
+mod msg_message_queue_dao;
 mod msg_message_target_dao;
-mod msg_publish_queue_dao;
 mod msg_target_category_channel_dao;
 mod msg_target_category_dao;
 
@@ -23,7 +23,7 @@ pub use msg_delivery_target_dao::*;
 pub use msg_event_source_dao::*;
 pub use msg_message_category_dao::*;
 pub use msg_message_dao::*;
+pub use msg_message_queue_dao::*;
 pub use msg_message_target_dao::*;
-pub use msg_publish_queue_dao::*;
 pub use msg_target_category_channel_dao::*;
 pub use msg_target_category_dao::*;

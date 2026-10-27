@@ -1,8 +1,8 @@
 use robotech::macros::crud_dto;
 
 #[crud_dto]
-pub struct MsgPublishQueueDto {
-    /// 编码，发布主题，订阅与发布都用它
+pub struct MsgMessageQueueDto {
+    /// 编码，消息主题，订阅与发布都用它
     /// @len 1..=50
     pub code: String,
     /// 名称

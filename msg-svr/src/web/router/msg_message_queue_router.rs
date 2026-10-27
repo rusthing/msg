@@ -1,4 +1,4 @@
 use robotech::macros::router;
 
 #[router(crud)]
-struct MsgPublishQueueRouter;
+struct MsgMessageQueueRouter;

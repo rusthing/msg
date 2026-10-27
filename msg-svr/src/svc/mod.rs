@@ -8,8 +8,8 @@ mod msg_delivery_target_svc;
 mod msg_event_source_svc;
 mod msg_message_category_svc;
 mod msg_message_svc;
+mod msg_message_queue_svc;
 mod msg_message_target_svc;
-mod msg_publish_queue_svc;
 mod msg_target_category_channel_svc;
 mod msg_target_category_svc;
 
@@ -23,7 +23,7 @@ pub use msg_delivery_target_svc::*;
 pub use msg_event_source_svc::*;
 pub use msg_message_category_svc::*;
 pub use msg_message_svc::*;
+pub use msg_message_queue_svc::*;
 pub use msg_message_target_svc::*;
-pub use msg_publish_queue_svc::*;
 pub use msg_target_category_channel_svc::*;
 pub use msg_target_category_svc::*;

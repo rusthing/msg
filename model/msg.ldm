@@ -1829,28 +1829,6 @@ ATTRIBUTE 0 新宋体,8,N</a:FontList>
 <o:Entity Ref="o232"/>
 </c:Object>
 </o:EntitySymbol>
-<o:RelationshipSymbol Id="o250">
-<a:CreationDate>1792744490</a:CreationDate>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Rect>((50000,-1624), (50000,14679))</a:Rect>
-<a:ListOfPoints>((50000,-1624),(50000,14679))</a:ListOfPoints>
-<a:CornerStyle>1</a:CornerStyle>
-<a:ArrowStyle>4627</a:ArrowStyle>
-<a:LineColor>11881048</a:LineColor>
-<a:ShadowColor>12632256</a:ShadowColor>
-<a:FontList>CENTER 0 新宋体,8,N
-SOURCE 0 新宋体,8,N
-DESTINATION 0 新宋体,8,N</a:FontList>
-<c:SourceSymbol>
-<o:EntitySymbol Ref="o22"/>
-</c:SourceSymbol>
-<c:DestinationSymbol>
-<o:EntitySymbol Ref="o249"/>
-</c:DestinationSymbol>
-<c:Object>
-<o:Relationship Ref="o247"/>
-</c:Object>
-</o:RelationshipSymbol>
 <o:EntitySymbol Id="o7">
 <a:CreationDate>1789977446</a:CreationDate>
 <a:ModificationDate>1792212164</a:ModificationDate>
@@ -2569,14 +2547,14 @@ DAT 1792733861</a:History>
 </c:Attributes>
 </o:Entity><o:Entity Id="o47">
 <a:ObjectID>6DA9C6B4-9174-47F3-B846-A28DB792458A</a:ObjectID>
-<a:Name>发布队列</a:Name>
-<a:Code>publish_queue</a:Code>
+<a:Name>消息队列</a:Name>
+<a:Code>message_queue</a:Code>
 <a:CreationDate>1789980333</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1790294251</a:ModificationDate>
+<a:ModificationDate>1793020765</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>发布队列
-发布方注册自己的发布主题，消息中心据此订阅并决定是否持久化</a:Comment>
+<a:Comment>消息队列
+发布方注册自己的消息主题，消息中心据此订阅并决定是否持久化</a:Comment>
 <a:GlobalObjectID/>
 <c:Identifiers>
 <o:Identifier Id="o87">
@@ -2644,7 +2622,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790067221</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-发布主题，订阅与发布都用它
+消息主题，订阅与发布都用它
 @len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
@@ -2770,19 +2748,6 @@ DAT 1792733861</a:History>
 <o:EntityAttribute Ref="o237"/>
 </c:Identifier.Attributes>
 </o:Identifier>
-<o:Identifier Id="o234">
-<a:ObjectID>3E757508-6B32-4D67-B26F-68D666AE6523</a:ObjectID>
-<a:Name>渠道</a:Name>
-<a:Code>channel_id</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<c:Identifier.Attributes>
-<o:EntityAttribute Ref="o238"/>
-</c:Identifier.Attributes>
-</o:Identifier>
 <o:Identifier Id="o235">
 <a:ObjectID>04FDA5BA-E312-4DDA-A4C7-0DC2021834EC</a:ObjectID>
 <a:Name>编码</a:Name>
@@ -2827,20 +2792,6 @@ DAT 1792733861</a:History>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
-<o:EntityAttribute Id="o238">
-<a:ObjectID>DF78BDC3-5A6F-43DD-AC93-AFA40BAF8CDA</a:ObjectID>
-<a:Name>渠道ID</a:Name>
-<a:Code>channel_id</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:Comment>渠道ID</a:Comment>
-<a:DataType>LI</a:DataType>
-<a:Length>8</a:Length>
-<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
-<a:GlobalObjectID/>
-</o:EntityAttribute>
 <o:EntityAttribute Id="o239">
 <a:ObjectID>384D14B6-BD2A-410F-8FDE-DCE61308C0BB</a:ObjectID>
 <a:Name>编码</a:Name>
@@ -2850,7 +2801,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-投递主题，订阅与投递都用它
+投递主题，固定为 msg.delivery.{渠道编码}，末段即 msg_channel.code
 @len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
@@ -5195,43 +5146,6 @@ DAT 1792733861</a:History>
 </c:Joins>
 <c:ParentIdentifier>
 <o:Identifier Ref="o76"/>
-</c:ParentIdentifier>
-</o:Relationship>
-<o:Relationship Id="o247">
-<a:ObjectID>5E5E01CD-68BA-4A1F-BD30-5A2E5C3073A4</a:ObjectID>
-<a:Name>Relationship_18</a:Name>
-<a:Code>Relationship_18</a:Code>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<a:Entity1ToEntity2RoleCardinality>0,n</a:Entity1ToEntity2RoleCardinality>
-<a:Entity2ToEntity1RoleCardinality>1,1</a:Entity2ToEntity1RoleCardinality>
-<c:Object1>
-<o:Entity Ref="o232"/>
-</c:Object1>
-<c:Object2>
-<o:Entity Ref="o50"/>
-</c:Object2>
-<c:Joins>
-<o:RelationshipJoin Id="o248">
-<a:ObjectID>4C641EC0-CBDA-4D35-B5AA-61E273758F50</a:ObjectID>
-<a:CreationDate>1792744490</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1792744490</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:GlobalObjectID/>
-<c:Object1>
-<o:EntityAttribute Ref="o238"/>
-</c:Object1>
-<c:Object2>
-<o:EntityAttribute Ref="o129"/>
-</c:Object2>
-</o:RelationshipJoin>
-</c:Joins>
-<c:ParentIdentifier>
-<o:Identifier Ref="o128"/>
 </c:ParentIdentifier>
 </o:Relationship>
 </c:Relationships>

@@ -23,4 +23,4 @@ use robotech::macros::api_doc;
     search_list_ex,
     search_page_ex
 )]
-pub struct MsgPublishQueueApiDoc;
+pub struct MsgMessageQueueApiDoc;
