@@ -33,8 +33,8 @@ use idworker::next_id;
 use msg_api::cst::{MSG_MESSAGE_NORMAL_TOPIC, MSG_MESSAGE_QUEUE_REFRESH_SUBJECT};
 use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
 use msg_api::dto::{
-    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryQueryDto, MsgDeliveryTargetAddDto,
-    MsgMessageQueueAddDto,
+    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryModifyDto, MsgDeliveryQueryDto,
+    MsgDeliveryTargetAddDto, MsgMessageQueueAddDto,
 };
 use msg_api::msg::{DeliveryMsg, message_msg::MessageMsg};
 use robotech::api::U64;
@@ -426,6 +426,8 @@ async fn start_subscription_for_queue(
 /// 6. 创建 `msg_delivery` 投递记录（含 labels / annotations 快照，供排查）
 /// 7. 为每个目标创建 `msg_delivery_target`
 /// 8. 为每个（目标 × 渠道）组合创建 `msg_delivery_channel`
+/// 9. 发布投递任务；一个任务都没有（没挂目标 / 目标类别没绑渠道）时报错并把
+///    投递记录收口成「全部失败」
 ///
 /// 投递任务与投递三张表一一对应：渲染好的标题、内容、附加内容，三张表的行 ID
 /// 与目标/渠道字段。`labels` / `annotations` 只是模板的输入，渲染完就只剩
@@ -712,6 +714,27 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     // ── 9. 发布投递任务 ──
 
+    // 一个任务都没组装出来，说明这条消息谁都收不到：要么它没挂投递目标
+    // （`msg_message_target` 缺行，比如发布方登记顺序不对），要么目标类别没绑
+    // 渠道（`msg_target_category_channel` 缺行）。这两种情况下投递记录都不会
+    // 再有人回写，会永远停在「投递中」——从后台看就是「已收下、没下文」，
+    // 只能翻库才发现。所以就地收口成「全部失败」并报错。
+    //
+    // 重投救不了：目标表没变，缓存重建后照样是零个任务。照常确认。
+    if tasks.is_empty() {
+        let reason = if msg.targets.is_empty() {
+            "消息没有登记任何投递目标"
+        } else {
+            "投递目标下没有可用渠道（目标类别未绑定渠道）"
+        };
+        error!(
+            "{reason}，本条消息判为投递失败: event_code={}, delivery_id={delivery_id}, business_id={business_id}",
+            msg.event_code
+        );
+        mark_delivery_failed(db.as_ref(), delivery_id, now_ms).await;
+        return Ok(());
+    }
+
     for task in tasks {
         if let Err(e) = wkr::publish_task(&task).await {
             error!(
@@ -733,6 +756,28 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     );
 
     Ok(())
+}
+
+/// # 把投递记录收口成「全部失败」
+///
+/// 一个投递任务都没发出去的消息不会有人回写状态，投递记录会永远停在「投递中」
+/// ——后台看到的和「正在发」一样，等于没有记录。这里直接改库，把「这条消息
+/// 没送到」变成看得见的事实。
+async fn mark_delivery_failed(
+    db: &sea_orm::DatabaseConnection,
+    delivery_id: u64,
+    now_ms: u64,
+) {
+    let modify = MsgDeliveryModifyDto {
+        id: Some(U64(delivery_id)),
+        deliver_status: Some(DeliverStatus::AllFailed),
+        _current_ms: Some(U64(now_ms)),
+        _current_user_id: U64(0),
+        ..Default::default()
+    };
+    if let Err(e) = MsgDeliverySvc::modify(modify, Some(db)).await {
+        error!("回写投递状态失败: delivery_id={delivery_id}, error={e}");
+    }
 }
 
 /// # 组装投递任务时共用的上下文
@@ -819,6 +864,15 @@ async fn publish_best_effort(
     ext: Option<&str>,
     create_ms: u64,
 ) {
+    // 非持久化消息没有投递记录可以收口，但「零任务」同样是配置问题，不能静默
+    if msg.targets.is_empty() {
+        error!(
+            "消息 {} 没有登记任何投递目标，本条消息丢弃: business_id={:?}",
+            msg.event_code, message_msg.business_id
+        );
+        return;
+    }
+
     let ctx = TaskContext {
         msg,
         message_msg,
