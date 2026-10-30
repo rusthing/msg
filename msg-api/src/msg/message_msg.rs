@@ -37,6 +37,11 @@ pub struct MessageMsg {
     /// `ext_template` 里的 `{key}` 会从 `labels` 与 [`Self::annotations`]
     /// 中取值（同名时以 `labels` 为准）。
     ///
+    /// `_` 开头的键是**保留命名空间**：msg-svr 会注入 `_create_ms`、
+    /// `_business_trigger_ms`、`_business_id`、`_message_id`、`_event_code`，
+    /// 优先级高于这里，发布方写同名键会被忽略。时间戳不必自己塞——模板里
+    /// `{_create_ms:time(%F %T)}` 直接可用。
+    ///
     /// 渲染完就不再随投递任务下发，只留在 `msg_delivery.labels` 的快照里
     /// 供排查。接收方要用的字段，必须写进模板变成 `content` 或 `ext`。
     #[serde(default)]

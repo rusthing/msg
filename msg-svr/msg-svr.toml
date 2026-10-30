@@ -20,6 +20,9 @@ port = 9002
 #max-deliver = 5
 ## 死信队列自身落库失败的最大重投次数（死信消费只写一张表，失败多半是库的问题）
 #dead-letter-max-deliver = 3
+## 模板里 {key:time} 的时区偏移（形如 +08:00 / +0800），默认东八区
+## 固定偏移不含夏令时；不依赖容器 TZ，改这里即可
+#template-time-offset = "+08:00"
 
 ## 大屏长连接（websocket 渠道）
 ## 握手令牌不在这里：它是渠道配置，存在 msg_channel.options（{"token":"..."}），

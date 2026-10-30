@@ -474,10 +474,18 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //   模板为 null 时只认发布方给的字段，不会再去 annotations 里找同名键
     //   兜底（早先 title 缺模板会去 annotations 取 title，现在不发 annotations
     //   了，那条路已经没有了）。
+    //
+    //   除发布方给的变量外，服务端再注入一批 `_` 开头的内置变量（处理时间、
+    //   业务触发时间等），发布方不必为了打时间戳而自己往 labels 里塞。
+
+    // 后面落库和投递都用这个时间，提前到这里是为了让模板能引用 `_create_ms`
+    let now_ms = chrono::Utc::now().timestamp_millis() as u64;
+    let builtins = template_builtins(msg, &message_msg, now_ms);
 
     let title = pick(
         msg.title_template.as_deref(),
         message_msg.title.as_deref(),
+        &builtins,
         &message_msg.labels,
         &message_msg.annotations,
     );
@@ -485,6 +493,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     let content = pick(
         msg.content_template.as_deref(),
         message_msg.content.as_deref(),
+        &builtins,
         &message_msg.labels,
         &message_msg.annotations,
     );
@@ -492,6 +501,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     let ext = pick(
         msg.ext_template.as_deref(),
         message_msg.ext.as_deref(),
+        &builtins,
         &message_msg.labels,
         &message_msg.annotations,
     );
@@ -509,8 +519,6 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             )));
         }
     };
-
-    let now_ms = chrono::Utc::now().timestamp_millis() as u64;
 
     // ── 4. 非持久化消息：不落库、不回写，发不出去就丢 ──
     //
@@ -763,11 +771,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 /// 一个投递任务都没发出去的消息不会有人回写状态，投递记录会永远停在「投递中」
 /// ——后台看到的和「正在发」一样，等于没有记录。这里直接改库，把「这条消息
 /// 没送到」变成看得见的事实。
-async fn mark_delivery_failed(
-    db: &sea_orm::DatabaseConnection,
-    delivery_id: u64,
-    now_ms: u64,
-) {
+async fn mark_delivery_failed(db: &sea_orm::DatabaseConnection, delivery_id: u64, now_ms: u64) {
     let modify = MsgDeliveryModifyDto {
         id: Some(U64(delivery_id)),
         deliver_status: Some(DeliverStatus::AllFailed),
@@ -795,6 +799,35 @@ struct TaskContext<'a> {
     create_ms: u64,
 }
 
+/// # 组装模板的内置变量
+///
+/// `_` 前缀是保留命名空间：这些值是服务端知道的事实（处理时间、业务触发
+/// 时间、消息自身标识），发布方在 `labels` 里写同名键会被忽略。模板里
+/// `{_create_ms:time}` 直接可用，不必为了打时间戳再塞一份进 `labels`。
+///
+/// 可选值（发布方没给）就不注入，模板里缺变量时按缺失处理——`default`
+/// 兜底、`json` 输出 `null`，与其他缺失变量一致。
+fn template_builtins(
+    msg: &MessageCache,
+    message_msg: &MessageMsg,
+    create_ms: u64,
+) -> HashMap<&'static str, String> {
+    let mut builtins: HashMap<&'static str, String> = HashMap::from([
+        ("_create_ms", create_ms.to_string()),
+        ("_message_id", msg.id.to_string()),
+        ("_event_code", msg.event_code.clone()),
+    ]);
+
+    if let Some(business_id) = message_msg.business_id {
+        builtins.insert("_business_id", business_id.to_string());
+    }
+    if let Some(trigger_ms) = message_msg.business_trigger_ms {
+        builtins.insert("_business_trigger_ms", trigger_ms.to_string());
+    }
+
+    builtins
+}
+
 /// # 按优先级取一个已渲染的字段
 ///
 /// 模板有值就用模板（运营配置的优先级高于发布方），模板为 `null` 才用发布方
@@ -803,11 +836,12 @@ struct TaskContext<'a> {
 fn pick(
     template: Option<&str>,
     from_publisher: Option<&str>,
+    builtins: &HashMap<&'static str, String>,
     labels: &HashMap<String, String>,
     annotations: &HashMap<String, String>,
 ) -> Option<String> {
     let rendered = match template {
-        Some(template) => render_template(template, labels, annotations),
+        Some(template) => render_template(template, builtins, labels, annotations),
         None => from_publisher?.to_string(),
     };
 
@@ -904,31 +938,38 @@ mod tests {
     fn pick_prefers_template_over_publisher() {
         let labels = HashMap::from([("name".to_string(), "张三".to_string())]);
         let annotations = HashMap::new();
+        let builtins = HashMap::new();
 
         assert_eq!(
             pick(
                 Some("你好 {name}"),
                 Some("发布方的标题"),
+                &builtins,
                 &labels,
                 &annotations
             ),
             Some("你好 张三".to_string())
         );
         assert_eq!(
-            pick(None, Some("发布方的标题"), &labels, &annotations),
+            pick(None, Some("发布方的标题"), &builtins, &labels, &annotations),
             Some("发布方的标题".to_string())
         );
-        assert_eq!(pick(None, None, &labels, &annotations), None);
+        assert_eq!(pick(None, None, &builtins, &labels, &annotations), None);
     }
 
     /// 渲染出空白等同于没有：空串会骗过 is_some()，也过不了非空校验
     #[test]
     fn pick_treats_blank_as_absent() {
-        let empty = HashMap::new();
+        let builtins: HashMap<&'static str, String> = HashMap::new();
+        let labels: HashMap<String, String> = HashMap::new();
+        let annotations: HashMap<String, String> = HashMap::new();
 
         // 模板配了但渲染出空白：算没有，不回落到发布方（模板已接管这个字段）
-        assert_eq!(pick(Some("   "), Some("有值"), &empty, &empty), None);
-        assert_eq!(pick(None, Some(""), &empty, &empty), None);
+        assert_eq!(
+            pick(Some("   "), Some("有值"), &builtins, &labels, &annotations),
+            None
+        );
+        assert_eq!(pick(None, Some(""), &builtins, &labels, &annotations), None);
     }
 
     /// NATS stream / consumer 名允许的字符集

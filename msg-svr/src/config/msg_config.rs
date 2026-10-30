@@ -8,6 +8,8 @@
 //! max-deliver = 5
 //! # 死信队列自身落库失败的最大重投次数
 //! dead-letter-max-deliver = 3
+//! # 模板里 `{key:time}` 使用的时区偏移
+//! template-time-offset = "+08:00"
 //!
 //! [msg.ws]
 //! # 大屏长连接的挂载路径
@@ -25,6 +27,7 @@
 //!   热更新同样无需重启进程。
 
 use arc_swap::ArcSwapOption;
+use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::warn;
@@ -34,6 +37,12 @@ const DEFAULT_MAX_DELIVER: i64 = 5;
 
 /// 死信队列重投上限默认值
 const DEFAULT_DEAD_LETTER_MAX_DELIVER: i64 = 3;
+
+/// 模板时间戳的默认时区偏移
+///
+/// 取东八区而不是 `chrono::Local`：容器里的 `TZ` 通常是 UTC，靠环境变量才能
+/// 显示成本地时间太脆；需要别的时区改配置即可。
+const DEFAULT_TEMPLATE_TIME_OFFSET: &str = "+08:00";
 
 /// 重投上限下限
 ///
@@ -64,6 +73,11 @@ pub struct MsgConfig {
     /// 死信消费只是写一张表，重试几次仍失败基本说明表/库本身有问题，
     /// 再投也没有意义，所以默认值比业务队列小。
     pub dead_letter_max_deliver: i64,
+    /// 模板里 `{key:time}` 使用的时区偏移
+    ///
+    /// 形如 `+08:00`（也接受 `+0800`）。固定偏移不带夏令时，中国没有夏令时，
+    /// 够用；真要跟夏令时国家对齐，就填它当下的偏移。解析失败按默认值处理。
+    pub template_time_offset: String,
     /// websocket 渠道（大屏长连接）配置
     pub ws: MsgWsConfig,
 }
@@ -73,6 +87,7 @@ impl Default for MsgConfig {
         Self {
             max_deliver: DEFAULT_MAX_DELIVER,
             dead_letter_max_deliver: DEFAULT_DEAD_LETTER_MAX_DELIVER,
+            template_time_offset: DEFAULT_TEMPLATE_TIME_OFFSET.to_string(),
             ws: MsgWsConfig::default(),
         }
     }
@@ -119,6 +134,25 @@ impl MsgConfig {
     /// 实际生效的死信队列重投上限（低于下限时按下限返回）
     pub fn effective_dead_letter_max_deliver(&self) -> i64 {
         normalize_max_deliver("msg.dead-letter-max-deliver", self.dead_letter_max_deliver)
+    }
+
+    /// 实际生效的模板时区偏移（解析失败时回落默认值）
+    ///
+    /// 渲染模板时每条消息都会调一次：配置热更新后下一次渲染即生效。
+    pub fn effective_time_offset(&self) -> FixedOffset {
+        match self.template_time_offset.parse::<FixedOffset>() {
+            Ok(offset) => offset,
+            Err(_) => {
+                warn!(
+                    "msg.template-time-offset={} 不是合法的时区偏移（形如 +08:00），按 {} 处理",
+                    self.template_time_offset, DEFAULT_TEMPLATE_TIME_OFFSET
+                );
+                // 常量写死在这里，解析一定成功
+                DEFAULT_TEMPLATE_TIME_OFFSET
+                    .parse()
+                    .unwrap_or_else(|_| FixedOffset::east_opt(8 * 3600).expect("东八区偏移合法"))
+            }
+        }
     }
 }
 
@@ -190,6 +224,30 @@ mod tests {
         let config = parse("[msg]\nmax-deliver = 0\ndead-letter-max-deliver = -1\n");
         assert_eq!(config.effective_max_deliver(), MIN_MAX_DELIVER);
         assert_eq!(config.effective_dead_letter_max_deliver(), MIN_MAX_DELIVER);
+    }
+
+    #[test]
+    fn template_time_offset_defaults_and_parses() {
+        // 不配时取东八区
+        let config = parse("[msg]");
+        assert_eq!(config.template_time_offset, "+08:00");
+        assert_eq!(
+            config.effective_time_offset(),
+            FixedOffset::east_opt(8 * 3600).unwrap()
+        );
+
+        let config = parse("[msg]\ntemplate-time-offset = \"+00:00\"\n");
+        assert_eq!(
+            config.effective_time_offset(),
+            FixedOffset::east_opt(0).unwrap()
+        );
+
+        // 填了 IANA 名这种非法值：回落默认，不影响渲染
+        let config = parse("[msg]\ntemplate-time-offset = \"Asia/Shanghai\"\n");
+        assert_eq!(
+            config.effective_time_offset(),
+            FixedOffset::east_opt(8 * 3600).unwrap()
+        );
     }
 
     #[test]

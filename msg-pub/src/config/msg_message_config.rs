@@ -58,15 +58,24 @@ pub struct MsgMessageConfig {
     #[serde(default = "persisted_default")]
     #[builder(default = persisted_default())]
     pub persisted: bool,
-    /// 标题模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时用发布方给的标题）
+    /// 标题模板（为 null 时用发布方给的标题）
+    ///
+    /// 占位符 `{变量}` 取消息的 `labels` / `annotations`，也可以用服务端注入的
+    /// `_create_ms` / `_event_code` 等（`_` 前缀是保留命名空间）。占位符后面可以
+    /// 接格式化过滤器：`{triggerMs:time(%m-%d %H:%M)}`、`{name:default(未知)}`、
+    /// `{phone:mask(3,4)}`。完整语法见 msg-svr 的 `utils::template_utils`。
     #[serde(default)]
     #[builder(default)]
     pub title_template: Option<String>,
-    /// 内容模板（`{var}` 占位符取消息 labels 与 annotations；为 null 时用发布方给的内容）
+    /// 内容模板（为 null 时用发布方给的内容），语法同 [`Self::title_template`]
     #[serde(default)]
     #[builder(default)]
     pub content_template: Option<String>,
     /// 附加内容模板（渲染结果原样下发，格式不约定；为 null 时用发布方给的附加内容）
+    ///
+    /// 语法同上。要输出 JSON 时字符串值用 `{var:json}`（自带引号并转义），
+    /// 时间用 `{var:time(%F %T)|json}`。相对时间（`{var:since}`）每次渲染结果
+    /// 都不同，`ext` 要留可追溯的快照就用 `{_create_ms}` 这种原始毫秒。
     #[serde(default)]
     #[builder(default)]
     pub ext_template: Option<String>,
