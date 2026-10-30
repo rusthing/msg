@@ -33,8 +33,8 @@ use idworker::next_id;
 use msg_api::cst::{MSG_MESSAGE_NORMAL_TOPIC, MSG_MESSAGE_QUEUE_REFRESH_SUBJECT};
 use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
 use msg_api::dto::{
-    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryModifyDto, MsgDeliveryQueryDto,
-    MsgDeliveryTargetAddDto, MsgMessageQueueAddDto,
+    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryModifyDto, MsgDeliveryTargetAddDto,
+    MsgMessageQueueAddDto,
 };
 use msg_api::msg::{DeliveryMsg, message_msg::MessageMsg};
 use robotech::api::U64;
@@ -49,6 +49,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
+
+/// `msg_delivery` 的表名与幂等键列
+///
+/// 幂等键 `(event_code, business_id, business_trigger_ms)` 就是这个唯一约束。
+/// 处理流程不再先查一遍再插，直接靠它兜住重复投递（见 `process_message` 第
+/// 5+6 步），所以这里要把「哪张表的哪个键」写死成常量做精确匹配——按下标或
+/// 模糊匹配会把别处的重复键误判成「已经投递过」，那是静默漏投。
+const DELIVERY_TABLE: &str = "msg_delivery";
+const DELIVERY_IDEM_KEY: &str = "event_code,business_id,business_trigger_ms";
 
 /// # 消息队列订阅规格
 ///
@@ -443,6 +452,8 @@ async fn start_subscription_for_queue(
 /// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递；
 /// 只有 `Discard` 是终止性的，直接 ACK 丢弃。
 pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsError> {
+    let started = std::time::Instant::now();
+
     // ── 1. 解析消息负载 ──
 
     let message_msg: MessageMsg = serde_json::from_slice(payload)
@@ -451,6 +462,17 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     info!(
         "收到消息: event_code={}, business_id={:?}, subject={}",
         message_msg.event_code, message_msg.business_id, subject
+    );
+
+    // 与 dtw / alarm 侧共用的追踪键：
+    // - `trigger_ms` 是卡片的触发时间。报警中心发布时把 `business_trigger_ms`
+    //   填成 `notify_ms`，而 `notify_ms` 就是上报进来的 `dto.trigger_ms`
+    //   （见 `AlarmAlertSvc::trigger`），所以三跳的这个值完全一样；
+    // - `bid` 在这一跳是**报警 ID**（发布方填的 `business_id`），dtw/alarm 那里
+    //   是卡片编码的哈希。两侧对得上靠 alarm 日志里同时打出的 `alert_id`。
+    let trace = format!(
+        "sos_trace bid={:?} trigger_ms={:?} hop=msg.process subject={}",
+        message_msg.business_id, message_msg.business_trigger_ms, subject
     );
 
     // ── 2. 查找消息模板 ──
@@ -528,6 +550,10 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     if !msg.persisted {
         publish_best_effort(msg, &message_msg, &title, &content, ext.as_deref(), now_ms).await;
+        info!(
+            "{trace} cost_ms={} result=best_effort",
+            started.elapsed().as_millis()
+        );
         return Ok(());
     }
 
@@ -555,32 +581,14 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
 
-    let existing = MsgDeliverySvc::get_by_query_dto(
-        MsgDeliveryQueryDto {
-            event_code: Some(message_msg.event_code.clone()),
-            business_id: Some(business_id.into()),
-            business_trigger_ms: Some(business_trigger_ms.into()),
-            ..Default::default()
-        },
-        Some(db.as_ref()),
-    )
-    .await;
-
-    match existing {
-        Ok(ro) if ro.extra.is_some() => {
-            info!(
-                "消息已投递，幂等跳过: event_code={}, business_id={business_id}, business_trigger_ms={business_trigger_ms}",
-                message_msg.event_code
-            );
-            return Ok(());
-        }
-        Ok(_) => {}
-        Err(e) => {
-            warn!("幂等检查查询失败，继续处理: {e}");
-        }
-    }
-
-    // ── 6. 创建投递记录 ──
+    // ── 5+6. 创建投递记录（唯一键即幂等判据） ──
+    //
+    // 这里**不做「先查一遍再插」**：幂等键就是 `msg_delivery` 上的唯一约束
+    // `(event_code, business_id, business_trigger_ms)`，先 SELECT 只是把它抄
+    // 了一遍，代价是多一次 RTT，还留着「查完到插入之间」的并发空窗——两个
+    // 重复投递同时进来，两边都查不到、都去插，后到的撞键退化成 500 再重投。
+    //
+    // 直接让约束说话：插入成功就是第一次，撞唯一键就是已经投过，就地返回。
 
     let delivery_id = next_id().map_err(|e| NatsError::Handle(format!("生成投递ID失败: {e}")))?;
 
@@ -609,7 +617,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         event_source_id: Some(msg.source.id.into()),
         message_category_id: Some(msg.category.id.into()),
         business_id: Some(business_id.into()),
-        // 与幂等检查用的是同一个值，不能再各自兜底
+        // 与唯一键用的是同一个值，不能再各自兜底
         business_trigger_ms: Some(business_trigger_ms.into()),
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
@@ -623,11 +631,29 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         _current_user_id: U64(0),
     };
 
-    MsgDeliverySvc::add(delivery_add, Some(db.as_ref()))
-        .await
-        .map_err(|e| {
-            NatsError::Handle(format!("创建投递记录失败 (business_id={business_id}): {e}"))
-        })?;
+    match MsgDeliverySvc::add(delivery_add, Some(db.as_ref())).await {
+        Ok(_) => {}
+        // 撞幂等键：这条消息已经投过了（重投 / 两个消费者抢同一条）。
+        // 正常路径，不是故障，日志降到 info 一行收掉。
+        Err(SvcError::Dao(DaoError::DuplicateKey(key, _)))
+            if key.table == DELIVERY_TABLE && key.key_name == DELIVERY_IDEM_KEY =>
+        {
+            info!(
+                "消息已投递，幂等跳过: event_code={}, business_id={business_id}, business_trigger_ms={business_trigger_ms}",
+                message_msg.event_code
+            );
+            info!(
+                "{trace} cost_ms={} result=idempotent",
+                started.elapsed().as_millis()
+            );
+            return Ok(());
+        }
+        Err(e) => {
+            return Err(NatsError::Handle(format!(
+                "创建投递记录失败 (business_id={business_id}): {e}"
+            )));
+        }
+    }
 
     info!(
         "投递记录已创建: delivery_id={delivery_id}, message_id={}",
@@ -740,9 +766,14 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             msg.event_code
         );
         mark_delivery_failed(db.as_ref(), delivery_id, now_ms).await;
+        info!(
+            "{trace} cost_ms={} result=no_task delivery_id={delivery_id}",
+            started.elapsed().as_millis()
+        );
         return Ok(());
     }
 
+    let task_count = tasks.len();
     for task in tasks {
         if let Err(e) = wkr::publish_task(&task).await {
             error!(
@@ -761,6 +792,11 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     info!(
         "消息处理完成: event_code={}, business_id={:?}",
         message_msg.event_code, message_msg.business_id
+    );
+    info!(
+        "{trace} cost_ms={} result=ok delivery_id={delivery_id} tasks={}",
+        started.elapsed().as_millis(),
+        task_count
     );
 
     Ok(())

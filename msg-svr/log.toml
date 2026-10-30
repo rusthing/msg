@@ -1,6 +1,9 @@
 level = "debug"
 
 [modules]
+# 每条 SQL 都打一行 debug，消息中心一次投递要打十几行；排障时真正有用的是
+# `sos_trace` 那几行，SQL 噪声会把它们冲走。要临时看 SQL 就把这行改成 "debug"。
+"sqlx::query" = "warn"
 "h2::codec" = "info"
 "h2::proto" = "info"
 "tower::buffer" = "info"
