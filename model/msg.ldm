@@ -3492,6 +3492,22 @@ DAT 1792733861</a:History>
 <a:DataType>TXT</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o9003">
+<a:ObjectID>0C402D90-32F5-462B-842B-EFB1736E18BC</a:ObjectID>
+<a:Name>载荷模板</a:Name>
+<a:Code>payload_template</a:Code>
+<a:CreationDate>1793435711</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793435711</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>载荷模板
+渲染成这个渠道真正的报文正文，为空时用渠道代码里的默认结构（websocket 是 eventCode/title/content/ext/firstReceiveMs/businessTriggerMs）
+变量只有服务端给的这几个：{eventCode} {title} {content} {ext} {firstReceiveMs} {businessTriggerMs}，语法同消息模板（{变量:过滤器}，字符串用 :json）
+websocket 渠道要求渲染结果是合法 JSON，不是就告警并回退默认帧
+@len 0..</a:Comment>
+<a:DataType>TXT</a:DataType>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 <o:EntityAttribute Id="o134">
 <a:ObjectID>CDDF9988-B864-4843-B95F-57BB5A219214</a:ObjectID>
 <a:Name>备注</a:Name>

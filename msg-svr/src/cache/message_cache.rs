@@ -167,6 +167,8 @@ pub struct ChannelCache {
     pub name: String,
     /// 渠道选项（JSON 字符串）
     pub options: Option<String>,
+    /// 载荷模板（为空时用渠道代码里的默认报文结构）
+    pub payload_template: Option<String>,
     /// 署名
     pub remark: Option<String>,
 }
@@ -373,6 +375,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
                             code: ch.code.clone(),
                             name: ch.name.clone(),
                             options: ch.options.clone(),
+                            payload_template: ch.payload_template.clone(),
                             remark: ch.remark.clone(),
                         })
                         .collect()

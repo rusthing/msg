@@ -10,6 +10,8 @@ pub struct MsgChannelVo {
     pub name: String,
     /// 配置（按渠道自定义的 JSON，如 websocket 的 `{"token":""}`）
     pub options: Option<String>,
+    /// 载荷模板：决定这个渠道的报文正文长什么样，为空时用渠道代码里的默认结构
+    pub payload_template: Option<String>,
     /// 备注
     pub remark: Option<String>,
     /// 启用
