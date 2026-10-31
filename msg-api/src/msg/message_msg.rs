@@ -78,8 +78,8 @@ pub struct MessageMsg {
     /// 可读标注：详细描述、坐标这类展示用字段
     ///
     /// 与 `labels` 一样只是模板的输入变量（同名时以 `labels` 为准），
-    /// 不随投递下发。大屏要落点，就得把坐标写进 `content_template`，
-    /// 由模板渲染成 JSON 文本交给大屏解析。
+    /// 不随投递下发。大屏要落点，就得把坐标写进 `ext_template`（机器数据）
+    /// 或 `content_template`（可读正文），由模板渲染成 JSON 文本交给大屏解析。
     #[serde(default)]
     #[builder(default)]
     pub annotations: HashMap<String, String>,
