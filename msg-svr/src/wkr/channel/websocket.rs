@@ -3,12 +3,20 @@
 //! 推给大屏的一帧：
 //!
 //! ```json
-//! {"eventCode":"…","title":"…","content":"…","ext":"…"}
+//! {"eventCode":"…","title":"…","content":"…","ext":"…","firstReceiveMs":1761…,"businessTriggerMs":1761…}
 //! ```
 //!
 //! 大屏收到就能渲染，不必再回查接口。落点要用的坐标不在独立字段里：它们由内容
 //! 模板渲染进 `content`，大屏按约定的格式解析 `content` 即可。发布方上报的
 //! `labels` / `annotations` 只是模板的输入，不随这一帧下发。
+//!
+//! ## 两个时间锚点
+//!
+//! `firstReceiveMs` 是链路第一跳收到原始事件的服务端时刻，`businessTriggerMs`
+//! 是本次通知的业务时间（发布方时钟）。大屏是只收不发的长连接，没有回执通道，
+//! 帧里不带时间戳，它就只能拿本地收帧时刻当起点，既算不出真实延迟，也判不了
+//! 「这条报警是不是早就该到了」。两个值都可能缺（发布方没接入），缺了就是
+//! `null`，大屏按「不可算」处理。
 //!
 //! ## `ext` 是给机器看的那一份
 //!
@@ -51,6 +59,8 @@ impl ChannelSender for WebSocketSender {
             title: &task.title,
             content: &task.content,
             ext: task.ext.as_deref(),
+            first_receive_ms: task.first_receive_ms,
+            business_trigger_ms: task.business_trigger_ms,
         };
 
         let text = match serde_json::to_string(&push) {
@@ -79,7 +89,11 @@ impl ChannelSender for WebSocketSender {
 
 /// 推给大屏的一帧
 ///
-/// 只放渲染结果，不放投递元数据：字段越少，大屏侧解析越稳，帧也越小。
+/// 只放渲染结果 + 两个时间锚点：字段越少，大屏侧解析越稳，帧也越小。
+///
+/// 时间锚点是大屏唯一能自己算延迟的地方：它拿不到库，也没有回执通道，
+/// 想判断「这条报警从事件发生到现在过了多久」「该不该判过期不弹」，
+/// 只能靠帧里带下来的时间戳。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WsPush<'a> {
@@ -92,6 +106,18 @@ struct WsPush<'a> {
     /// 渲染好的附加内容（`msg_delivery.ext`），没有就不出现在帧里
     #[serde(skip_serializing_if = "Option::is_none")]
     ext: Option<&'a str>,
+    /// 链路第一跳收到原始事件的时刻（毫秒，服务端时钟）
+    ///
+    /// 端到端延迟只用它算：它是链路上第一个可信的服务端时间，不受终端时钟
+    /// 偏差、离线补传影响。发布方没带就是 `null`，大屏按「不可算」处理。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    first_receive_ms: Option<u64>,
+    /// 本次通知的业务时间（毫秒，发布方时钟）
+    ///
+    /// 与业务库的幂等键同值，大屏回查报警详情时用它对齐同一次通知；
+    /// 不适合单独用来算延迟（时钟可能偏）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    business_trigger_ms: Option<u64>,
 }
 
 #[cfg(test)]
@@ -110,7 +136,8 @@ mod tests {
             message_category_id: 5,
             business_id: None,
             business_trigger_ms: None,
-            trigger_ms: None,
+            first_trigger_ms: None,
+            first_receive_ms: None,
             title: "张三 进入 1F".to_string(),
             // 定位消息的落点就在内容里，大屏靠它在地图上定位
             content: r#"{"text":"1F 东侧","lon":113.9,"lat":22.5}"#.to_string(),
@@ -131,10 +158,37 @@ mod tests {
             title: &task.title,
             content: &task.content,
             ext: task.ext.as_deref(),
+            first_receive_ms: task.first_receive_ms,
+            business_trigger_ms: task.business_trigger_ms,
         })
         .expect("帧序列化失败");
 
         serde_json::from_str(&text).expect("帧反序列化失败")
+    }
+
+    /// 帧里必须带时间锚点：大屏没有回执通道，不从帧里拿时间就只能拿本机收帧
+    /// 时刻当起点，端到端延迟永远算成 0
+    #[test]
+    fn frame_carries_time_anchors() {
+        let task = DeliveryMsg {
+            first_receive_ms: Some(1_761_000_000_000),
+            business_trigger_ms: Some(1_760_999_990_000),
+            ..task()
+        };
+
+        let frame = frame(&task);
+
+        assert_eq!(frame["firstReceiveMs"], 1_761_000_000_000i64);
+        assert_eq!(frame["businessTriggerMs"], 1_760_999_990_000i64);
+    }
+
+    /// 两个锚点都没有时字段整段消失：大屏按「有没有」判断能不能算延迟
+    #[test]
+    fn absent_time_anchors_are_not_serialized() {
+        let frame = frame(&task());
+
+        assert!(frame.get("firstReceiveMs").is_none());
+        assert!(frame.get("businessTriggerMs").is_none());
     }
 
     /// 一帧放三个渲染结果：事件编码、标题、内容

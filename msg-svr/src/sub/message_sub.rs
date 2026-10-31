@@ -25,7 +25,7 @@ use crate::cache::{ChannelCache, MessageCache, TargetCache, get_message_cache};
 use crate::config::get_msg_config;
 use crate::dto::MsgMessageQueueQueryDto;
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
-use crate::utils::render_template;
+use crate::utils::{render_template, server_now_ms};
 use crate::vo::MsgMessageQueueVo;
 use crate::wkr::{self, channel::SendOutcome, deliver_result};
 use arc_swap::ArcSwapOption;
@@ -624,8 +624,10 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         // 消息中心收到这条消息的时刻：渲染与写库都在这一瞬间之后，用它当接收
         // 时间戳，与业务触发时间之差就是发布方到消息中心的延迟
         receive_ms: Some(now_ms.into()),
-        // 发布方给的事件起点，可能为空（没接入的发布方、或本身没有事件可指）
-        trigger_ms: Some(message_msg.trigger_ms.map(Into::into)),
+        // 发布方给的链路第一跳接收时刻（服务端时钟），可能为空（没接入的发布方）
+        first_receive_ms: Some(message_msg.first_receive_ms.map(Into::into)),
+        // 发布方给的事件起点（业务时钟），可能为空（没接入的发布方、或本身没有事件可指）
+        first_trigger_ms: Some(message_msg.first_trigger_ms.map(Into::into)),
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
         annotations: Some(annotations_json),
@@ -634,7 +636,10 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         content: Some(content.clone()),
         ext: Some(ext.clone()),
         remark: None,
-        _current_ms: Some(U64(now_ms)),
+        // 审计列写真实落库时刻，不是 `now_ms`：那是「收到消息」的业务时刻，
+        // 拿它回填会让 `create_ms` 与 `receive_ms` 恒等，渲染 + 写库的耗时
+        // 就从库里消失了
+        _current_ms: Some(U64(server_now_ms())),
         _current_user_id: U64(0),
     };
 
@@ -692,7 +697,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             // 哪个类别」，否则渠道记录挂不到目标上，状态也没法逐级汇总
             target_id: Some(target.target_id.clone()),
             deliver_target_status: Some(DeliverTargetStatus::Delivering),
-            _current_ms: Some(U64(now_ms)),
+            _current_ms: Some(U64(server_now_ms())),
             _current_user_id: U64(0),
         };
 
@@ -716,7 +721,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                         channel_id: Some(channel.id.into()),
                         deliver_channel_status: Some(DeliverChannelStatus::Delivering),
                         address: None,
-                        _current_ms: Some(U64(now_ms)),
+                        _current_ms: Some(U64(server_now_ms())),
                         _current_user_id: U64(0),
                     };
 
@@ -772,7 +777,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             "{reason}，本条消息判为投递失败: event_code={}, delivery_id={delivery_id}, business_id={business_id}",
             msg.event_code
         );
-        mark_delivery_failed(db.as_ref(), delivery_id, now_ms).await;
+        mark_delivery_failed(db.as_ref(), delivery_id).await;
         info!(
             "{trace} cost_ms={} result=no_task delivery_id={delivery_id}",
             started.elapsed().as_millis()
@@ -817,11 +822,12 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 /// 一个投递任务都没发出去的消息不会有人回写状态，投递记录会永远停在「投递中」
 /// ——后台看到的和「正在发」一样，等于没有记录。这里直接改库，把「这条消息
 /// 没送到」变成看得见的事实。
-async fn mark_delivery_failed(db: &sea_orm::DatabaseConnection, delivery_id: u64, now_ms: u64) {
+async fn mark_delivery_failed(db: &sea_orm::DatabaseConnection, delivery_id: u64) {
     let modify = MsgDeliveryModifyDto {
         id: Some(U64(delivery_id)),
         deliver_status: Some(DeliverStatus::AllFailed),
-        _current_ms: Some(U64(now_ms)),
+        // 审计列交给框架：这次更新发生在「发布任务全部失败」之后，
+        // 拿收到消息的时刻回填会让 update_ms 早于实际动作
         _current_user_id: U64(0),
         ..Default::default()
     };
@@ -920,8 +926,11 @@ fn build_task(
         message_category_id: ctx.msg.category.id,
         business_id: ctx.message_msg.business_id,
         business_trigger_ms: ctx.message_msg.business_trigger_ms,
-        // 事件起点原样带下去：渠道日志用它算端到端延迟，发布方没给就是 None
-        trigger_ms: ctx.message_msg.trigger_ms,
+        // 事件起点原样带下去：渠道日志用它算「事件发生 → 送达」，发布方没给就是
+        // None。它来自业务/发布方时钟，可能不准。
+        first_trigger_ms: ctx.message_msg.first_trigger_ms,
+        // 链路第一跳收到事件的服务端时刻，也原样带下去：端到端延迟只信它
+        first_receive_ms: ctx.message_msg.first_receive_ms,
         title: ctx.title.to_string(),
         content: ctx.content.to_string(),
         ext: ctx.ext.map(str::to_string),

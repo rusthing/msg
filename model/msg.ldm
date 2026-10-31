@@ -3054,24 +3054,39 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1793395950</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>接收时间戳
-消息中心收到这条消息、开始落库处理的时刻
+消息中心收到这条消息、开始落库处理的时刻（服务端时钟）
 与 business_trigger_ms（发布方给的触发时间）之差就是发布方到消息中心的链路延迟</a:Comment>
 <a:DataType>LI</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o9001">
+<a:ObjectID>B2D47E19-6C3A-4A85-9F20-7E1C5B8A3D62</a:ObjectID>
+<a:Name>首次接收时间戳</a:Name>
+<a:Code>first_receive_ms</a:Code>
+<a:CreationDate>1793419200</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793419200</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>首次接收时间戳
+链路第一跳收到这个原始事件的时刻（服务端时钟），由发布方透传下来，不是本服务打的点
+与 first_trigger_ms 的区别是「谁的时钟」：那个是业务事实（事件发生了），这个是对时事实（我们的服务什么时候知道的）
+发布方没接入或拿不到时为空；要算不受终端时钟偏差影响的端到端延迟，只能用这一列</a:Comment>
+<a:DataType>LI</a:DataType>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 <o:EntityAttribute Id="o254">
 <a:ObjectID>4C859296-2980-4B06-B2D8-146F23538B06</a:ObjectID>
 <a:Name>事件首次触发时间戳</a:Name>
-<a:Code>trigger_ms</a:Code>
+<a:Code>first_trigger_ms</a:Code>
 <a:CreationDate>1793418000</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1793418000</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>事件首次触发时间戳
-发布方给的事件起点，同一条业务对象的多条投递记录同值
+发布方给的事件起点（业务/发布方时钟），同一条业务对象的多条投递记录同值
 与 business_trigger_ms 分工不同：那个是「这一次通知」的时间并参与幂等，这个是「这件事什么时候开始发生」且不参与幂等
-与渠道日志的 finish_ms 之差才是端到端延迟；发布方拿不到事件起点时为空</a:Comment>
+与渠道日志的 finish_ms 之差是「事件发生 → 送达」，但这个差值含发布方时钟偏差；发布方拿不到事件起点时为空</a:Comment>
 <a:DataType>LI</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -3937,15 +3952,30 @@ DAT 1792733861</a:History>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o251">
 <a:ObjectID>60116761-609F-4BC4-8F42-01665CA4E3B5</a:ObjectID>
-<a:Name>触发时间戳</a:Name>
-<a:Code>trigger_ms</a:Code>
+<a:Name>事件首次触发时间戳</a:Name>
+<a:Code>first_trigger_ms</a:Code>
 <a:CreationDate>1793395950</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1793395950</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>事件首次触发时间戳
-发布方给的事件起点，取自投递任务带下来的 trigger_ms
-同一条业务对象的多条记录同值；发布方没给时为空，与 finish_ms 之差才是端到端延迟</a:Comment>
+发布方给的事件起点（业务/发布方时钟），取自投递任务带下来的 first_trigger_ms
+同一条业务对象的多条记录同值；发布方没给时为空，与 finish_ms 之差是「事件发生 → 送达」，含发布方时钟偏差</a:Comment>
+<a:DataType>LI</a:DataType>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o9002">
+<a:ObjectID>C5E39B84-1D07-4E62-8A3F-96B2D07C4E15</a:ObjectID>
+<a:Name>首次接收时间戳</a:Name>
+<a:Code>first_receive_ms</a:Code>
+<a:CreationDate>1793419200</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793419200</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>首次接收时间戳
+链路第一跳收到这个原始事件的时刻（服务端时钟），从投递任务带下来
+渠道日志可以脱离投递表单独算「链路首收 → 送达」的端到端延迟，且不受终端时钟偏差影响
+发布方没给时为空</a:Comment>
 <a:DataType>LI</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
@@ -3980,16 +4010,16 @@ DAT 1792733861</a:History>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o255">
 <a:ObjectID>1074F0C8-1674-47BD-8B8C-A2CFD9BAADCE</a:ObjectID>
-<a:Name>通知时间戳</a:Name>
-<a:Code>notify_ms</a:Code>
+<a:Name>业务触发时间戳</a:Name>
+<a:Code>business_trigger_ms</a:Code>
 <a:CreationDate>1793418000</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1793418000</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>通知时间戳
+<a:Comment>业务触发时间戳
 本次投递对应的业务触发时间，取自投递任务带下来的 business_trigger_ms
 与 msg_delivery.business_trigger_ms 同值，渠道日志可以脱离投递表单独算「通知到发送完成」的延迟
-与 trigger_ms 的区别：这个是「这一次通知」的时间，每次通知都不同；那个是「事件首次发生」的时间</a:Comment>
+与 first_trigger_ms 的区别：这个是「这一次通知」的时间，每次通知都不同；那个是「事件首次发生」的时间</a:Comment>
 <a:DataType>LI</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>

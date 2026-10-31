@@ -21,6 +21,7 @@ use crate::dto::{
 use crate::svc::{
     MsgDeliveryChannelLogSvc, MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc,
 };
+use crate::utils::server_now_ms;
 use crate::wkr::channel::SendOutcome;
 use idworker::next_id;
 use msg_api::cst::TARGET_ID_ALL;
@@ -84,7 +85,7 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome, receive_ms: u64) 
 
     // 持久化任务一定带业务触发时间（`process_message` 在幂等那步就拒收了缺
     // 幂等键的消息），真缺了就用接收时间顶上——日志写不进去比时间戳略有偏差更糟
-    let notify_ms = task.business_trigger_ms.unwrap_or(receive_ms);
+    let business_trigger_ms = task.business_trigger_ms.unwrap_or(receive_ms);
 
     // ── 1. 渠道日志：一次发送尝试一条，留着排查 ──
 
@@ -93,15 +94,19 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome, receive_ms: u64) 
             let log = MsgDeliveryChannelLogAddDto {
                 id: Some(U64(log_id)),
                 delivery_channel_id: Some(U64(delivery_channel_id)),
-                // 事件起点：发布方没给就留空，不拿通知时间冒充
-                trigger_ms: Some(task.trigger_ms.map(U64)),
+                // 事件起点（业务时钟）：发布方没给就留空，不拿通知时间冒充
+                first_trigger_ms: Some(task.first_trigger_ms.map(U64)),
+                // 链路第一跳收到事件的时刻（服务端时钟），端到端延迟只信它
+                first_receive_ms: Some(task.first_receive_ms.map(U64)),
                 receive_ms: Some(U64(receive_ms)),
                 finish_ms: Some(Some(U64(now_ms))),
-                notify_ms: Some(U64(notify_ms)),
+                business_trigger_ms: Some(U64(business_trigger_ms)),
                 deliver_channel_status: Some(status),
                 address: Some(outcome.address()),
                 detail: Some(Some(outcome.detail().to_string())),
-                _current_ms: Some(U64(now_ms)),
+                // 审计列写真实落库时刻：`finish_ms` 已经是「发送结束」的业务
+                // 时刻，再拿它回填 `create_ms` 只会让两列恒等
+                _current_ms: Some(U64(server_now_ms())),
                 _current_user_id: U64(0),
             };
             if let Err(e) = MsgDeliveryChannelLogSvc::add(log, Some(db.as_ref())).await {
@@ -117,7 +122,6 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome, receive_ms: u64) 
         id: Some(U64(delivery_channel_id)),
         deliver_channel_status: Some(status),
         address: Some(outcome.address()),
-        _current_ms: Some(U64(now_ms)),
         _current_user_id: U64(0),
         ..Default::default()
     };
@@ -164,11 +168,9 @@ async fn refresh_target(db: &DatabaseConnection, delivery_target_id: u64, delive
         DeliverTargetStatus::Failed
     };
 
-    let now_ms = chrono::Utc::now().timestamp_millis() as u64;
     let modify = MsgDeliveryTargetModifyDto {
         id: Some(U64(delivery_target_id)),
         deliver_target_status: Some(status),
-        _current_ms: Some(U64(now_ms)),
         _current_user_id: U64(0),
         ..Default::default()
     };
@@ -222,11 +224,9 @@ async fn refresh_delivery(db: &DatabaseConnection, delivery_id: u64) {
         DeliverStatus::PartialSuccess
     };
 
-    let now_ms = chrono::Utc::now().timestamp_millis() as u64;
     let modify = MsgDeliveryModifyDto {
         id: Some(U64(delivery_id)),
         deliver_status: Some(status),
-        _current_ms: Some(U64(now_ms)),
         _current_user_id: U64(0),
         ..Default::default()
     };

@@ -19,7 +19,8 @@ pub struct Model {
     #[sea_orm(unique_key = "ak_event_code_and_business_id_and_business_trigger_ms_msg_deliv")]
     pub business_trigger_ms: i64,
     pub receive_ms: i64,
-    pub trigger_ms: Option<i64>,
+    pub first_receive_ms: Option<i64>,
+    pub first_trigger_ms: Option<i64>,
     pub deliver_status: i16,
     #[sea_orm(column_type = "Text", nullable)]
     pub labels: Option<String>,

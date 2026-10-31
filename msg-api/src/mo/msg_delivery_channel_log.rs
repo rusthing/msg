@@ -10,10 +10,11 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub id: i64,
     pub delivery_channel_id: i64,
-    pub trigger_ms: Option<i64>,
+    pub first_trigger_ms: Option<i64>,
+    pub first_receive_ms: Option<i64>,
     pub receive_ms: i64,
     pub finish_ms: Option<i64>,
-    pub notify_ms: i64,
+    pub business_trigger_ms: i64,
     pub deliver_channel_status: i16,
     pub address: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
