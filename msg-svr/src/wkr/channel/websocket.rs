@@ -441,6 +441,40 @@ mod tests {
         assert!(parse(&text)["ext"].is_null());
     }
 
+    /// 种子里的那份渠道模板（迁移 20261031000003）就是这个形状：只下发事件编码、
+    /// ext 与两个时间锚点，标题与内容按「文案不下发」的约定略去。
+    ///
+    /// 这里把模板原文抄一份做契约测试：种子里写错一个过滤器，或者哪天过滤器行为
+    /// 变了，都是这条用例先炸，而不是上线后大屏收到一帧没有坐标的数据。
+    #[test]
+    fn seeded_channel_template_shape() {
+        // 与 20261031000003_seed-channel-payload-template.sql 里的 update 保持一致
+        const SEEDED: &str = r#"{"eventCode":{eventCode:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}"#;
+
+        let with_ext = DeliveryMsg {
+            ext: Some(r#"{"alertId":"7"}"#.to_string()),
+            first_receive_ms: Some(1_761_000_000_000),
+            ..task()
+        };
+        let frame = parse(&render_payload(SEEDED, &with_ext).expect("种子模板应渲染出合法 JSON"));
+
+        assert_eq!(frame["eventCode"], "position.updated");
+        // ext 是字符串：大屏要自己再解一层，与默认帧的形态一致
+        assert_eq!(frame["ext"], r#"{"alertId":"7"}"#);
+        // 时间锚点是数字，不是 "1761…"：裸占位符 + default(null) 才两头都对
+        assert_eq!(frame["firstReceiveMs"], 1_761_000_000_000i64);
+        assert!(frame["businessTriggerMs"].is_null());
+        // 文案不下发：大屏按 eventCode 自己出词
+        assert!(frame.get("title").is_none());
+        assert!(frame.get("content").is_none());
+
+        // 没有 ext、没有锚点的消息仍然是一帧合法 JSON（两个字段都是 null）
+        let frame = parse(&render_payload(SEEDED, &task()).expect("种子模板应渲染出合法 JSON"));
+        assert!(frame["ext"].is_null());
+        assert!(frame["firstReceiveMs"].is_null());
+        assert!(frame["businessTriggerMs"].is_null());
+    }
+
     /// 模板写错就不给帧：裸占位符会留下 `{key}` 字面量，解析不了的帧不能推给大屏
     #[test]
     fn template_with_unknown_variable_is_rejected() {
