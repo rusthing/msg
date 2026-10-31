@@ -31,6 +31,20 @@ pub struct MessageMsg {
     /// 服务端不兜底：补 `now` 会让每次重投都算新消息，补 0 又会吞掉后续真实触发。
     #[serde(default)]
     pub business_trigger_ms: Option<u64>,
+    /// 事件**首次**触发时间戳（毫秒），与 [`Self::business_trigger_ms`] 分工不同
+    ///
+    /// **可选**，不参与幂等，只用来算端到端延迟：
+    ///
+    /// - `business_trigger_ms` 是「这一次业务动作」的时间，跟着幂等键走，每次
+    ///   通知都不同（报警重复提醒就是靠它区分）；
+    /// - `trigger_ms` 是「这件事什么时候开始发生」，同一条报警通知多次都是同一个
+    ///   值，所以拿它和投递完成时间相减才是有意义的端到端延迟。
+    ///
+    /// 发布方拿不到事件起点时留空，服务端不兜底——补 `now` 会让延迟恒为 0，
+    /// 补 `business_trigger_ms` 又等于把「通知时间」冒充「事件时间」。
+    #[serde(default)]
+    #[builder(default)]
+    pub trigger_ms: Option<u64>,
     /// 路由标签：一组结构化的 key-value，匹配、分组、路由都只看它
     ///
     /// **只是模板变量**：`title_template` / `content_template` /

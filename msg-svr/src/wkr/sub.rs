@@ -289,10 +289,12 @@ async fn start_delivery_subscription(
                 }
             };
 
+            // 消费到任务的时刻要在发送之前取：与回写时的时刻相减才是渠道内耗时
+            let receive_ms = chrono::Utc::now().timestamp_millis() as u64;
             let outcome = channel::dispatch(&task).await;
 
             if task.persisted {
-                deliver_result::record(&task, &outcome).await;
+                deliver_result::record(&task, &outcome, receive_ms).await;
             } else {
                 // 非持久化：不落库、不回写，成败都到此为止
                 debug!(

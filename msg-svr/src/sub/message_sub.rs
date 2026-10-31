@@ -465,9 +465,11 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     );
 
     // 与 dtw / alarm 侧共用的追踪键：
-    // - `trigger_ms` 是卡片的触发时间。报警中心发布时把 `business_trigger_ms`
-    //   填成 `notify_ms`，而 `notify_ms` 就是上报进来的 `dto.trigger_ms`
-    //   （见 `AlarmAlertSvc::trigger`），所以三跳的这个值完全一样；
+    // - `trigger_ms` 这里打的是 `business_trigger_ms`，也就是**这一次通知**的时间，
+    //   每次通知都不同（同一条报警的多轮提醒靠它区分）。成立通知里它恰好等于上报
+    //   进来的 `dto.trigger_ms`，确认 / 结束 / 重复提醒里则不是；
+    // - 真正的事件起点是 `MessageMsg.trigger_ms`（报警侧给 `first_trigger_ms`），
+    //   不参与幂等，落在 `msg_delivery.trigger_ms` 上用来算端到端延迟，可能为空；
     // - `bid` 在这一跳是**报警 ID**（发布方填的 `business_id`），dtw/alarm 那里
     //   是卡片编码的哈希。两侧对得上靠 alarm 日志里同时打出的 `alert_id`。
     let trace = format!(
@@ -619,6 +621,11 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         business_id: Some(business_id.into()),
         // 与唯一键用的是同一个值，不能再各自兜底
         business_trigger_ms: Some(business_trigger_ms.into()),
+        // 消息中心收到这条消息的时刻：渲染与写库都在这一瞬间之后，用它当接收
+        // 时间戳，与业务触发时间之差就是发布方到消息中心的延迟
+        receive_ms: Some(now_ms.into()),
+        // 发布方给的事件起点，可能为空（没接入的发布方、或本身没有事件可指）
+        trigger_ms: Some(message_msg.trigger_ms.map(Into::into)),
         deliver_status: Some(DeliverStatus::Delivering),
         labels: Some(labels_json),
         annotations: Some(annotations_json),
@@ -780,10 +787,13 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
                 "发布投递任务失败: channel={}, target_id={}, error={e}",
                 task.channel_code, task.target_id
             );
-            // 发不出去就不会有发送结果回来，就地记失败，避免渠道一直挂在「投递中」
+            // 发不出去就不会有发送结果回来，就地记失败，避免渠道一直挂在「投递中」。
+            // 渠道日志的「接收时间」用这次发布尝试的时刻：任务根本没到消费端，
+            // 这是最接近的事实。
             deliver_result::record(
                 &task,
                 &SendOutcome::Failed(format!("发布投递任务失败: {e}")),
+                chrono::Utc::now().timestamp_millis() as u64,
             )
             .await;
         }
@@ -910,6 +920,8 @@ fn build_task(
         message_category_id: ctx.msg.category.id,
         business_id: ctx.message_msg.business_id,
         business_trigger_ms: ctx.message_msg.business_trigger_ms,
+        // 事件起点原样带下去：渠道日志用它算端到端延迟，发布方没给就是 None
+        trigger_ms: ctx.message_msg.trigger_ms,
         title: ctx.title.to_string(),
         content: ctx.content.to_string(),
         ext: ctx.ext.map(str::to_string),

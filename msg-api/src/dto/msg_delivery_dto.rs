@@ -16,6 +16,10 @@ pub struct MsgDeliveryDto {
     pub business_id: u64,
     /// 业务触发时间戳（与business_id组成唯一约束，用于幂等去重）
     pub business_trigger_ms: u64,
+    /// 接收时间戳（消息中心收到这条消息、开始落库处理的时刻）
+    pub receive_ms: u64,
+    /// 事件首次触发时间戳（发布方给的事件起点，不参与幂等；拿不到时为空）
+    pub trigger_ms: Option<u64>,
     /// 投递状态
     #[db_default]
     pub deliver_status: DeliverStatus,

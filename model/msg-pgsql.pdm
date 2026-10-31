@@ -6576,12 +6576,49 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790254908</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>业务触发时间戳
-与业务ID组合唯一约束，用于幂等去重，避免多次投递</a:Comment>
+与业务ID组合唯一约束，用于幂等去重，避免多次投递
+是「这一次通知」的时间，每次通知都不同（报警的重复提醒靠它区分）；事件起点看 trigger_ms</a:Comment>
 <a:History>ORG {FAA330E5-8CD6-4813-8DF3-CC5AB1A260F5}
 DAT 1790254901</a:History>
 <a:DataType>INT8</a:DataType>
 <a:Length>8</a:Length>
 <a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o352">
+<a:ObjectID>83A8641A-5442-4B11-999F-6D24BB734C86</a:ObjectID>
+<a:Name>接收时间戳</a:Name>
+<a:Code>receive_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>接收时间戳
+消息中心收到这条消息、开始落库处理的时刻
+与 business_trigger_ms（发布方给的触发时间）之差就是发布方到消息中心的链路延迟</a:Comment>
+<a:History>ORG {5E6D9E13-80AF-497E-B232-343791A18BEB}
+DAT 1793395950</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o356">
+<a:ObjectID>6FE85808-6C0C-425B-AF55-6ECB2C8BDAB4</a:ObjectID>
+<a:Name>事件首次触发时间戳</a:Name>
+<a:Code>trigger_ms</a:Code>
+<a:CreationDate>1793418000</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793418000</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>事件首次触发时间戳
+发布方给的事件起点，同一条业务对象的多条投递记录同值
+与 business_trigger_ms 分工不同：那个是「这一次通知」的时间并参与幂等，这个是「这件事什么时候开始发生」且不参与幂等
+与渠道日志的 finish_ms 之差才是端到端延迟；发布方拿不到事件起点时为空</a:Comment>
+<a:History>ORG {4C859296-2980-4B06-B2D8-146F23538B06}
+DAT 1793418000</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
 <a:GlobalObjectID/>
 </o:Column>
 <o:Column Id="o147">
@@ -8288,6 +8325,77 @@ DAT 1790046262</a:History>
 <a:Modifier>张柏子</a:Modifier>
 <a:History>ORG {06732B6C-08D9-457E-9633-85D23CC586BC}
 DAT 1790046262</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o353">
+<a:ObjectID>013EB005-336E-4498-BE06-39A2B950DCD9</a:ObjectID>
+<a:Name>触发时间戳</a:Name>
+<a:Code>trigger_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>事件首次触发时间戳
+发布方给的事件起点，取自投递任务带下来的 trigger_ms
+同一条业务对象的多条记录同值；发布方没给时为空，与 finish_ms 之差才是端到端延迟</a:Comment>
+<a:History>ORG {41CC2F07-F25D-47D8-8EF1-F3DD6C0BB893}
+DAT 1793395950</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o354">
+<a:ObjectID>6FDCCE7A-D405-43B6-AE2E-C9A50BA07669</a:ObjectID>
+<a:Name>接收时间戳</a:Name>
+<a:Code>receive_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>接收时间戳
+渠道消费到这条投递任务的时刻，也就是本次发送尝试的开始
+与 finish_ms 之差是渠道内的发送耗时</a:Comment>
+<a:History>ORG {4182A15D-5CD9-44AE-BBF5-C3DA54018F71}
+DAT 1793395950</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o355">
+<a:ObjectID>446BA3E4-3E3B-49A6-BD4B-3795AE497E44</a:ObjectID>
+<a:Name>结束时间戳</a:Name>
+<a:Code>finish_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>结束时间戳
+本次发送尝试结束（成功或失败）的时刻
+与 receive_ms 之差是渠道内的发送耗时；发送中崩溃时为空，渠道状态停在「投递中」</a:Comment>
+<a:History>ORG {B5F4F8EA-2E6F-49A0-8A8D-973C8AE56B25}
+DAT 1793395950</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o357">
+<a:ObjectID>9A0F681D-364A-439F-8A33-681514F85850</a:ObjectID>
+<a:Name>通知时间戳</a:Name>
+<a:Code>notify_ms</a:Code>
+<a:CreationDate>1793418000</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793418000</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>通知时间戳
+本次投递对应的业务触发时间，取自投递任务带下来的 business_trigger_ms
+与 msg_delivery.business_trigger_ms 同值，渠道日志可以脱离投递表单独算「通知到发送完成」的延迟
+与 trigger_ms 的区别：这个是「这一次通知」的时间，每次通知都不同；那个是「事件首次发生」的时间</a:Comment>
+<a:History>ORG {1074F0C8-1674-47BD-8B8C-A2CFD9BAADCE}
+DAT 1793418000</a:History>
 <a:DataType>INT8</a:DataType>
 <a:Length>8</a:Length>
 <a:Column.Mandatory>1</a:Column.Mandatory>

@@ -110,6 +110,7 @@ mod tests {
             message_category_id: 5,
             business_id: None,
             business_trigger_ms: None,
+            trigger_ms: None,
             title: "张三 进入 1F".to_string(),
             // 定位消息的落点就在内容里，大屏靠它在地图上定位
             content: r#"{"text":"1F 东侧","lon":113.9,"lat":22.5}"#.to_string(),

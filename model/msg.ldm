@@ -3039,9 +3039,40 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790251969</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>业务触发时间戳
-与业务ID组合唯一约束，用于幂等去重，避免多次投递</a:Comment>
+与业务ID组合唯一约束，用于幂等去重，避免多次投递
+是「这一次通知」的时间，每次通知都不同（报警的重复提醒靠它区分）；事件起点看 trigger_ms</a:Comment>
 <a:DataType>LI</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o250">
+<a:ObjectID>ADD229BF-FA2D-4B43-A285-A68A18E283AB</a:ObjectID>
+<a:Name>接收时间戳</a:Name>
+<a:Code>receive_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>接收时间戳
+消息中心收到这条消息、开始落库处理的时刻
+与 business_trigger_ms（发布方给的触发时间）之差就是发布方到消息中心的链路延迟</a:Comment>
+<a:DataType>LI</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o254">
+<a:ObjectID>4C859296-2980-4B06-B2D8-146F23538B06</a:ObjectID>
+<a:Name>事件首次触发时间戳</a:Name>
+<a:Code>trigger_ms</a:Code>
+<a:CreationDate>1793418000</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793418000</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>事件首次触发时间戳
+发布方给的事件起点，同一条业务对象的多条投递记录同值
+与 business_trigger_ms 分工不同：那个是「这一次通知」的时间并参与幂等，这个是「这件事什么时候开始发生」且不参与幂等
+与渠道日志的 finish_ms 之差才是端到端延迟；发布方拿不到事件起点时为空</a:Comment>
+<a:DataType>LI</a:DataType>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o108">
@@ -3903,6 +3934,65 @@ DAT 1792733861</a:History>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 <a:AutoMigrated>1</a:AutoMigrated>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o251">
+<a:ObjectID>60116761-609F-4BC4-8F42-01665CA4E3B5</a:ObjectID>
+<a:Name>触发时间戳</a:Name>
+<a:Code>trigger_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>事件首次触发时间戳
+发布方给的事件起点，取自投递任务带下来的 trigger_ms
+同一条业务对象的多条记录同值；发布方没给时为空，与 finish_ms 之差才是端到端延迟</a:Comment>
+<a:DataType>LI</a:DataType>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o252">
+<a:ObjectID>CB0113FD-BAAC-4DDA-87D9-5724A23CC97C</a:ObjectID>
+<a:Name>接收时间戳</a:Name>
+<a:Code>receive_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>接收时间戳
+渠道消费到这条投递任务的时刻，也就是本次发送尝试的开始
+与 finish_ms 之差是渠道内的发送耗时</a:Comment>
+<a:DataType>LI</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o253">
+<a:ObjectID>C3F03879-32EA-4E00-91FC-2A8D741E7738</a:ObjectID>
+<a:Name>结束时间戳</a:Name>
+<a:Code>finish_ms</a:Code>
+<a:CreationDate>1793395950</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793395950</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>结束时间戳
+本次发送尝试结束（成功或失败）的时刻
+与 receive_ms 之差是渠道内的发送耗时；发送中崩溃时为空，渠道状态停在「投递中」</a:Comment>
+<a:DataType>LI</a:DataType>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o255">
+<a:ObjectID>1074F0C8-1674-47BD-8B8C-A2CFD9BAADCE</a:ObjectID>
+<a:Name>通知时间戳</a:Name>
+<a:Code>notify_ms</a:Code>
+<a:CreationDate>1793418000</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793418000</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>通知时间戳
+本次投递对应的业务触发时间，取自投递任务带下来的 business_trigger_ms
+与 msg_delivery.business_trigger_ms 同值，渠道日志可以脱离投递表单独算「通知到发送完成」的延迟
+与 trigger_ms 的区别：这个是「这一次通知」的时间，每次通知都不同；那个是「事件首次发生」的时间</a:Comment>
+<a:DataType>LI</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o165">
 <a:ObjectID>DAFF22CF-E117-49BC-A678-6E97E2A862F0</a:ObjectID>

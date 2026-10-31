@@ -34,7 +34,10 @@ use tracing::{debug, error, warn};
 /// # 记录一次发送结果
 ///
 /// 只处理持久化消息；非持久化消息直接返回（它们本来就没有投递记录）。
-pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome) {
+///
+/// `receive_ms` 是消费端收到这条投递任务的时刻，由调用方在发送前取：它和
+/// `finish_ms`（本次写库时刻）之差是渠道内的发送耗时。
+pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome, receive_ms: u64) {
     // 广播任务的「本实例没连接」不算失败：屏可能连在别的实例上，那边会把
     // 这条渠道记成送达。这里跟着记一笔失败，就会把别人的成功覆盖掉——
     // 多实例部署下渠道状态完全取决于谁最后回写。所以广播只回写送达/发送失败，
@@ -79,6 +82,10 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome) {
     };
     let now_ms = chrono::Utc::now().timestamp_millis() as u64;
 
+    // 持久化任务一定带业务触发时间（`process_message` 在幂等那步就拒收了缺
+    // 幂等键的消息），真缺了就用接收时间顶上——日志写不进去比时间戳略有偏差更糟
+    let notify_ms = task.business_trigger_ms.unwrap_or(receive_ms);
+
     // ── 1. 渠道日志：一次发送尝试一条，留着排查 ──
 
     match next_id() {
@@ -86,6 +93,11 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome) {
             let log = MsgDeliveryChannelLogAddDto {
                 id: Some(U64(log_id)),
                 delivery_channel_id: Some(U64(delivery_channel_id)),
+                // 事件起点：发布方没给就留空，不拿通知时间冒充
+                trigger_ms: Some(task.trigger_ms.map(U64)),
+                receive_ms: Some(U64(receive_ms)),
+                finish_ms: Some(Some(U64(now_ms))),
+                notify_ms: Some(U64(notify_ms)),
                 deliver_channel_status: Some(status),
                 address: Some(outcome.address()),
                 detail: Some(Some(outcome.detail().to_string())),

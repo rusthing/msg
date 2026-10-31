@@ -8,8 +8,8 @@
 //! 字段与投递三张表一一对应，没有额外加工出来的概念：
 //!
 //! - 消息内容：`msg_delivery` 的 `event_code` / `message_id` / `event_source_id` /
-//!   `message_category_id` / `business_id` / `business_trigger_ms` / `title` /
-//!   `content` / `ext` / `create_ms`；
+//!   `message_category_id` / `business_id` / `business_trigger_ms` / `trigger_ms` /
+//!   `title` / `content` / `ext` / `create_ms`；
 //! - 投递目标：`msg_delivery_target` 的 `target_category_id` / `target_id`，
 //!   外加 `msg_target_category.code`（消费方按类别编码决定发不发）；
 //! - 投递渠道：`msg_delivery_channel` 的 `channel_id`，外加 `msg_channel.code`
@@ -83,6 +83,14 @@ pub struct DeliveryMsg {
     /// 同 [`Self::business_id`]：非持久化消息可为 `None`。
     #[serde(default)]
     pub business_trigger_ms: Option<u64>,
+    /// 事件首次触发时间戳（毫秒，`msg_delivery.trigger_ms`）
+    ///
+    /// 发布方没给就是 `None`（`msg_delivery.trigger_ms` 为空）。与
+    /// [`Self::business_trigger_ms`] 不同：那个是「这一次通知」的时间，会被
+    /// 幂等键吃掉；这个是「事件起点」，同一条业务对象的多条投递记录同值，
+    /// 渠道日志用它算端到端延迟。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger_ms: Option<u64>,
 
     /// 已渲染的标题（`msg_delivery.title`）
     ///
