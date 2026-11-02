@@ -30,8 +30,12 @@ export default function AppLayout() {
    *
    * 不能用 `startsWith`：`/message` 是 `/message-queue`、`/message-target` 的前缀，
    * `/delivery` 是 `/delivery-*` 的前缀，前缀匹配会让这些页面的标题和高亮落到错的菜单项上。
+   *
+   * 末尾斜杠一并去掉：静态托管在刷新时偶尔会把 `/message` 规范成 `/message/`，
+   * 留着斜杠就精确匹配不上了，会把高亮和标题错误地回退到「总览」。
    */
-  const current = ENTITIES.find((entity) => location.pathname === `/${entity.key}`);
+  const pathname = location.pathname.replace(/\/+$/, '') || '/';
+  const current = ENTITIES.find((entity) => pathname === `/${entity.key}`);
 
   const menuItems: MenuProps['items'] = [
     {
