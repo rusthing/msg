@@ -53,6 +53,17 @@ pnpm build      # 产物在 dist/，部署到 /msg-web/ 子路径
 `VITE_PROXY_TARGET` 指向 `msg-svr` 的 `web.port`，`VITE_API_BASE` 是网关上的服务前缀
 （生产态 `VITE_API_BASE=/msg-svr`、`VITE_PUBLIC_BASE=/msg-web`，两者同源部署，不需要 CORS）。
 
+### 冒烟截图
+
+```bash
+pnpm dev                              # 先起 dev server
+pnpm exec playwright install chromium # 首次需要，浏览器装到 ~/Library/Caches/ms-playwright
+pnpm smoke                            # 打开全部页面截图到 .smoke/，并收集控制台报错
+```
+
+`playwright` 钉在 **1.60.0**：1.61 起官方不再给 mac13 提供 chromium 构建，本机（macOS 13）
+升新版会报 `Playwright does not support chromium on mac13`。换机器不受影响时可以放开。
+
 ## 前端与后端的三个约定
 
 1. `u64` 在 JSON 里是**字符串**（`id`、`businessId`、各种 `*Ms`），前端不做 `Number()` 转换；

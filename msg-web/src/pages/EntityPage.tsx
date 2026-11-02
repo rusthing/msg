@@ -510,31 +510,36 @@ export default function EntityPage({ config }: EntityPageProps) {
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Card variant="borderless">
         <div className="msg-toolbar">
-          <Input
-            allowClear
-            style={{ width: 240 }}
-            prefix={<SearchOutlined />}
-            placeholder="关键字（模糊搜索）"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            onPressEnter={() => applyFilters(draft, keyword)}
-          />
-          {searchFields.map((field) => (
-            <span key={field.key}>{renderFilter(field)}</span>
-          ))}
-          <Button type="primary" onClick={() => applyFilters(draft, keyword)}>
-            查询
-          </Button>
-          <Button icon={<UndoOutlined />} onClick={resetFilters}>
-            重置
-          </Button>
-          <span className="msg-toolbar-spacer" />
-          <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>
-            刷新
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-            新增{config.name}
-          </Button>
+          <div className="msg-toolbar-filters">
+            <Input
+              allowClear
+              style={{ width: 220 }}
+              prefix={<SearchOutlined />}
+              placeholder="关键字（模糊搜索）"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              onPressEnter={() => applyFilters(draft, keyword)}
+            />
+            {searchFields.map((field) => (
+              <span key={field.key}>{renderFilter(field)}</span>
+            ))}
+          </div>
+          <div className="msg-toolbar-foot">
+            <Button type="primary" onClick={() => applyFilters(draft, keyword)}>
+              查询
+            </Button>
+            <Button icon={<UndoOutlined />} onClick={resetFilters}>
+              重置
+            </Button>
+            <Space size={8} className="msg-toolbar-actions">
+              <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>
+                刷新
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+                新增{config.name}
+              </Button>
+            </Space>
+          </div>
         </div>
       </Card>
 
@@ -554,6 +559,7 @@ export default function EntityPage({ config }: EntityPageProps) {
           loading={loading}
           columns={columns}
           dataSource={data.list}
+          tableLayout="fixed"
           scroll={{ x: scrollX }}
           pagination={{
             current: pageNum,

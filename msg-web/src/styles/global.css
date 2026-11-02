@@ -95,16 +95,41 @@ body {
   overflow-y: auto;
 }
 
-/* 表格工具栏 */
+/* 表格工具栏：筛选一行、按钮一行，动作固定在右侧 */
 .msg-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.msg-toolbar-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
-.msg-toolbar-spacer {
-  flex: 1;
+.msg-toolbar-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.msg-toolbar-actions {
+  margin-left: auto;
+}
+
+/* 页面顶部一行：左边说明、右边动作 */
+.msg-page-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.msg-page-bar-action {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 /* 表单弹窗 */

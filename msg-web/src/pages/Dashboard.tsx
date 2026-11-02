@@ -26,7 +26,7 @@ import StatusTag from '../components/StatusTag';
 import { deliverStatusDic } from '../dic';
 import { entityOf } from '../entities';
 import { useAsync } from '../hooks/useAsync';
-import { formatMs, orDash, truncate } from '../utils/format';
+import { formatMs, orDash } from '../utils/format';
 
 /** 取某张表的记录数：只请求 1 条，用 `total` */
 async function countOf(path: string, params: QueryParams = {}): Promise<number> {
@@ -150,6 +150,11 @@ export default function Dashboard() {
 
   const { data, loading, error, reload } = state;
 
+  /**
+   * 总览里的两张表只有半屏宽（约 500px），列宽要留出余量：
+   * 固定列之和一旦超过容器宽度，没写宽度的列会被压到十几像素，
+   * 表头变成一条被裁掉的竖条。所以只留最能说明问题的几列，其余去详情页看。
+   */
   const failedColumns: ColumnsType<MsgDeliveryVo> = [
     {
       title: '标题',
@@ -157,51 +162,49 @@ export default function Dashboard() {
       ellipsis: true,
       render: (value: string) => value || '-',
     },
-    { title: '事件编码', dataIndex: 'eventCode', width: 180, ellipsis: true },
+    { title: '事件编码', dataIndex: 'eventCode', width: 140, ellipsis: true },
     {
       title: '状态',
       dataIndex: 'deliverStatus',
-      width: 110,
+      width: 96,
       render: (value: number) => <StatusTag dic={deliverStatusDic} value={value} />,
     },
     {
       title: '业务触发时间',
       dataIndex: 'businessTriggerMs',
-      width: 170,
+      width: 150,
       render: (value: string) => <span className="msg-mono">{formatMs(value)}</span>,
     },
   ];
 
   const deadColumns: ColumnsType<MsgDeadLetterVo> = [
-    { title: '原消息主题', dataIndex: 'subject', width: 240, ellipsis: true },
+    { title: '原消息主题', dataIndex: 'subject', ellipsis: true },
     {
       title: '转入原因',
       dataIndex: 'reason',
       ellipsis: true,
-      render: (value: string) => <span title={value}>{truncate(orDash(value), 50)}</span>,
-    },
-    {
-      title: '投递次数',
-      dataIndex: 'delivered',
-      width: 100,
-      render: (value: string) => <span className="msg-mono">{orDash(value)}</span>,
+      render: (value: string) => <span title={value}>{orDash(value)}</span>,
     },
     {
       title: '进入时间',
       dataIndex: 'createMs',
-      width: 170,
+      width: 150,
       render: (value: string) => <span className="msg-mono">{formatMs(value)}</span>,
     },
   ];
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <div className="msg-toolbar">
+      <div className="msg-page-bar">
         <Typography.Text type="secondary">
           统计口径：直接读各表行数；失败取 `deliverStatus = 3`（全部目标都失败），死信取未勾选「已处理」
         </Typography.Text>
-        <span className="msg-toolbar-spacer" />
-        <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>
+        <Button
+          className="msg-page-bar-action"
+          icon={<ReloadOutlined />}
+          loading={loading}
+          onClick={reload}
+        >
           刷新
         </Button>
       </div>
@@ -256,6 +259,7 @@ export default function Dashboard() {
             <Table<MsgDeliveryVo>
               rowKey="id"
               size="small"
+              tableLayout="fixed"
               loading={loading}
               columns={failedColumns}
               dataSource={data.failedList}
@@ -273,6 +277,7 @@ export default function Dashboard() {
             <Table<MsgDeadLetterVo>
               rowKey="id"
               size="small"
+              tableLayout="fixed"
               loading={loading}
               columns={deadColumns}
               dataSource={data.deadList}
