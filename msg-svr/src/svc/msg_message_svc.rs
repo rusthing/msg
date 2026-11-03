@@ -3,8 +3,8 @@ use robotech::macros::svc;
 /// 消息模板
 ///
 /// 三份模板都在保存前做语法校验（`utils::validate_template_field`）：旧语法
-/// `{key}`、未知过滤器、未闭合的 `{{` 都会在写库前被拒掉，避免上线后才在
-/// 渲染日志里发现。
+/// `{key}`、未知过滤器、未闭合的 `{{` / `${` 都会在写库前被拒掉，避免上线后
+/// 才在渲染日志里发现。`${key}` 与 `{{key}}` 是等价写法，不会被误判。
 #[svc(
     before_add = Self::before_add,
     before_modify = Self::before_modify,

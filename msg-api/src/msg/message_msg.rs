@@ -62,8 +62,8 @@ pub struct MessageMsg {
     /// 路由标签：一组结构化的 key-value，匹配、分组、路由都只看它
     ///
     /// **只是模板变量**：`title_template` / `content_template` /
-    /// `ext_template` 里的 `{{key}}` 会从 `labels` 与 [`Self::annotations`]
-    /// 中取值（同名时以 `labels` 为准）。
+    /// `ext_template` 里的 `{{key}}`（或等价别名 `${key}`）会从 `labels` 与
+    /// [`Self::annotations`] 中取值（同名时以 `labels` 为准）。
     ///
     /// `_` 开头的键是**保留命名空间**：msg-svr 会注入 `_create_ms`、
     /// `_business_trigger_ms`、`_business_id`、`_message_id`、`_event_code`，

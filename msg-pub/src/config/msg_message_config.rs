@@ -60,10 +60,11 @@ pub struct MsgMessageConfig {
     pub persisted: bool,
     /// 标题模板（为 null 时用发布方给的标题）
     ///
-    /// 占位符 `{变量}` 取消息的 `labels` / `annotations`，也可以用服务端注入的
-    /// `_create_ms` / `_event_code` 等（`_` 前缀是保留命名空间）。占位符后面可以
-    /// 接格式化过滤器：`{{triggerMs:time(%m-%d %H:%M)}}`、`{{name:default(未知)}}`、
-    /// `{{phone:mask(3,4)}}`。完整语法见共享 crate `robotech-template`。
+    /// 占位符 `{{变量}}`（或等价别名 `${变量}`）取消息的 `labels` / `annotations`，
+    /// 也可以用服务端注入的 `_create_ms` / `_event_code` 等（`_` 前缀是保留命名空间）。
+    /// 占位符后面可以接格式化过滤器：`{{triggerMs:time(%m-%d %H:%M)}}`、`{{name:default(未知)}}`、
+    /// `{{phone:mask(3,4)}}`。`${变量}` 与 `{{变量}}` 完全等价，可同模板混用。
+    /// 完整语法见共享 crate `robotech-template`。
     #[serde(default)]
     #[builder(default)]
     pub title_template: Option<String>,
