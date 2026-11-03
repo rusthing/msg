@@ -449,7 +449,7 @@ mod tests {
     #[test]
     fn seeded_channel_template_shape() {
         // 与 20261031000003_seed-channel-payload-template.sql 里的 update 保持一致
-        const SEEDED: &str = r#"{"eventCode":{eventCode:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}"#;
+        const SEEDED: &str = r#"{"eventCode":{eventCode:json},"data":{ext:json}}"#;
 
         let with_ext = DeliveryMsg {
             ext: Some(r#"{"alertId":"7"}"#.to_string()),
