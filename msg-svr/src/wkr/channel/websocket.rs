@@ -20,8 +20,8 @@
 //! | `firstReceiveMs` | 链路第一跳收到事件的服务端时刻，发布方没带就不注入 |
 //! | `businessTriggerMs` | 本次通知的业务时间（发布方时钟），没带就不注入 |
 //!
-//! 语法与消息模板完全一致（`{变量:过滤器}`，字符串要写成 `{title:json}` 才有引号与
-//! 转义）。缺失的变量用 `{ext:json}` 渲染成 `null`；裸写 `{ext}` 会留下占位符，
+//! 语法与消息模板完全一致（`{{变量:过滤器}}`，字符串要写成 `{{title:json}}` 才有引号与
+//! 转义）。缺失的变量用 `{{ext:json}}` 渲染成 `null`；裸写 `{{ext}}` 会留下占位符，
 //! 那就不再是合法 JSON，按下面的回退规则处理。
 //!
 //! 两层模板分工不同：`msg_message` 的三份模板决定「说什么」（一条消息一份），
@@ -37,7 +37,7 @@
 //! ## 落点在哪
 //!
 //! 落点要用的坐标不在独立字段里：它们由内容模板渲染进 `content`，大屏按约定的
-//! 格式解析 `content` 即可；也可以在载荷模板里用 `{content}` 原样嵌进自己的结构。
+//! 格式解析 `content` 即可；也可以在载荷模板里用 `{{content}}` 原样嵌进自己的结构。
 //! 发布方上报的 `labels` / `annotations` 只是模板的输入，不随这一帧下发。
 //!
 //! ## 两个时间锚点
@@ -56,7 +56,7 @@
 //!
 //! 默认帧里没有 `ext` 的消息整个字段都不出现（`skip_serializing_if`），大屏侧按
 //! 「有没有 `ext`」判断这条消息带不带结构化数据，不需要区分 `null` 和空串。
-//! 换成模板帧后这个字段由模板决定：`{ext:json}` 缺失时渲染 `null`。
+//! 换成模板帧后这个字段由模板决定：`{{ext:json}}` 缺失时渲染 `null`。
 //!
 //! ## 不下发什么
 //!
@@ -172,7 +172,7 @@ fn render_payload(template: &str, task: &DeliveryMsg) -> Option<String> {
         ("content", task.content.clone()),
     ]);
 
-    // 缺的变量不注入：模板里 `{ext:json}` 会渲染成 null，与「这条消息没有附加
+    // 缺的变量不注入：模板里 `{{ext:json}}` 会渲染成 null，与「这条消息没有附加
     // 内容 / 算不出时间」一致。注入空串反而会渲染出 `"ext":""`，让大屏把空串
     // 当成一份有效的附加内容。
     if let Some(ext) = task.ext.as_deref() {
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn template_takes_over_frame_shape() {
         let text = render_payload(
-            r#"{"type":{eventCode:json},"data":{"title":{title:json},"body":{content:json}}}"#,
+            r#"{"type":{{eventCode:json}},"data":{"title":{{title:json}},"body":{{content:json}}}}"#,
             &task(),
         )
         .expect("模板应渲染出合法 JSON");
@@ -405,7 +405,7 @@ mod tests {
     /// 内容本身是 JSON 文本时可以原样嵌进自己的结构，大屏少解一层
     #[test]
     fn template_may_inline_rendered_content() {
-        let text = render_payload(r#"{"code":{eventCode:json},"data":{content}}"#, &task())
+        let text = render_payload(r#"{"code":{{eventCode:json}},"data":{{content}}}"#, &task())
             .expect("模板应渲染出合法 JSON");
 
         let frame = parse(&text);
@@ -420,15 +420,15 @@ mod tests {
             business_trigger_ms: Some(1_760_999_990_000),
             ..task()
         };
-        let template = r#"{"recv":{firstReceiveMs},"notify":{businessTriggerMs}}"#;
+        let template = r#"{"recv":{{firstReceiveMs}},"notify":{{businessTriggerMs}}}"#;
 
         let frame = parse(&render_payload(template, &with_anchors).expect("应渲染出合法 JSON"));
         assert_eq!(frame["recv"], 1_761_000_000_000i64);
         assert_eq!(frame["notify"], 1_760_999_990_000i64);
 
-        // 缺了就得靠 `:json` 才渲染成 null；裸占位符会留下 `{firstReceiveMs}` 字面量，
+        // 缺了就得靠 `:json` 才渲染成 null；裸占位符会留下 `{{firstReceiveMs}}` 字面量，
         // 整帧判为非法 JSON → 回退默认帧（不会带着占位符推给大屏）
-        let nullable = r#"{"recv":{firstReceiveMs:json},"notify":{businessTriggerMs:json}}"#;
+        let nullable = r#"{"recv":{{firstReceiveMs:json}},"notify":{{businessTriggerMs:json}}}"#;
         let frame = parse(&render_payload(nullable, &task()).expect("应渲染出合法 JSON"));
         assert!(frame["recv"].is_null());
         assert!(render_payload(template, &task()).is_none());
@@ -437,19 +437,20 @@ mod tests {
     /// ext 缺失时渲染成 null，帧仍然合法
     #[test]
     fn template_missing_ext_renders_null() {
-        let text = render_payload(r#"{"ext":{ext:json}}"#, &task()).expect("应渲染出合法 JSON");
+        let text = render_payload(r#"{"ext":{{ext:json}}}"#, &task()).expect("应渲染出合法 JSON");
         assert!(parse(&text)["ext"].is_null());
     }
 
-    /// 种子里的那份渠道模板（迁移 20261031000003）就是这个形状：只下发事件编码、
-    /// ext 与两个时间锚点，标题与内容按「文案不下发」的约定略去。
+    /// 种子里的那份渠道模板（迁移 20261031000004 修正后）就是这个形状：下发事件编码、
+    /// 标题、内容、ext 与两个时间锚点，字段集与默认帧一致。
     ///
     /// 这里把模板原文抄一份做契约测试：种子里写错一个过滤器，或者哪天过滤器行为
     /// 变了，都是这条用例先炸，而不是上线后大屏收到一帧没有坐标的数据。
     #[test]
     fn seeded_channel_template_shape() {
-        // 与 20261031000003_seed-channel-payload-template.sql 里的 update 保持一致
-        const SEEDED: &str = r#"{"eventCode":{eventCode:json},"data":{ext:json}}"#;
+        // 与 20261031000004_fix-channel-payload-template-content.sql 的字段集一致，
+        // 占位符已由 20261103000000 迁移换成双花括号
+        const SEEDED: &str = r#"{"eventCode":{{eventCode:json}},"title":{{title:json}},"content":{{content:json}},"ext":{{ext:json}},"firstReceiveMs":{{firstReceiveMs:default(null)}},"businessTriggerMs":{{businessTriggerMs:default(null)}}}"#;
 
         let with_ext = DeliveryMsg {
             ext: Some(r#"{"alertId":"7"}"#.to_string()),
@@ -459,14 +460,17 @@ mod tests {
         let frame = parse(&render_payload(SEEDED, &with_ext).expect("种子模板应渲染出合法 JSON"));
 
         assert_eq!(frame["eventCode"], "position.updated");
+        assert_eq!(frame["title"], "张三 进入 1F");
+        // content 是 JSON 文本：`:json` 把它当字符串嵌进来，大屏再解一层拿坐标
+        let content: serde_json::Value =
+            serde_json::from_str(frame["content"].as_str().expect("content 不是字符串"))
+                .expect("content 不是合法 JSON");
+        assert_eq!(content["lon"], 113.9);
         // ext 是字符串：大屏要自己再解一层，与默认帧的形态一致
         assert_eq!(frame["ext"], r#"{"alertId":"7"}"#);
         // 时间锚点是数字，不是 "1761…"：裸占位符 + default(null) 才两头都对
         assert_eq!(frame["firstReceiveMs"], 1_761_000_000_000i64);
         assert!(frame["businessTriggerMs"].is_null());
-        // 文案不下发：大屏按 eventCode 自己出词
-        assert!(frame.get("title").is_none());
-        assert!(frame.get("content").is_none());
 
         // 没有 ext、没有锚点的消息仍然是一帧合法 JSON（两个字段都是 null）
         let frame = parse(&render_payload(SEEDED, &task()).expect("种子模板应渲染出合法 JSON"));
@@ -475,10 +479,10 @@ mod tests {
         assert!(frame["businessTriggerMs"].is_null());
     }
 
-    /// 模板写错就不给帧：裸占位符会留下 `{key}` 字面量，解析不了的帧不能推给大屏
+    /// 模板写错就不给帧：裸占位符会留下 `{{key}}` 字面量，解析不了的帧不能推给大屏
     #[test]
     fn template_with_unknown_variable_is_rejected() {
-        assert!(render_payload(r#"{"v":{missing}}"#, &task()).is_none());
+        assert!(render_payload(r#"{"v":{{missing}}}"#, &task()).is_none());
     }
 
     /// 字符串没用 `:json` 时引号会把 JSON 撑破，同样按「渲染不出可用帧」处理
@@ -488,7 +492,7 @@ mod tests {
             title: "1F \"东\" 区".to_string(),
             ..task()
         };
-        assert!(render_payload(r#"{"title":{title}}"#, &task).is_none());
+        assert!(render_payload(r#"{"title":{{title}}}"#, &task).is_none());
     }
 
     /// 渲染成空白不算一帧：空帧推过去，大屏只会当成一条空消息

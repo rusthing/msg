@@ -11,12 +11,25 @@ use sea_orm::{ColumnTrait, Condition};
 ///
 /// 改 `code` 时还要把投递队列的主题一起改掉，见 [`MsgChannelSvc::before_modify`]。
 #[svc(
+    before_add = Self::before_add,
     before_modify = Self::before_modify,
     after_write = crate::wkr::on_channel_refresh
 )]
 pub struct MsgChannelSvc;
 
 impl MsgChannelSvc {
+    /// 保存前校验载荷模板语法
+    async fn before_add<C: ConnectionTrait>(
+        add_dto: MsgChannelAddDto,
+        _db: &C,
+    ) -> Result<MsgChannelAddDto, SvcError> {
+        crate::utils::validate_template_field(
+            "payload_template",
+            add_dto.payload_template.as_ref().and_then(Option::as_deref),
+        )?;
+        Ok(add_dto)
+    }
+
     /// # 改编码时同步改投递队列的主题
     ///
     /// 投递队列**不存 `channel_id`**，渠道信息只在主题里：`msg.delivery.{渠道编码}`
@@ -38,6 +51,14 @@ impl MsgChannelSvc {
         modify_dto: MsgChannelModifyDto,
         db: &C,
     ) -> Result<MsgChannelModifyDto, SvcError> {
+        crate::utils::validate_template_field(
+            "payload_template",
+            modify_dto
+                .payload_template
+                .as_ref()
+                .and_then(Option::as_deref),
+        )?;
+
         // 没改 code 就没什么可级联的
         let (Some(id), Some(new_code)) = (modify_dto.id, modify_dto.code.clone()) else {
             return Ok(modify_dto);

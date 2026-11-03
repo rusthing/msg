@@ -855,7 +855,7 @@ struct TaskContext<'a> {
 ///
 /// `_` 前缀是保留命名空间：这些值是服务端知道的事实（处理时间、业务触发
 /// 时间、消息自身标识），发布方在 `labels` 里写同名键会被忽略。模板里
-/// `{_create_ms:time}` 直接可用，不必为了打时间戳再塞一份进 `labels`。
+/// `{{_create_ms:time}}` 直接可用，不必为了打时间戳再塞一份进 `labels`。
 ///
 /// 可选值（发布方没给）就不注入，模板里缺变量时按缺失处理——`default`
 /// 兜底、`json` 输出 `null`，与其他缺失变量一致。
@@ -999,7 +999,7 @@ mod tests {
 
         assert_eq!(
             pick(
-                Some("你好 {name}"),
+                Some("你好 {{name}}"),
                 Some("发布方的标题"),
                 &builtins,
                 &labels,

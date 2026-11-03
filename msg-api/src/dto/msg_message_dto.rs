@@ -15,10 +15,10 @@ pub struct MsgMessageDto {
     /// 是否持久化（如果不持久化，投递将不会保存到数据库）
     #[db_default]
     pub persisted: bool,
-    /// 标题模板（`{var}` / `{var:json}` 取消息 labels 与 annotations；为 null 时用发布方给的标题）
+    /// 标题模板（`{{var}}` / `{{var:json}}` 取消息 labels 与 annotations；为 null 时用发布方给的标题）
     /// @len 0..=150
     pub title_template: Option<String>,
-    /// 内容模板（`{var}` / `{var:json}` 取消息 labels 与 annotations；为 null 时用发布方给的内容）
+    /// 内容模板（`{{var}}` / `{{var:json}}` 取消息 labels 与 annotations；为 null 时用发布方给的内容）
     /// @len 0..
     pub content_template: Option<String>,
     /// 附加内容模板（渲染结果原样下发，格式不约定；为 null 时用发布方给的附加内容）

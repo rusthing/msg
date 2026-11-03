@@ -209,7 +209,7 @@ const channel: EntityConfig = {
       label: '载荷模板',
       kind: 'textarea',
       rows: 8,
-      tip: '决定报文正文长什么样，可用变量：{eventCode} {title} {content} {ext} {firstReceiveMs} {businessTriggerMs}',
+      tip: '决定报文正文长什么样，可用变量：{{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}',
     },
     { key: 'remark', label: '备注', kind: 'text', maxLength: 50 },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true },
@@ -255,7 +255,7 @@ const message: EntityConfig = {
       rows: 3,
       maxLength: 150,
       inTable: false,
-      tip: '支持 `{var}` / `{var:json}`，取消息的 labels 与 annotations；留空用发布方给的标题',
+      tip: '支持 `{{var}}` / `{{var:json}}`，取消息的 labels 与 annotations；留空用发布方给的标题',
     },
     {
       key: 'contentTemplate',
@@ -263,7 +263,7 @@ const message: EntityConfig = {
       kind: 'textarea',
       rows: 6,
       inTable: false,
-      tip: '留空用发布方给的内容；字符串变量要写 `{var:json}` 才会带引号',
+      tip: '留空用发布方给的内容；字符串变量要写 `{{var:json}}` 才会带引号',
     },
     {
       key: 'extTemplate',

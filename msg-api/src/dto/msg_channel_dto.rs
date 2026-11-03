@@ -13,9 +13,9 @@ pub struct MsgChannelDto {
     pub options: Option<String>,
     /// 载荷模板：决定这个渠道的报文正文长什么样，为空时用渠道代码里的默认结构
     ///
-    /// 变量只有服务端给的这几个：`{eventCode}` `{title}` `{content}` `{ext}`
-    /// `{firstReceiveMs}` `{businessTriggerMs}`，语法与消息模板一致
-    /// （`{变量:过滤器}`，字符串要写成 `{title:json}`）。
+    /// 变量只有服务端给的这几个：`{{eventCode}}` `{{title}}` `{{content}}` `{{ext}}`
+    /// `{{firstReceiveMs}}` `{{businessTriggerMs}}`，语法与消息模板一致
+    /// （`{{变量:过滤器}}`，字符串要写成 `{{title:json}}`）。
     /// 改这里不用重启：渠道写操作会触发消息缓存全量重建。
     /// @len 0..
     pub payload_template: Option<String>,

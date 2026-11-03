@@ -41,6 +41,7 @@ idworker = "1.4.0"
 wheel-rs = "1.14.0"
 robotech = "1.17.0"
 robotech-macros = "1.17.0"
+robotech-template = { version = "1.17.0", path = "../robotech-rs/robotech-template" }
 msg-api = { version = "1.0.0", path = "./msg-api" }
 msg-api-client = { version = "1.0.0", path = "./msg-api-client" }
 

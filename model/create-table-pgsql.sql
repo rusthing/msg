@@ -46,7 +46,7 @@ comment on column msg_channel.options is
 comment on column msg_channel.payload_template is
 '载荷模板
 渲染成这个渠道真正的报文正文，为空时用渠道代码里的默认结构（websocket 是 eventCode/title/content/ext/firstReceiveMs/businessTriggerMs）
-变量只有服务端给的这几个：{eventCode} {title} {content} {ext} {firstReceiveMs} {businessTriggerMs}，语法同消息模板（{变量:过滤器}，字符串用 :json）
+变量只有服务端给的这几个：{{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}，语法同消息模板（{{变量:过滤器}}，字符串用 :json）
 websocket 渠道要求渲染结果是合法 JSON，不是就告警并回退默认帧
 @len 0..';
 
