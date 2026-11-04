@@ -49,13 +49,25 @@ on conflict do nothing;
 --   {"token": "xxxx"} → 大屏连接时 ?token=xxxx 必须一致
 --   {"token": ""}     → 不校验（联调用）
 -- 换令牌只改这个字段，不用重启服务（每次握手现查渠道表）。
+--
+-- `payload_template` 是 websocket 帧结构的显式模板：一旦配了模板，发送器就用它
+-- 渲染报文（见 msg-svr/src/wkr/channel/websocket.rs 的 `frame()`），不再走代码里
+-- 的默认帧。字段集与默认帧完全一致：
+--   eventCode          大屏按它分派渲染
+--   title / content    给人看的文案（content 必须 :json，否则中文裸插进 JSON 会
+--                      导致整帧非法、回退默认帧并每帧刷 WARN）
+--   ext                结构化数据，没带时渲染成 null
+--   firstReceiveMs /
+--   businessTriggerMs  时间锚点，缺值用 default(null) 兜成 JSON 的 null（数字要裸
+--                      着输出，不能 :json，否则变成字符串）
 insert into msg_channel (
-   id, code, name, options, remark, enabled, creater_id, create_ms, updater_id, update_ms
+   id, code, name, options, payload_template, remark, enabled, creater_id, create_ms, updater_id, update_ms
 ) values (
    2,
    'websocket',
    'websocket',
    '{"token":""}',
+   '{"eventCode":{eventCode:json},"title":{title:json},"content":{content:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}',
    'WebSocket长连接',
    true,
    0,
@@ -64,6 +76,15 @@ insert into msg_channel (
    (extract(epoch from now()) * 1000)::int8
 )
 on conflict do nothing;
+
+-- 存量库修复：websocket 渠道行已存在但 payload_template 为空时，补齐载荷模板。
+-- 只补空模板，运营按现场协议改过的不覆盖。
+update msg_channel
+set payload_template = '{"eventCode":{eventCode:json},"title":{title:json},"content":{content:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}',
+    updater_id = 0,
+    update_ms = (extract(epoch from now()) * 1000)::int8
+where code = 'websocket'
+  and payload_template is null;
 
 /*==============================================================*/
 /* 3. 默认目标类别                                              */
