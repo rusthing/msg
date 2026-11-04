@@ -67,7 +67,7 @@ insert into msg_channel (
    'websocket',
    'websocket',
    '{"token":""}',
-   '{"eventCode":{eventCode:json},"title":{title:json},"content":{content:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}',
+   '{"eventCode":{eventCode:json},"data":{ext:json}}',
    'WebSocket长连接',
    true,
    0,
@@ -76,15 +76,6 @@ insert into msg_channel (
    (extract(epoch from now()) * 1000)::int8
 )
 on conflict do nothing;
-
--- 存量库修复：websocket 渠道行已存在但 payload_template 为空时，补齐载荷模板。
--- 只补空模板，运营按现场协议改过的不覆盖。
-update msg_channel
-set payload_template = '{"eventCode":{eventCode:json},"title":{title:json},"content":{content:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}',
-    updater_id = 0,
-    update_ms = (extract(epoch from now()) * 1000)::int8
-where code = 'websocket'
-  and payload_template is null;
 
 /*==============================================================*/
 /* 3. 默认目标类别                                              */
