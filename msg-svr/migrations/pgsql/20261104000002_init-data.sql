@@ -67,7 +67,8 @@ insert into msg_channel (
    'websocket',
    'websocket',
    '{"token":""}',
-   '{"eventCode":{eventCode:json},"data":{ext:json}}',
+   '@engine: robotech
+{"eventCode":{{eventCode:json}},"data":{{ext:json}}}',
    'WebSocket长连接',
    true,
    0,
