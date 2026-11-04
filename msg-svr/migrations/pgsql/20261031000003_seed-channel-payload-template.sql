@@ -30,7 +30,7 @@
 -- SYS_OPERATOR_USER_ID（系统操作员），时间戳取执行时刻。
 
 update msg_channel
-set payload_template = '{"eventCode":{eventCode:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}',
+set payload_template = '{"eventCode":{eventCode:json},"data":{ext:json}}',
     updater_id = 0,
     update_ms = (extract(epoch from now()) * 1000)::int8
 where code = 'websocket'

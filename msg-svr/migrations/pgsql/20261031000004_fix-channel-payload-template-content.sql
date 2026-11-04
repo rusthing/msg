@@ -30,7 +30,7 @@
 -- 期望值，这里退一步按 `content` 缺失来识别——旧种子的特征就是没有它。
 
 update msg_channel
-set payload_template = '{"eventCode":{eventCode:json},"title":{title:json},"content":{content:json},"ext":{ext:json},"firstReceiveMs":{firstReceiveMs:default(null)},"businessTriggerMs":{businessTriggerMs:default(null)}}',
+set payload_template = '{"eventCode":{eventCode:json},"data":{ext:json}}',
     updater_id = 0,
     update_ms = (extract(epoch from now()) * 1000)::int8
 where code = 'websocket'
