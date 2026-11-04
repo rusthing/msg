@@ -1,13 +1,24 @@
 //! # 消息模板渲染（适配层）
 //!
-//! 语法、过滤器与错误语义都在共享 crate [`robotech_template`] 里；本模块只做
+//! 语法、过滤器与错误语义都在框架层 [`robotech::template`] 里；本模块只做
 //! 三件 msg 特有的事：
 //!
 //! 1. 组装变量优先级：内置变量（`_` 开头）> `labels` > `annotations`；
 //! 2. 从 `[msg] template-time-offset` 取模板时区；
 //! 3. 把 crate 返回的结构化诊断落成日志。
 //!
-//! ## 占位符语法
+//! ## 多引擎支持
+//!
+//! 模板首行可以用 `@engine: <name>` 声明使用哪个引擎：
+//!
+//! ```text
+//! @engine: robotech       使用内置引擎（默认，向后兼容）
+//! @engine: minijinja      使用 minijinja 引擎（支持 if/for/switch 等控制流）
+//! ```
+//!
+//! 没有声明时默认使用 `robotech` 引擎。
+//!
+//! ## robotech 引擎占位符语法
 //!
 //! ```text
 //! {{key}}                         原样代入
@@ -26,10 +37,23 @@
 //! 参数用括号包住，所以参数里可以有 `|`、`:`、空格（`{{url:default(a|b)}}`）。
 //! 参数到**第一个** `)` 为止，需要 `)` 本身时目前无法表达——内置过滤器都用不上。
 //!
-//! ## 内置过滤器
+//! ## minijinja 引擎语法
+//!
+//! minijinja 引擎支持 Jinja2 风格的控制流：
+//!
+//! ```text
+//! @engine: minijinja
+//! {% if status == "critical" %}
+//! 🚨 严重告警：{{name}}
+//! {% else %}
+//! ℹ️ 通知：{{name}}
+//! {% endif %}
+//! ```
+//!
+//! ## 内置过滤器（robotech 引擎）
 //!
 //! `json` / `time` / `since` / `upper` / `lower` / `trim` / `default` /
-//! `truncate` / `fixed` / `mask` / `url`，语义见 [`robotech_template`] 的文档。
+//! `truncate` / `fixed` / `mask` / `url`，语义见 [`robotech::template`] 的文档。
 //!
 //! ## 内置变量
 //!
@@ -56,8 +80,9 @@
 use crate::config::get_msg_config;
 use chrono::Utc;
 use robotech::svc::SvcError;
-use robotech_template::{
-    FilterContext, PriorityVariables, Severity, render_template as render, validate_template,
+use robotech::template::{
+    FilterContext, PriorityVariables, Severity,
+    render as render_unified, validate as validate_unified,
 };
 use std::collections::HashMap;
 use tracing::warn;
@@ -99,7 +124,7 @@ pub(crate) fn render_template(
         Utc::now().timestamp_millis(),
     );
 
-    let outcome = render(template, &vars, &ctx);
+    let outcome = render_unified(template, &vars, &ctx);
     for diagnostic in &outcome.diagnostics {
         // 诊断的严重级别由调用方决定：消息中心按 warn 处理，不阻塞投递
         warn!("{diagnostic}");
@@ -123,7 +148,7 @@ pub(crate) fn validate_template_field(
         return Ok(());
     };
 
-    let check = validate_template(template);
+    let check = validate_unified(template);
     if !check.has_errors() {
         return Ok(());
     }
