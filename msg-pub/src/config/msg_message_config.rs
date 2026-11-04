@@ -60,10 +60,16 @@ pub struct MsgMessageConfig {
     pub persisted: bool,
     /// 标题模板（为 null 时用发布方给的标题）
     ///
-    /// 占位符 `{{变量}}`（或等价别名 `${变量}`）取消息的 `labels` / `annotations`，
+    /// 首行可用 `@engine: <name>` 声明模板引擎（如 `@engine: minijinja`），
+    /// 没有声明时默认使用 `robotech` 引擎。
+    ///
+    /// robotech 引擎：占位符 `{{变量}}`（或等价别名 `${变量}`）取消息的 `labels` / `annotations`，
     /// 也可以用服务端注入的 `_create_ms` / `_event_code` 等（`_` 前缀是保留命名空间）。
     /// 占位符后面可以接格式化过滤器：`{{triggerMs:time(%m-%d %H:%M)}}`、`{{name:default(未知)}}`、
     /// `{{phone:mask(3,4)}}`。`${变量}` 与 `{{变量}}` 完全等价，可同模板混用。
+    ///
+    /// minijinja 引擎：支持 `{% if %}` / `{% for %}` / `{% switch %}` 等控制流语法。
+    ///
     /// 完整语法见框架层 `robotech::template`。
     #[serde(default)]
     #[builder(default)]
@@ -74,7 +80,8 @@ pub struct MsgMessageConfig {
     pub content_template: Option<String>,
     /// 附加内容模板（渲染结果原样下发，格式不约定；为 null 时用发布方给的附加内容）
     ///
-    /// 语法同上。要输出 JSON 时字符串值用 `{{var:json}}`（自带引号并转义），
+    /// 语法同上。首行可用 `@engine: <name>` 声明模板引擎。
+    /// 要输出 JSON 时字符串值用 `{{var:json}}`（自带引号并转义），
     /// 时间用 `{{var:time(%F %T)|json}}`。相对时间（`{{var:since}}`）每次渲染结果
     /// 都不同，`ext` 要留可追溯的快照就用 `{{_create_ms}}` 这种原始毫秒。
     #[serde(default)]
