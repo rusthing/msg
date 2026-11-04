@@ -1,6 +1,12 @@
--- 初始化数据：消息中心跑起来所需的字典与入口配置
+/*==============================================================*/
+/* 初始化数据                                                    */
+/*==============================================================*/
 --
--- 与 create-table 分工：那边只建结构，本文件只插数据。四段的依赖只剩业务语义：
+-- ## 这个脚本放什么
+--
+-- 种子数据：消息中心跑起来所需的字典与入口配置。
+--
+-- 与 init-create-table 分工：那边只建结构，本文件只插数据。依赖只剩业务语义：
 -- 默认目标类别要挂到 websocket 渠道上，渠道必须先插；投递队列只认主题
 -- （`msg.delivery.{渠道编码}`），库里没有外键，顺序上不再依赖渠道行。
 --
@@ -66,9 +72,6 @@ on conflict do nothing;
 -- 目标类别是投递目标的字典：消息发给「谁」先落到类别上，再按类别找具体目标，
 -- 或用空串 target_id 声明「该类别下的全部目标」。用户 / 角色 / 分组是平台级的
 -- 固定口径，随库种好，发布方登记消息目标时按 code 查 ID，不用自己建。
---
--- 「大屏」（code = screen）不在这里：它是动态接入的自定义类别，由第一个用到它的
--- 发布方在启动时登记（dtw 就是这么做的），编码与名称在发布方配置里。
 insert into msg_target_category (
    id, code, name, remark, creater_id, create_ms, updater_id, update_ms
 ) values
@@ -90,16 +93,58 @@ insert into msg_target_category (
 on conflict do nothing;
 
 /*==============================================================*/
-/* 4. websocket 投递队列                                        */
+/* 4. 大屏目标类别                                              */
+/*==============================================================*/
+
+-- 大屏不是哪一家的私有类别，它是平台主线目标（报警、定位、门禁都往这块屏上发），
+-- 和 user / role / group 是同一层级的部署级字典，随库种好。渠道绑定一步到位，
+-- 发布方只剩下「按编码查 ID 来挂消息目标」这一件只读的事，不再有插入竞争。
+insert into msg_target_category (
+   id, code, name, remark, creater_id, create_ms, updater_id, update_ms
+) values (
+   4,
+   'screen',
+   '大屏',
+   '自定义目标：大屏长连接',
+   0,
+   (extract(epoch from now()) * 1000)::int8,
+   0,
+   (extract(epoch from now()) * 1000)::int8
+)
+on conflict do nothing;
+
+-- 大屏这一类只走 websocket：投递任务是「目标 × 渠道」展开出来的，没有这条绑定，
+-- 挂在大屏类别上的消息（dtw 的位置更新、报警中心的 SOS）一条都发不出去。
+insert into msg_target_category_channel (
+   id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms
+)
+select
+   1,
+   tc.id,
+   c.id,
+   0,
+   (extract(epoch from now()) * 1000)::int8,
+   0,
+   (extract(epoch from now()) * 1000)::int8
+from msg_target_category tc
+join msg_channel c on c.code = 'websocket'
+where tc.code = 'screen'
+  and not exists (
+      select 1
+      from msg_target_category_channel b
+      where b.target_category_id = tc.id
+        and b.channel_id = c.id
+  )
+on conflict do nothing;
+
+/*==============================================================*/
+/* 5. websocket 投递队列                                        */
 /*==============================================================*/
 
 -- 一个渠道一条投递队列：订阅哪个 subject、要不要持久化，全看这张表。
 -- 没配队列的渠道既不会被订阅，发布侧也发不出去（按渠道查不到队列就记失败）。
 --
 -- `code` 就是投递主题，固定为 `msg.delivery.{渠道编码}`，即 msg.delivery.websocket。
--- 这张表不存渠道 ID：渠道编码从主题末段解析，写入时校验渠道存在
--- （见 MsgDeliveryQueueSvc 的 before_add / before_modify），渠道被禁用后
--- 消息中心不再为它建订阅。
 -- `persisted = false` 是 websocket 的硬要求：屏连在哪个实例上不确定，消息要让
 -- 所有实例都收到、各自查本地连接表；落 JetStream 走队列组，反而会让「A 实例收
 -- 任务、屏却连在 B 实例」的消息被别的实例吃掉。
