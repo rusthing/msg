@@ -15,6 +15,7 @@
  */
 
 import type { DeliverChannelStatus, DeliverStatus, DeliverTargetStatus } from '../api/types';
+import { EMPTY } from '../utils/format';
 
 /** # 字典项 */
 export interface DicItem<V extends number = number> {
@@ -61,7 +62,7 @@ export function dicLabel<V extends number>(
   value: V | null | undefined,
 ): string {
   if (value === null || value === undefined) {
-    return '-';
+    return EMPTY;
   }
   return dicItem(dic, value)?.label ?? `未知(${value})`;
 }

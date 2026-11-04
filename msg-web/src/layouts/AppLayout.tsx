@@ -3,11 +3,15 @@
  *
  * 左侧按「消息定义 / 投递链路 / 队列」分组导航，顶部说明栏取自当前路由对应的实体元数据，
  * 避免每个页面各写一遍标题。
+ *
+ * 桌面端用固定 Sider，窄屏（<992px）隐藏 Sider，改用顶部菜单按钮打开 Drawer，
+ * 避免 234px 的侧栏把内容区压到不可用。
  */
 
-import { DashboardOutlined } from '@ant-design/icons';
-import { Layout, Menu, Typography } from 'antd';
+import { DashboardOutlined, MenuOutlined } from '@ant-design/icons';
+import { Button, Drawer, Layout, Menu, Typography } from 'antd';
 import type { MenuProps } from 'antd';
+import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { ENTITIES, GROUP_LABELS, type EntityGroup } from '../entities';
 
@@ -24,6 +28,7 @@ const OVERVIEW = {
 
 export default function AppLayout() {
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   /**
    * 当前实体：**精确**匹配路径
@@ -54,6 +59,16 @@ export default function AppLayout() {
     })),
   ];
 
+  const menu = (
+    <Menu
+      mode="inline"
+      selectedKeys={[current ? `/${current.key}` : '/']}
+      style={{ borderInlineEnd: 'none', paddingTop: 8 }}
+      items={menuItems}
+      onClick={() => setMobileMenuOpen(false)}
+    />
+  );
+
   return (
     <Layout style={{ height: '100vh' }}>
       <Sider width={234} theme="light" className="msg-sider">
@@ -64,21 +79,23 @@ export default function AppLayout() {
             <span className="msg-brand-sub">msg-svr</span>
           </div>
         </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[current ? `/${current.key}` : '/']}
-          style={{ borderInlineEnd: 'none', paddingTop: 8 }}
-          items={menuItems}
-        />
+        {menu}
       </Sider>
 
       <Layout>
         <Header className="msg-header">
-          <div>
+          <Button
+            type="text"
+            className="msg-mobile-menu-btn"
+            aria-label="打开菜单"
+            icon={<MenuOutlined />}
+            onClick={() => setMobileMenuOpen(true)}
+          />
+          <div className="msg-header-main">
             <div className="msg-header-title">{current?.title ?? OVERVIEW.title}</div>
             <div className="msg-header-desc">{current?.desc ?? OVERVIEW.desc}</div>
           </div>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Typography.Text type="secondary" className="msg-header-note" style={{ fontSize: 12 }}>
             列表筛选为等值匹配，模糊搜索请用「关键字」
           </Typography.Text>
         </Header>
@@ -86,6 +103,18 @@ export default function AppLayout() {
           <Outlet />
         </Content>
       </Layout>
+
+      <Drawer
+        open={mobileMenuOpen}
+        title="消息中心"
+        placement="left"
+        width={264}
+        rootClassName="msg-mobile-drawer"
+        onClose={() => setMobileMenuOpen(false)}
+        styles={{ body: { padding: 0 } }}
+      >
+        {menu}
+      </Drawer>
     </Layout>
   );
 }

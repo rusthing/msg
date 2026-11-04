@@ -113,7 +113,7 @@ export interface MsgTargetCategoryVo extends AuditFields {
 /** # 渠道 */
 export interface MsgChannelVo extends AuditFields {
   id: Id;
-  /** 编码，同时是投递主题 `msg.delivery.{code}` 的末段 */
+  /** 编码，同时是投递主题 `msg.delivery.<code>` 的末段 */
   code: string;
   name: string;
   /** 按渠道自定义的 JSON，如 websocket 的 `{"token":""}` */
@@ -218,7 +218,7 @@ export interface MsgMessageQueueVo extends AuditFields {
   remark?: string;
 }
 
-/** # 投递队列（`msg.delivery.{渠道编码}`） */
+/** # 投递队列（`msg.delivery.<渠道编码>`） */
 export interface MsgDeliveryQueueVo extends AuditFields {
   id: Id;
   code: string;

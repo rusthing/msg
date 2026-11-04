@@ -50,7 +50,7 @@ interface Overview {
 }
 
 /** 初始值，请求返回前先渲染 0，避免卡片跳动 */
-const EMPTY: Overview = {
+const INITIAL: Overview = {
   eventSources: 0,
   categories: 0,
   channels: 0,
@@ -71,18 +71,24 @@ function StatCard({
   hint,
   danger,
   link,
+  loading,
 }: {
   title: string;
-  value: number;
+  /** 加载失败时传 `--`，不要把「没取到」显示成 0 */
+  value: number | string;
   hint: string;
   danger?: boolean;
   link: string;
+  loading: boolean;
 }) {
   return (
-    <Card variant="borderless" className="msg-stat-card">
+    <Card variant="borderless" className="msg-stat-card" loading={loading}>
       <div className="msg-stat-label">{title}</div>
-      <div className="msg-stat-value" style={danger && value > 0 ? { color: '#cf1322' } : undefined}>
-        {value}
+      <div
+        className="msg-stat-value"
+        style={danger && typeof value === 'number' && value > 0 ? { color: '#cf1322' } : undefined}
+      >
+        {typeof value === 'number' ? value.toLocaleString('zh-CN') : value}
       </div>
       <div className="msg-stat-hint" style={{ marginTop: 6 }}>
         <Link to={link}>{hint}</Link>
@@ -146,7 +152,7 @@ export default function Dashboard() {
       failedList: failedPage.list,
       deadList: deadPage.list,
     };
-  }, [], EMPTY);
+  }, [], INITIAL);
 
   const { data, loading, error, reload } = state;
 
@@ -159,26 +165,28 @@ export default function Dashboard() {
     {
       title: '标题',
       dataIndex: 'title',
+      width: 140,
       ellipsis: true,
-      render: (value: string) => value || '-',
+      render: (value: string) => orDash(value),
     },
-    { title: '事件编码', dataIndex: 'eventCode', width: 140, ellipsis: true },
+    { title: '事件编码', dataIndex: 'eventCode', width: 120, ellipsis: true },
     {
       title: '状态',
       dataIndex: 'deliverStatus',
-      width: 96,
+      width: 90,
+      align: 'center',
       render: (value: number) => <StatusTag dic={deliverStatusDic} value={value} />,
     },
     {
       title: '业务触发时间',
       dataIndex: 'businessTriggerMs',
-      width: 150,
-      render: (value: string) => <span className="msg-mono">{formatMs(value)}</span>,
+      width: 176,
+      render: (value: string) => <span className="msg-mono msg-nowrap">{formatMs(value)}</span>,
     },
   ];
 
   const deadColumns: ColumnsType<MsgDeadLetterVo> = [
-    { title: '原消息主题', dataIndex: 'subject', ellipsis: true },
+    { title: '原消息主题', dataIndex: 'subject', width: 140, ellipsis: true },
     {
       title: '转入原因',
       dataIndex: 'reason',
@@ -188,8 +196,8 @@ export default function Dashboard() {
     {
       title: '进入时间',
       dataIndex: 'createMs',
-      width: 150,
-      render: (value: string) => <span className="msg-mono">{formatMs(value)}</span>,
+      width: 176,
+      render: (value: string) => <span className="msg-mono msg-nowrap">{formatMs(value)}</span>,
     },
   ];
 
@@ -210,44 +218,72 @@ export default function Dashboard() {
       </div>
 
       {error && (
-        <Alert type="error" showIcon message="加载总览失败" description={error.detail || error.message} />
+        <Alert
+          type="error"
+          showIcon
+          message="加载总览失败"
+          description={error.detail || error.message}
+          action={
+            <Button size="small" onClick={reload}>
+              重试
+            </Button>
+          }
+        />
       )}
 
-      <Row gutter={[16, 16]}>
-        <Col flex="1 1 200px">
-          <StatCard title="消息定义" value={data.messages} hint="去配置" link="/message" />
-        </Col>
-        <Col flex="1 1 200px">
-          <StatCard title="投递渠道" value={data.channels} hint="去配置" link="/channel" />
-        </Col>
-        <Col flex="1 1 200px">
-          <StatCard title="事件来源" value={data.eventSources} hint="去配置" link="/event-source" />
-        </Col>
-        <Col flex="1 1 200px">
-          <StatCard title="消息类别" value={data.categories} hint="去配置" link="/message-category" />
-        </Col>
-        <Col flex="1 1 200px">
-          <StatCard title="投递总数" value={data.deliveries} hint="查看记录" link="/delivery" />
-        </Col>
-        <Col flex="1 1 200px">
-          <StatCard
-            title="全部失败的投递"
-            value={data.failedDeliveries}
-            hint="去排查"
-            link="/delivery"
-            danger
-          />
-        </Col>
-        <Col flex="1 1 200px">
-          <StatCard
-            title="未处理死信"
-            value={data.pendingDeadLetters}
-            hint="去处理"
-            link="/dead-letter"
-            danger
-          />
-        </Col>
-      </Row>
+      <div className="msg-stat-grid">
+        <StatCard
+          title="消息定义"
+          value={error ? '--' : data.messages}
+          hint="去配置"
+          link="/message"
+          loading={loading}
+        />
+        <StatCard
+          title="投递渠道"
+          value={error ? '--' : data.channels}
+          hint="去配置"
+          link="/channel"
+          loading={loading}
+        />
+        <StatCard
+          title="事件来源"
+          value={error ? '--' : data.eventSources}
+          hint="去配置"
+          link="/event-source"
+          loading={loading}
+        />
+        <StatCard
+          title="消息类别"
+          value={error ? '--' : data.categories}
+          hint="去配置"
+          link="/message-category"
+          loading={loading}
+        />
+        <StatCard
+          title="投递总数"
+          value={error ? '--' : data.deliveries}
+          hint="查看记录"
+          link="/delivery"
+          loading={loading}
+        />
+        <StatCard
+          title="全部失败的投递"
+          value={error ? '--' : data.failedDeliveries}
+          hint="去排查"
+          link="/delivery"
+          danger
+          loading={loading}
+        />
+        <StatCard
+          title="未处理死信"
+          value={error ? '--' : data.pendingDeadLetters}
+          hint="去处理"
+          link="/dead-letter"
+          danger
+          loading={loading}
+        />
+      </div>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={12}>
@@ -264,7 +300,8 @@ export default function Dashboard() {
               columns={failedColumns}
               dataSource={data.failedList}
               pagination={false}
-              locale={{ emptyText: '没有投递失败的记录' }}
+              scroll={{ x: 526 }}
+              locale={{ emptyText: error ? '加载失败，请重试' : '没有投递失败的记录' }}
             />
           </Card>
         </Col>
@@ -282,7 +319,8 @@ export default function Dashboard() {
               columns={deadColumns}
               dataSource={data.deadList}
               pagination={false}
-              locale={{ emptyText: '没有未处理的死信' }}
+              scroll={{ x: 480 }}
+              locale={{ emptyText: error ? '加载失败，请重试' : '没有未处理的死信' }}
             />
           </Card>
         </Col>

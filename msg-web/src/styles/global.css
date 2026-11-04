@@ -80,14 +80,35 @@ body {
   border-bottom: 1px solid #eef0f4;
 }
 
+.msg-header-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .msg-header-title {
   font-size: 16px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .msg-header-desc {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 窄屏才出现的菜单按钮 */
+.msg-mobile-menu-btn {
+  display: none;
+  flex: 0 0 40px;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
 }
 
 .msg-content {
@@ -110,6 +131,19 @@ body {
   min-width: 0;
 }
 
+.msg-filter-keyword {
+  width: 220px;
+}
+
+.msg-filter-control {
+  width: 180px;
+}
+
+.msg-filter-item {
+  display: inline-flex;
+  min-width: 0;
+}
+
 .msg-toolbar-foot {
   display: flex;
   align-items: center;
@@ -123,6 +157,7 @@ body {
 /* 页面顶部一行：左边说明、右边动作 */
 .msg-page-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -141,6 +176,35 @@ body {
 .msg-mono {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12.5px;
+}
+
+/* 长文本/时间：表格里单行，详情里允许断词换行 */
+.msg-long-text {
+  display: block;
+  max-width: 100%;
+}
+
+.msg-nowrap {
+  white-space: nowrap;
+}
+
+.msg-break {
+  word-break: break-all;
+}
+
+/* 表格开关的点击热区（移动端至少 36px） */
+.msg-switch-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 36px;
+  padding: 0 2px;
+}
+
+.msg-table-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 /* JSON 编辑器与只读视图 */
@@ -224,4 +288,95 @@ body {
 
 .msg-chain-arrow {
   color: rgba(0, 0, 0, 0.3);
+}
+
+/* 统计卡用 grid 保证 7 张卡等宽，不会出现最后一行两张被拉宽 */
+.msg-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.msg-form .ant-form-item-extra {
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* 窄屏：隐藏侧栏，改用顶部按钮 + Drawer */
+@media (max-width: 991px) {
+  .msg-sider {
+    display: none;
+  }
+
+  .msg-mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  .msg-header-note {
+    display: none;
+  }
+
+  .ant-layout-header.msg-header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .msg-content {
+    padding: 17px 12px 24px;
+  }
+
+  .msg-filter-keyword,
+  .msg-filter-control {
+    width: 100%;
+  }
+
+  .msg-filter-item {
+    flex: 1 1 180px;
+  }
+
+  .msg-toolbar-foot {
+    flex-wrap: wrap;
+  }
+
+  .msg-toolbar-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .msg-toolbar .ant-btn {
+    min-height: 40px;
+  }
+
+  .msg-stat-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+/* 手机：弹窗/抽屉不超出视口，表格操作有足够点击高度 */
+@media (max-width: 767px) {
+  .ant-modal.msg-form-modal {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
+    top: 12px;
+  }
+
+  .msg-detail-drawer .ant-drawer-content-wrapper {
+    width: 100vw !important;
+  }
+
+  .msg-table-actions .ant-btn {
+    min-height: 40px;
+    padding: 4px 6px;
+  }
+
+  .msg-page-bar-action {
+    margin-left: 0;
+  }
+
+  .msg-chain-node {
+    max-width: 100%;
+    white-space: normal;
+  }
 }

@@ -46,6 +46,10 @@ export type FieldKind =
   | 'text'
   /** 多行文本 */
   | 'textarea'
+  /** 纯文本模板：校验占位符、旧语法与过滤器链 */
+  | 'template'
+  /** JSON 模板：额外校验占位符代入后的整体 JSON */
+  | 'jsonTemplate'
   /** JSON 文本（表单里带格式校验与一键格式化） */
   | 'json'
   /** `u64` 字符串：ID、次数这类不允许做数字运算的整数 */
@@ -76,6 +80,15 @@ export interface FieldConfig {
   inDetail?: boolean;
   /** 新增时必填 */
   required?: boolean;
+  /**
+   * 空串有业务含义（如目标标识为空表示「该类别下全部目标」）。
+   *
+   * 默认提交时会跳过空串，交给服务端的 `Option` 语义；打开这个开关后空串会照常提交，
+   * 否则「按类别广播」的目标根本存不进去。
+   */
+  allowEmptySubmit?: boolean;
+  /** 空串的展示文案（如「全部目标」），不填则统一显示 `--` */
+  emptyLabel?: string;
   /** 是否作为列表上方的等值筛选条件 */
   searchable?: boolean;
   /** 字典表，`kind = 'dic'` 时必填 */
@@ -194,7 +207,7 @@ const channel: EntityConfig = {
       required: true,
       searchable: true,
       maxLength: 50,
-      tip: '同时是投递主题 `msg.delivery.{code}` 的末段，渠道写操作会触发投递队列缓存重建',
+      tip: '同时是投递主题 `msg.delivery.<code>` 的末段，渠道写操作会触发投递队列缓存重建',
     },
     { key: 'name', label: '名称', kind: 'text', width: 160, required: true, searchable: true, maxLength: 50 },
     {
@@ -207,11 +220,13 @@ const channel: EntityConfig = {
     {
       key: 'payloadTemplate',
       label: '载荷模板',
-      kind: 'textarea',
+      kind: 'jsonTemplate',
+      width: 260,
       rows: 8,
-      tip: '决定报文正文长什么样，可用变量：{{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}（${变量} 与 {{变量}} 等价）',
+      ellipsis: true,
+      tip: 'JSON 报文模板，保存前校验 JSON 与占位符。可用变量：{{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；过滤器链示例 {{title:trim|truncate(20)}}；${var} 等价',
     },
-    { key: 'remark', label: '备注', kind: 'text', maxLength: 50 },
+    { key: 'remark', label: '备注', kind: 'text', width: 200, maxLength: 50, ellipsis: true },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true },
   ],
 };
@@ -251,27 +266,27 @@ const message: EntityConfig = {
     {
       key: 'titleTemplate',
       label: '标题模板',
-      kind: 'textarea',
+      kind: 'template',
       rows: 3,
       maxLength: 150,
       inTable: false,
-      tip: '支持 `{{var}}` / `{{var:json}}`（`${var}` 等价），取消息的 labels 与 annotations；留空用发布方给的标题',
+      tip: '纯文本模板，变量取 labels 与 annotations。直接写 {{var}}，过滤器链示例 {{var:trim|truncate(20)}}、{{var:default(未知)}}；${var} 等价；留空用发布方给的标题',
     },
     {
       key: 'contentTemplate',
       label: '内容模板',
-      kind: 'textarea',
+      kind: 'template',
       rows: 6,
       inTable: false,
-      tip: '留空用发布方给的内容；字符串变量要写 `{{var:json}}` 才会带引号（`${var:json}` 等价）',
+      tip: '纯文本模板。过滤器示例 {{amount:fixed(2)}}、{{phone:mask(3,4)}}、{{createAt:time}}；过滤器链示例 {{var:trim|upper}}；${var} 等价；留空用发布方给的内容',
     },
     {
       key: 'extTemplate',
       label: '附加内容模板',
-      kind: 'textarea',
-      rows: 3,
+      kind: 'jsonTemplate',
+      rows: 4,
       inTable: false,
-      tip: '渲染结果原样下发，格式不约定；`${var}` 与 `{{var}}` 等价',
+      tip: 'JSON 模板（渲染结果原样下发给消费方）。字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；如 {"name": {{userName:json}}, "at": {{createAt:time}}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', inTable: false, maxLength: 50 },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true },
@@ -305,6 +320,8 @@ const messageTarget: EntityConfig = {
       width: 200,
       maxLength: 100,
       searchable: true,
+      allowEmptySubmit: true,
+      emptyLabel: '全部目标',
       tip: '用户 / 角色 / 分组 / 大屏的业务标识；空串表示该类别下的全部目标（大屏这类动态接入的目标只能这么声明）',
     },
   ],
@@ -345,7 +362,7 @@ const delivery: EntityConfig = {
   modalWidth: 860,
   fields: [
     { key: 'title', label: '标题', kind: 'text', width: 220, required: true, searchable: true, maxLength: 150, ellipsis: true },
-    { key: 'eventCode', label: '事件编码', kind: 'text', width: 170, required: true, searchable: true, maxLength: 50 },
+    { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
     {
       key: 'deliverStatus',
       label: '投递状态',
@@ -359,13 +376,13 @@ const delivery: EntityConfig = {
       key: 'businessTriggerMs',
       label: '业务触发时间',
       kind: 'ms',
-      width: 170,
+      width: 180,
       required: true,
       tip: '与 businessId 组成幂等键，必须是业务时刻，不要用服务端当前时间',
     },
-    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 170, required: true, inTable: false, tip: '消息中心收到并开始落库的时刻，服务端时钟' },
-    { key: 'firstReceiveMs', label: '首收时间', kind: 'ms', width: 170, inTable: false, tip: '链路第一跳收到原始事件的时刻，由发布方透传' },
-    { key: 'firstTriggerMs', label: '首次触发时间', kind: 'ms', width: 170, inTable: false },
+    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 180, required: true, inTable: false, tip: '消息中心收到并开始落库的时刻，服务端时钟' },
+    { key: 'firstReceiveMs', label: '首收时间', kind: 'ms', width: 180, inTable: false, tip: '链路第一跳收到原始事件的时刻，由发布方透传' },
+    { key: 'firstTriggerMs', label: '首次触发时间', kind: 'ms', width: 180, inTable: false },
     { key: 'messageId', label: '消息', kind: 'ref', ref: 'message', width: 180, required: true, searchable: true, inTable: false },
     {
       key: 'eventSourceId',
@@ -390,7 +407,7 @@ const delivery: EntityConfig = {
       key: 'businessId',
       label: '业务ID',
       kind: 'u64',
-      width: 170,
+      width: 180,
       required: true,
       searchable: true,
       inTable: false,
@@ -407,6 +424,7 @@ const delivery: EntityConfig = {
       title: '接收延迟',
       key: 'receiveLatency',
       width: 110,
+      align: 'right',
       render: (_, record) => durationMs(record.businessTriggerMs as string, record.receiveMs as string),
     },
   ],
@@ -432,7 +450,17 @@ const deliveryTarget: EntityConfig = {
       required: true,
       searchable: true,
     },
-    { key: 'targetId', label: '目标标识', kind: 'text', width: 200, maxLength: 100, searchable: true },
+    {
+      key: 'targetId',
+      label: '目标标识',
+      kind: 'text',
+      width: 200,
+      maxLength: 100,
+      searchable: true,
+      allowEmptySubmit: true,
+      emptyLabel: '全部目标',
+      tip: '空串表示本次投递按目标类别广播，没有具体目标',
+    },
     {
       key: 'deliverTargetStatus',
       label: '状态',
@@ -491,19 +519,19 @@ const deliveryChannelLog: EntityConfig = {
       searchable: true,
       defaultValue: 0,
     },
-    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 170, required: true, tip: '渠道消费到投递任务、开始发送的时刻，服务端时钟' },
-    { key: 'finishMs', label: '完成时间', kind: 'ms', width: 170 },
+    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 180, required: true, tip: '渠道消费到投递任务、开始发送的时刻，服务端时钟' },
+    { key: 'finishMs', label: '完成时间', kind: 'ms', width: 180 },
     {
       key: 'businessTriggerMs',
       label: '业务触发时间',
       kind: 'ms',
-      width: 170,
+      width: 180,
       required: true,
       inTable: false,
       tip: '与 msg_delivery.business_trigger_ms 同值，用它算端到端耗时',
     },
-    { key: 'firstReceiveMs', label: '首收时间', kind: 'ms', width: 170, inTable: false },
-    { key: 'firstTriggerMs', label: '首次触发时间', kind: 'ms', width: 170, inTable: false },
+    { key: 'firstReceiveMs', label: '首收时间', kind: 'ms', width: 180, inTable: false },
+    { key: 'firstTriggerMs', label: '首次触发时间', kind: 'ms', width: 180, inTable: false },
     { key: 'address', label: '投递地址', kind: 'text', width: 220, maxLength: 80, searchable: true, ellipsis: true },
     { key: 'detail', label: '投递详情', kind: 'json', rows: 6, inTable: false, tip: '失败原因或渠道返回的原始响应' },
   ],
@@ -512,12 +540,14 @@ const deliveryChannelLog: EntityConfig = {
       title: '发送耗时',
       key: 'sendLatency',
       width: 110,
+      align: 'right',
       render: (_, record) => durationMs(record.receiveMs as string, record.finishMs as string),
     },
     {
       title: '端到端耗时',
       key: 'e2eLatency',
       width: 120,
+      align: 'right',
       render: (_, record) => durationMs(record.businessTriggerMs as string, record.finishMs as string),
     },
   ],
@@ -529,7 +559,7 @@ const deadLetter: EntityConfig = {
   path: '/msg/dead-letter',
   name: '死信',
   title: '死信',
-  desc: '重投达到上限后转入 dlq.{subject} 再落库的负载；排查完把「已处理」勾上',
+  desc: '重投达到上限后转入 dlq.<原主题> 再落库的负载；排查完把「已处理」勾上',
   icon: <WarningOutlined />,
   group: 'delivery',
   modalWidth: 820,
@@ -566,7 +596,7 @@ const deliveryQueue: EntityConfig = {
   path: '/msg/delivery-queue',
   name: '投递队列',
   title: '投递队列',
-  desc: '每个渠道一条投递主题，编码固定为 `msg.delivery.{渠道编码}`，服务端会校验前缀与渠道是否存在',
+  desc: '每个渠道一条投递主题，编码固定为 `msg.delivery.<渠道编码>`，服务端会校验前缀与渠道是否存在',
   icon: <BarsOutlined />,
   group: 'queue',
   fields: [

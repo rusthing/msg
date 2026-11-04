@@ -6,7 +6,7 @@
  */
 
 import { Popover, Typography } from 'antd';
-import { prettyJson, truncate } from '../utils/format';
+import { EMPTY, prettyJson, truncate } from '../utils/format';
 
 interface JsonTextProps {
   value?: unknown;
@@ -14,12 +14,12 @@ interface JsonTextProps {
 
 export default function JsonText({ value }: JsonTextProps) {
   if (value === null || value === undefined || value === '') {
-    return <>-</>;
+    return <>{EMPTY}</>;
   }
   const text = String(value);
   return (
     <Popover
-      trigger="hover"
+      trigger={['hover', 'click']}
       mouseEnterDelay={0.25}
       styles={{ body: { maxWidth: 520, maxHeight: 360, overflow: 'auto', padding: 0 } }}
       content={<pre className="msg-json-view">{prettyJson(text)}</pre>}

@@ -8,6 +8,7 @@
 import { Tag } from 'antd';
 import type { DicItem } from '../dic';
 import { dicItem } from '../dic';
+import { EMPTY } from '../utils/format';
 
 interface StatusTagProps {
   /** 字典表 */
@@ -18,7 +19,7 @@ interface StatusTagProps {
 
 export default function StatusTag({ dic, value }: StatusTagProps) {
   if (value === null || value === undefined) {
-    return <Tag>-</Tag>;
+    return <Tag>{EMPTY}</Tag>;
   }
   const item = dicItem(dic, value);
   if (!item) {

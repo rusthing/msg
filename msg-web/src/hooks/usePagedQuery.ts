@@ -97,6 +97,24 @@ export function usePagedQuery<T>(
     };
   }, [filters, pageNum, pageSize, nonce]);
 
+  /**
+   * 删除最后一页数据后页码可能超出总页数，antd 不会自己回退；
+   * 按总条数把页码夹回合法范围，顺便把「总数变 0」的情况拉回第 1 页。
+   */
+  useEffect(() => {
+    if (loading || error) {
+      return;
+    }
+    const total = Number(data.total);
+    if (!Number.isFinite(total)) {
+      return;
+    }
+    const maxPage = Math.max(1, Math.ceil(total / pageSize));
+    if (pageNum > maxPage) {
+      setPageNum(maxPage);
+    }
+  }, [data.total, error, loading, pageNum, pageSize]);
+
   const search = useCallback((next: QueryParams) => {
     setFilters(next);
     setPageNum(1);
