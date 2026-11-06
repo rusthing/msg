@@ -43,6 +43,13 @@ pub fn delivery_topic_channel_code(topic: &str) -> Option<&str> {
 /// 与 `ChannelSender::code` 的取值，三处必须一致。
 pub const MSG_CHANNEL_CODE_WEBSOCKET: &str = "websocket";
 
+/// 定位卡渠道编码
+///
+/// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.locator_card`）
+/// 与 `ChannelSender::code` 的取值，三处必须一致。报文发到 `dtw.card.callback`，
+/// 由 dtw 订阅后写 RabbitMQ `queue_card_callback`（见 channel/locator_card.rs）。
+pub const MSG_CHANNEL_CODE_LOCATOR_CARD: &str = "locator_card";
+
 /// 目标标识的通配值：表示该目标类别下的全部目标
 ///
 /// 大屏这类目标是动态接入的（哪块屏连上来才存在），发布方没法在登记消息时

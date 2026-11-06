@@ -15,6 +15,7 @@
 //! 投递侧（`msg-svr` 发任务的地方）不需要任何改动——它按渠道的投递队列配置
 //! 发到对应主题。
 
+pub mod locator_card;
 pub mod websocket;
 
 use async_trait::async_trait;
@@ -71,7 +72,10 @@ static SENDERS: OnceLock<Vec<Arc<dyn ChannelSender>>> = OnceLock::new();
 ///
 /// 幂等：重复调用不会重复注册（`OnceLock` 只认第一次）。
 pub fn init_senders() {
-    let _ = SENDERS.set(vec![Arc::new(websocket::WebSocketSender)]);
+    let _ = SENDERS.set(vec![
+        Arc::new(websocket::WebSocketSender),
+        Arc::new(locator_card::LocatorCardSender),
+    ]);
 }
 
 /// # 按渠道分发一条任务
