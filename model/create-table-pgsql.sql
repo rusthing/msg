@@ -670,6 +670,7 @@ create table msg_message (
    ext_template         TEXT                 null,
    remark               VARCHAR(50)          null,
    enabled              BOOL                 not null default true,
+   sim_enabled          BOOL                 not null default false,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
@@ -726,6 +727,10 @@ comment on column msg_message.remark is
 
 comment on column msg_message.enabled is
 '启用';
+
+comment on column msg_message.sim_enabled is
+'是否允许模拟通知投递
+默认 false；关闭时带 simulated=true / source=sim 标记的通知会被丢弃';
 
 comment on column msg_message.creater_id is
 '创建者ID';

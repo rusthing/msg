@@ -30,4 +30,10 @@ pub struct MsgMessageDto {
     /// 启用
     #[db_default]
     pub enabled: bool,
+    /// 允许模拟投递
+    ///
+    /// 默认关：关闭时带 `simulated=true` / `source=sim` 标记的通知会在投递前
+    /// 被丢弃，不会发到大屏。只有明确要演示的消息才打开。
+    #[db_default]
+    pub sim_enabled: bool,
 }

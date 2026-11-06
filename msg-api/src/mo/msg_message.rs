@@ -23,6 +23,8 @@ pub struct Model {
     pub ext_template: Option<String>,
     pub remark: Option<String>,
     pub enabled: bool,
+    /// 是否允许模拟通知投递（默认关）
+    pub sim_enabled: bool,
     pub creater_id: i64,
     pub create_ms: i64,
     pub updater_id: i64,

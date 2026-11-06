@@ -24,6 +24,8 @@ pub struct MsgMessageVo {
     pub remark: Option<String>,
     /// 启用
     pub enabled: bool,
+    /// 是否允许模拟通知投递（默认关）
+    pub sim_enabled: bool,
     /// 创建者ID
     pub creater_id: u64,
     /// 创建时间戳

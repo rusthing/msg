@@ -116,6 +116,10 @@ pub struct MessageCache {
     pub name: String,
     /// 是否持久化（如果不持久化，投递将不会保存到数据库）
     pub persisted: bool,
+    /// 是否允许模拟通知投递（默认关）
+    ///
+    /// 关闭时带 `simulated=true` / `source=sim` 标记的消息在投递前被丢弃。
+    pub sim_enabled: bool,
     /// 标题模板（为 null 时用发布方给的标题）
     pub title_template: Option<String>,
     /// 内容模板（为 null 时用发布方给的内容）
@@ -493,6 +497,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
                     event_code: m.event_code,
                     name: m.name,
                     persisted: m.persisted,
+                    sim_enabled: m.sim_enabled,
                     title_template: m.title_template,
                     content_template: m.content_template,
                     ext_template: m.ext_template,

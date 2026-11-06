@@ -2334,6 +2334,21 @@ DAT 1792733861</a:History>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o256">
+<a:ObjectID>7F2C6D34-9A1E-4C55-9B27-6E0D3A18B4F1</a:ObjectID>
+<a:Name>允许模拟投递</a:Name>
+<a:Code>sim_enabled</a:Code>
+<a:CreationDate>1793865600</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793865600</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>是否允许模拟通知投递
+默认 false；关闭时带 simulated=true / source=sim 标记的通知会被丢弃</a:Comment>
+<a:DefaultValue>false</a:DefaultValue>
+<a:DataType>BL</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 <o:EntityAttribute Id="o72">
 <a:ObjectID>65BB5938-C94B-49DC-9CCD-09FF585E4D64</a:ObjectID>
 <a:Name>创建者ID</a:Name>

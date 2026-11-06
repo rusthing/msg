@@ -449,6 +449,10 @@ async fn start_subscription_for_queue(
 /// - `Err(NatsError)`：处理失败；标题/内容为空、持久化消息缺 `business_id` /
 ///   `business_trigger_ms` 时是 `Discard`（配置错误，重投多少次都一样）
 ///
+/// 带模拟标记（`simulated=true` / `source=sim`）的消息在模板查到时先过一道
+/// 门控：`msg_message.sim_enabled = false` 时直接丢弃（`Ok(())`，ACK 掉，不重投），
+/// 不建投递记录、不发渠道、不上大屏。真实通知不带这两个标记，不受影响。
+///
 /// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递；
 /// 只有 `Discard` 是终止性的，直接 ACK 丢弃。
 pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsError> {
@@ -486,6 +490,21 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             message_msg.event_code
         ))
     })?;
+
+    // ── 2.5 模拟通知门控 ──
+    //
+    // 模拟产生的通知只在 `msg_message.sim_enabled` 打开时才允许投递。关闭时
+    // 就地丢弃并 ACK：继续往下走会落投递记录、推渠道（大屏），而模拟数据不该
+    // 出现在生产屏上。真实通知不带 `simulated` / `source=sim` 标记，不受影响。
+    if let Some(marker) = simulated_reason(&message_msg) {
+        if !msg.sim_enabled {
+            warn!(
+                "模拟通知被丢弃: message_id={}, event_code={}, business_id={:?}, 原因=消息未开启「允许模拟投递」（标记 {marker}）",
+                msg.id, msg.event_code, message_msg.business_id
+            );
+            return Ok(());
+        }
+    }
 
     // ── 3. 渲染标题、内容与附加内容 ──
     //
@@ -817,6 +836,32 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     Ok(())
 }
 
+/// # 消息是否带模拟标记
+///
+/// 发布方把模拟标记写在 `labels` / `annotations` 里，两种写法都认：
+/// `simulated=true` 与 `source=sim`。值做去空白、忽略大小写比较；
+/// 同名键以 `labels` 为准（与模板变量取值规则一致）。
+///
+/// 返回命中的标记本身，供日志说明是哪条规则拦下的。
+fn simulated_reason(message_msg: &MessageMsg) -> Option<&'static str> {
+    let matches = |map: &HashMap<String, String>, key: &str, expected: &str| {
+        map.get(key)
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
+    };
+
+    if matches(&message_msg.labels, "simulated", "true")
+        || matches(&message_msg.annotations, "simulated", "true")
+    {
+        return Some("simulated=true");
+    }
+    if matches(&message_msg.labels, "source", "sim")
+        || matches(&message_msg.annotations, "source", "sim")
+    {
+        return Some("source=sim");
+    }
+    None
+}
+
 /// # 把投递记录收口成「全部失败」
 ///
 /// 一个投递任务都没发出去的消息不会有人回写状态，投递记录会永远停在「投递中」
@@ -1065,5 +1110,49 @@ mod tests {
         assert!(is_valid_nats_name(&token));
         assert!(token.len() <= MAX_NAME_TOKEN_LEN + 9, "token={token}");
         assert_ne!(token, nats_name_token(&"b".repeat(60)));
+    }
+
+    /// 模拟标记两种写法都认；真实消息（无标记）不命中
+    #[test]
+    fn simulated_marker_is_recognized() {
+        let message = |labels: &[(&str, &str)], annotations: &[(&str, &str)]| {
+            MessageMsg::builder()
+                .event_code("alarm.region".to_string())
+                .business_id(None)
+                .business_trigger_ms(None)
+                .labels(
+                    labels
+                        .iter()
+                        .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+                        .collect(),
+                )
+                .annotations(
+                    annotations
+                        .iter()
+                        .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+                        .collect(),
+                )
+                .build()
+        };
+
+        assert_eq!(
+            simulated_reason(&message(&[("simulated", "true")], &[])),
+            Some("simulated=true")
+        );
+        assert_eq!(
+            simulated_reason(&message(&[], &[("source", "sim")])),
+            Some("source=sim")
+        );
+        // 值做去空白、忽略大小写比较
+        assert_eq!(
+            simulated_reason(&message(&[("source", " SIM ")], &[])),
+            Some("source=sim")
+        );
+        // 真实通知：没有标记，或者标记不是模拟
+        assert_eq!(simulated_reason(&message(&[], &[])), None);
+        assert_eq!(
+            simulated_reason(&message(&[("simulated", "false")], &[])),
+            None
+        );
     }
 }

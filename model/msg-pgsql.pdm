@@ -5316,6 +5316,21 @@ DAT 1790046262</a:History>
 <a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
+<o:Column Id="o358">
+<a:ObjectID>7F2C6D34-9A1E-4C55-9B27-6E0D3A18B4F1</a:ObjectID>
+<a:Name>允许模拟投递</a:Name>
+<a:Code>sim_enabled</a:Code>
+<a:CreationDate>1793865600</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1793865600</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>是否允许模拟通知投递
+默认 false；关闭时带 simulated=true / source=sim 标记的通知会被丢弃</a:Comment>
+<a:DefaultValue>false</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
 <o:Column Id="o70">
 <a:ObjectID>4371834A-1B41-4ECE-B7C3-5E4AAE9E9F90</a:ObjectID>
 <a:Name>创建者ID</a:Name>
