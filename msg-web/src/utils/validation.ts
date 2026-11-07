@@ -14,6 +14,8 @@
  * - JSON 模板（载荷、附加内容）：在占位符按 JSON 值代入后再校验整体必须是合法 JSON。
  */
 
+import { splitTemplate } from './template-editor.ts';
+
 /** 服务端已注册的过滤器，与 `robotech-template/src/filter.rs` 保持一致 */
 export const TEMPLATE_FILTERS = [
   'json',
@@ -43,6 +45,13 @@ const PLACEHOLDER_RE = /\{\{(\w+)(?::([^{}]*))?\}\}|\$\{(\w+)(?::([^{}]*))?\}/g;
 /** 旧语法 `{key}` / `{key:...}`；`{"k":...}` 这类 JSON 对象不会命中 */
 const LEGACY_RE = /^\{\w+(?::[^{}]*)?\}/;
 
+/** minijinja 首行声明（与 `robotech-template/src/header.rs` 一致：只看第一行、忽略大小写） */
+function isMiniJinja(text: string): boolean {
+  const lineEnd = text.indexOf('\n');
+  const firstLine = (lineEnd === -1 ? text : text.slice(0, lineEnd)).trim();
+  return firstLine.toLowerCase() === '@engine: minijinja';
+}
+
 /** 一次过滤器调用 */
 interface FilterCall {
   name: string;
@@ -61,6 +70,11 @@ function at(index: number): string {
  */
 export function validateTemplate(text: string): string | null {
   if (!text) {
+    return null;
+  }
+
+  // minijinja 的变量、控制流与 RAW 语法由服务端引擎负责，前端不复刻
+  if (isMiniJinja(text)) {
     return null;
   }
 
@@ -218,7 +232,25 @@ export function validateJsonTemplate(text: string): string | null {
     return templateError;
   }
 
-  const sample = text.replace(
+  if (isMiniJinja(text)) {
+    // 去掉控制流/注释，把所有 {{ ... }} 换成 null 后只校验静态 JSON 骨架
+    const body = splitTemplate(text).body;
+    const miniSample = body
+      .replace(/\{%[\s\S]*?%\}/g, '')
+      .replace(/\{#[\s\S]*?#\}/g, '')
+      .replace(/\{\{[\s\S]*?\}\}/g, 'null');
+    try {
+      JSON.parse(miniSample);
+      return null;
+    } catch (reason) {
+      const detail = reason instanceof Error ? reason.message : String(reason);
+      return `JSON 模板不合法（minijinja 占位符代入后无法解析）：${detail}`;
+    }
+  }
+
+  // 首行是引擎声明，不参与 JSON 结构校验
+  const body = splitTemplate(text).body;
+  const sample = body.replace(
     PLACEHOLDER_RE,
     (_whole, keyA: string | undefined, specA: string | undefined, keyB: string | undefined, specB: string | undefined) => {
       const key = keyA ?? keyB ?? '';

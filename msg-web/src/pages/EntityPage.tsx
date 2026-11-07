@@ -50,6 +50,7 @@ import BoolSwitch from '../components/BoolSwitch';
 import JsonEditor from '../components/JsonEditor';
 import JsonText from '../components/JsonText';
 import StatusTag from '../components/StatusTag';
+import TemplateEditor from '../components/TemplateEditor';
 import type { EntityConfig, FieldConfig } from '../entities';
 import { dicOptions } from '../dic';
 import { usePagedQuery } from '../hooks/usePagedQuery';
@@ -118,17 +119,32 @@ function toFormValues(fields: FieldConfig[], record: MsgRow | null): FormValues 
   return values;
 }
 
+/** 提交体的组装选项：区分新增/编辑，并判断用户是否动过某个字段 */
+interface SubmitOptions {
+  isAdd: boolean;
+  isTouched: (key: string) => boolean;
+}
+
 /**
  * # 表单值 → 提交体
  *
+ * - 新增时，`dbDefault` 字段没被用户动过就不提交，交给数据库默认值兜底；
  * - `ms`：Dayjs → 毫秒字符串（`u64`），日期控件清空时不提交；
  * - `bool`：始终提交（`false` 是有意义的值）；
  * - 其余空串/`undefined` 跳过，交给服务端的 `Option` 语义。
  */
-function toSubmitBody(fields: FieldConfig[], values: FormValues): Record<string, unknown> {
+function toSubmitBody(
+  fields: FieldConfig[],
+  values: FormValues,
+  options: SubmitOptions,
+): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   for (const field of fields) {
     if (field.inForm === false) {
+      continue;
+    }
+    // 新增时状态字段保持缺省，让数据库的 DEFAULT 生效；用户改过才提交
+    if (options.isAdd && field.dbDefault && !options.isTouched(field.key)) {
       continue;
     }
     const value = values[field.key];
@@ -341,7 +357,10 @@ export default function EntityPage({ config }: EntityPageProps) {
       return;
     }
 
-    const body = toSubmitBody(config.fields, values);
+    const body = toSubmitBody(config.fields, values, {
+      isAdd: !editing,
+      isTouched: (key) => form.isFieldTouched(key),
+    });
     setSaving(true);
     try {
       if (editing) {
@@ -531,8 +550,6 @@ export default function EntityPage({ config }: EntityPageProps) {
   const renderFormControl = (field: FieldConfig) => {
     switch (field.kind) {
       case 'textarea':
-      case 'template':
-      case 'jsonTemplate':
         return (
           <Input.TextArea
             rows={field.rows ?? 4}
@@ -540,12 +557,21 @@ export default function EntityPage({ config }: EntityPageProps) {
             showCount={field.maxLength !== undefined}
             autoSize={{ minRows: field.rows ?? 4, maxRows: 16 }}
             spellCheck={false}
+            placeholder={`请输入${field.label}`}
+          />
+        );
+      case 'template':
+      case 'jsonTemplate':
+        return (
+          <TemplateEditor
+            rows={field.rows ?? 4}
+            maxLength={field.maxLength}
+            showCount={field.maxLength !== undefined}
+            isJsonTemplate={field.kind === 'jsonTemplate'}
             placeholder={
               field.kind === 'template'
                 ? '示例：{{var}} 或 ${var}'
-                : field.kind === 'jsonTemplate'
-                  ? 'JSON 模板，如 {"key": {{var:json}}}'
-                  : `请输入${field.label}`
+                : 'JSON 模板，如 {"key": {{var:json}}}'
             }
           />
         );
