@@ -6,15 +6,18 @@
  */
 
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { AuthGate } from './auth/AuthGate';
 import { ENTITIES } from './entities';
 import AppLayout from './layouts/AppLayout';
 import Dashboard from './pages/Dashboard';
 import EntityPage from './pages/EntityPage';
+import LoginPage from './pages/login';
 
 export default function App() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
+      <Route path="login" element={<LoginPage />} />
+      <Route element={<AuthGate><AppLayout /></AuthGate>}>
         <Route index element={<Dashboard />} />
         {ENTITIES.map((entity) => (
           /*

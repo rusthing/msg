@@ -17,15 +17,13 @@
  */
 
 import type { PageRx, Ro } from './types';
+import { authHeaders, handleUnauthorized } from '../lib/auth-core';
 
 /** 与 `RoResult::Success` 对应的结果码 */
 const RO_SUCCESS = 1;
 
 /** 接口前缀，生产态留空表示同源 */
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
-
-/** 当前用户ID，接入统一登录后应改为从登录态读取 */
-const USER_ID = import.meta.env.VITE_USER_ID ?? '1';
 
 /** # 查询参数 */
 export type QueryParams = Record<string, string | number | boolean | null | undefined>;
@@ -89,7 +87,7 @@ async function request<T>(
       method,
       headers: {
         'Content-Type': 'application/json',
-        'X-User-Id': USER_ID,
+        ...authHeaders(),
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
@@ -110,6 +108,10 @@ async function request<T>(
   const ro = payload as Ro<T> | undefined;
 
   if (!response.ok) {
+    if (response.status === 401 || ro?.code === 'ADM00005') {
+      // 令牌失效：清本地会话并通知 AuthGate 回到登录页。
+      handleUnauthorized();
+    }
     throw new ApiError(ro?.msg || `HTTP ${response.status} ${response.statusText}`, {
       status: response.status,
       code: ro?.code,
@@ -120,6 +122,7 @@ async function request<T>(
     throw new ApiError('响应格式不符合 Ro 约定', { status: response.status });
   }
   if (ro.result !== RO_SUCCESS) {
+    if (ro.code === 'ADM00005') handleUnauthorized();
     throw new ApiError(ro.msg || '请求失败', {
       result: ro.result,
       code: ro.code,

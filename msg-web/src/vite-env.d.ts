@@ -8,8 +8,10 @@ interface ImportMetaEnv {
   readonly VITE_PUBLIC_BASE?: string;
   /** 开发态代理目标 */
   readonly VITE_PROXY_TARGET?: string;
-  /** 写接口使用的当前用户ID */
-  readonly VITE_USER_ID?: string;
+  /** 认证模式：`required`（缺省）或 `disabled`（仅开发环境免登录） */
+  readonly VITE_AUTH_MODE?: 'required' | 'disabled';
+  /** 认证接口前缀（登录 / me / 登出），如 `/adm` 或 `/admrs-svr/adm` */
+  readonly VITE_AUTH_BASE?: string;
 }
 
 interface ImportMeta {
