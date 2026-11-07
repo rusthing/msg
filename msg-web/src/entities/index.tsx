@@ -103,13 +103,19 @@ export interface FieldConfig {
   tip?: string;
   /** 新增时的默认值 */
   defaultValue?: unknown;
+  /**
+   * 该列在数据库里有 `DEFAULT`（DTO 标了 `#[db_default]`）。
+   *
+   * 新增时若用户没动这个字段，提交体里就不带它，交给数据库默认值兜底；
+   * 用户改过才提交，避免把界面上的初始值当成用户的选择。
+   */
+  dbDefault?: boolean;
   /** 表格里超长省略 */
   ellipsis?: boolean;
   /**
    * 表格里是否用开关直接切换（仅布尔字段有效）
    *
-   * 只给「改了就一件事」的标记位开：启用、已处理。像 `persisted` 这种会改变消息链路
-   * 语义的开关不给，必须进编辑弹窗看一眼上下文。
+   * 状态类标记位只在列表操作，不再进编辑表单：开启、已处理、持久化。
    */
   switchable?: boolean;
 }
@@ -227,7 +233,7 @@ const channel: EntityConfig = {
       tip: 'JSON 报文模板，保存前校验 JSON 与占位符。可用变量：{{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；过滤器链示例 {{title:trim|truncate(20)}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', width: 200, maxLength: 50, ellipsis: true },
-    { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true },
+    { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true, inForm: false },
   ],
 };
 
@@ -262,7 +268,7 @@ const message: EntityConfig = {
     },
     { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
     { key: 'name', label: '名称', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
-    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: true, tip: '不持久化时投递不落库，出问题只能看日志' },
+    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: true, dbDefault: true, switchable: true, inForm: false, tip: '不持久化时投递不落库，出问题只能看日志' },
     {
       key: 'titleTemplate',
       label: '标题模板',
@@ -289,7 +295,7 @@ const message: EntityConfig = {
       tip: 'JSON 模板（渲染结果原样下发给消费方）。字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；如 {"name": {{userName:json}}, "at": {{createAt:time}}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', inTable: false, maxLength: 50 },
-    { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true },
+    { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true, inForm: false },
   ],
 };
 
@@ -371,6 +377,7 @@ const delivery: EntityConfig = {
       width: 120,
       searchable: true,
       defaultValue: 0,
+      inForm: false,
     },
     {
       key: 'businessTriggerMs',
@@ -469,6 +476,7 @@ const deliveryTarget: EntityConfig = {
       width: 120,
       searchable: true,
       defaultValue: 0,
+      inForm: false,
     },
   ],
 };
@@ -493,6 +501,7 @@ const deliveryChannel: EntityConfig = {
       width: 120,
       searchable: true,
       defaultValue: 0,
+      inForm: false,
     },
     { key: 'address', label: '投递地址', kind: 'text', width: 240, maxLength: 80, searchable: true, ellipsis: true },
   ],
@@ -518,6 +527,7 @@ const deliveryChannelLog: EntityConfig = {
       width: 120,
       searchable: true,
       defaultValue: 0,
+      inForm: false,
     },
     { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 180, required: true, tip: '渠道消费到投递任务、开始发送的时刻，服务端时钟' },
     { key: 'finishMs', label: '完成时间', kind: 'ms', width: 180 },
@@ -567,7 +577,7 @@ const deadLetter: EntityConfig = {
     { key: 'subject', label: '原消息主题', kind: 'text', width: 240, required: true, searchable: true, maxLength: 150 },
     { key: 'reason', label: '转入原因', kind: 'textarea', rows: 3, required: true, width: 260, ellipsis: true },
     { key: 'delivered', label: '投递次数', kind: 'u64', width: 110, defaultValue: '0' },
-    { key: 'handled', label: '已处理', kind: 'bool', width: 90, searchable: true, defaultValue: false, switchable: true },
+    { key: 'handled', label: '已处理', kind: 'bool', width: 90, searchable: true, defaultValue: false, switchable: true, inForm: false },
     { key: 'payload', label: '原始负载', kind: 'textarea', rows: 8, required: true, inTable: false },
     { key: 'remark', label: '备注', kind: 'text', maxLength: 50, inTable: false },
   ],
@@ -585,7 +595,7 @@ const messageQueue: EntityConfig = {
   fields: [
     { key: 'code', label: '编码（主题）', kind: 'text', width: 240, required: true, searchable: true, maxLength: 50 },
     { key: 'name', label: '名称', kind: 'text', width: 200, required: true, searchable: true, maxLength: 50 },
-    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: true, tip: '持久化走 JetStream（等 ACK、重启补消费）；不持久化走 Core NATS，发出即不管送达' },
+    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: true, dbDefault: true, switchable: true, inForm: false, tip: '持久化走 JetStream（等 ACK、重启补消费）；不持久化走 Core NATS，发出即不管送达' },
     { key: 'remark', label: '备注', kind: 'text', maxLength: 50 },
   ],
 };
@@ -611,7 +621,7 @@ const deliveryQueue: EntityConfig = {
       tip: '末段必须等于某个渠道编码，渠道编码从主题反解，本表不存渠道 ID',
     },
     { key: 'name', label: '名称', kind: 'text', width: 200, required: true, searchable: true, maxLength: 50 },
-    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: true },
+    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: false, dbDefault: true, switchable: true, inForm: false },
     { key: 'remark', label: '备注', kind: 'text', maxLength: 50 },
   ],
 };
