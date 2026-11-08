@@ -63,7 +63,7 @@ WHERE code = 'msg.delivery.locator';
 
 -- 4. 禁入、禁出消息目标补大屏（target_category_id=4）
 INSERT INTO public.msg_message_target
-    (id, message_id, target_category_id, target_id, deleted, create_ms, updater_id, update_ms)
+    (id, message_id, target_category_id, target_id, creater_id, create_ms, updater_id, update_ms)
 SELECT 1060348598600695830, 3, 4, '', 0, 1794136800000, 0, 1794136800000
 WHERE NOT EXISTS (
     SELECT 1 FROM public.msg_message_target
@@ -72,7 +72,7 @@ WHERE NOT EXISTS (
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.msg_message_target
-    (id, message_id, target_category_id, target_id, deleted, create_ms, updater_id, update_ms)
+    (id, message_id, target_category_id, target_id, creater_id, create_ms, updater_id, update_ms)
 SELECT 1060348598600695831, 4, 4, '', 0, 1794136800000, 0, 1794136800000
 WHERE NOT EXISTS (
     SELECT 1 FROM public.msg_message_target
