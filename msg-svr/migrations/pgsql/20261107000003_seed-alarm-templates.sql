@@ -25,55 +25,55 @@
 -- 这里按报警载荷结构写，供大屏/前端直接消费。
 
 UPDATE public.msg_message
-SET title = '区域禁入报警：{{regionName:default(未知区域)}}',
-    content = '人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人）进入禁入区域 {{regionName:default(未知区域)}}；当前所在区域 {{currentRegionId:default(无)}}；触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域禁入报警：{{regionName:default(未知区域)}}',
+    content_template = '人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人）进入禁入区域 {{regionName:default(未知区域)}}；当前所在区域 {{currentRegionId:default(无)}}；触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.enter.forbidden';
 
 UPDATE public.msg_message
-SET title = '区域禁出报警：{{regionName:default(未知区域)}}',
-    content = '人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人）离开禁出区域 {{regionName:default(未知区域)}}；当前所在区域 {{currentRegionId:default(无)}}；触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域禁出报警：{{regionName:default(未知区域)}}',
+    content_template = '人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人）离开禁出区域 {{regionName:default(未知区域)}}；当前所在区域 {{currentRegionId:default(无)}}；触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.exit.forbidden';
 
 UPDATE public.msg_message
-SET title = '区域静止报警：{{regionName:default(未知区域)}}',
-    content = '人员 {{locatorCode}} 在区域 {{regionName:default(未知区域)}} 静止超过 {{durationMs:default(0)}}ms（允许漂移 {{radiusM:default(0)}}m）；触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"durationMs":{{durationMs:default(0)}},"radiusM":{{radiusM:default(0)}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域静止报警：{{regionName:default(未知区域)}}',
+    content_template = '人员 {{locatorCode}} 在区域 {{regionName:default(未知区域)}} 静止超过 {{durationMs:default(0)}}ms（允许漂移 {{radiusM:default(0)}}m）；触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"durationMs":{{durationMs:default(0)}},"radiusM":{{radiusM:default(0)}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.static';
 
 UPDATE public.msg_message
-SET title = '区域滞留报警：{{regionName:default(未知区域)}}',
-    content = '人员 {{locatorCode}} 在区域 {{regionName:default(未知区域)}} 滞留超过 {{durationMs:default(0)}}ms；触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"durationMs":{{durationMs:default(0)}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域滞留报警：{{regionName:default(未知区域)}}',
+    content_template = '人员 {{locatorCode}} 在区域 {{regionName:default(未知区域)}} 滞留超过 {{durationMs:default(0)}}ms；触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"durationMs":{{durationMs:default(0)}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.dwell';
 
 UPDATE public.msg_message
-SET title = '区域人员聚集报警：{{regionName:default(未知区域)}}',
-    content = '区域 {{regionName:default(未知区域)}} 聚集人数 {{count:default(0)}} 人（档位 {{gatherLevel:default(未知)}}，半径 {{radiusM:default(0)}}m，持续 {{durationMs:default(0)}}ms）；聚集中心 {{clusterCenter:default(未知)}}；涉及人员 {{personCount:default(0)}} 人（{{personIds:default(无)}}）；触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"count":{{count:default(0)}},"gatherLevel":{{gatherLevel:json}},"radiusM":{{radiusM:default(0)}},"durationMs":{{durationMs:default(0)}},"clusterCenter":{{clusterCenter:json}},"personCount":{{personCount:default(0)}},"personIds":{{personIds:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域人员聚集报警：{{regionName:default(未知区域)}}',
+    content_template = '区域 {{regionName:default(未知区域)}} 聚集人数 {{count:default(0)}} 人（档位 {{gatherLevel:default(未知)}}，半径 {{radiusM:default(0)}}m，持续 {{durationMs:default(0)}}ms）；聚集中心 {{clusterCenter:default(未知)}}；涉及人员 {{personCount:default(0)}} 人（{{personIds:default(无)}}）；触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"count":{{count:default(0)}},"gatherLevel":{{gatherLevel:json}},"radiusM":{{radiusM:default(0)}},"durationMs":{{durationMs:default(0)}},"clusterCenter":{{clusterCenter:json}},"personCount":{{personCount:default(0)}},"personIds":{{personIds:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.gather';
 
 UPDATE public.msg_message
-SET title = '区域超员报警：{{regionName:default(未知区域)}}',
-    content = '区域 {{regionName:default(未知区域)}} 当前 {{count:default(0)}} 人，超过上限 {{limit:default(未配置)}} 人；涉及人员 {{personCount:default(0)}} 人（{{personIds:default(无)}}）；触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"count":{{count:default(0)}},"limit":{{limit:default(0)}},"personCount":{{personCount:default(0)}},"personIds":{{personIds:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域超员报警：{{regionName:default(未知区域)}}',
+    content_template = '区域 {{regionName:default(未知区域)}} 当前 {{count:default(0)}} 人，超过上限 {{limit:default(未配置)}} 人；涉及人员 {{personCount:default(0)}} 人（{{personIds:default(无)}}）；触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"count":{{count:default(0)}},"limit":{{limit:default(0)}},"personCount":{{personCount:default(0)}},"personIds":{{personIds:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.overcrowd';
 
 UPDATE public.msg_message
-SET title = '区域缺员报警：{{regionName:default(未知区域)}}',
-    content = '区域 {{regionName:default(未知区域)}} 当前 {{count:default(0)}} 人，低于下限 {{limit:default(未配置)}} 人；名单缺席 {{rosterAbsent:default(false)}}；涉及人员 {{personCount:default(0)}} 人（{{personIds:default(无)}}）；触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"count":{{count:default(0)}},"limit":{{limit:default(0)}},"rosterAbsent":{{rosterAbsent:default(false)}},"personCount":{{personCount:default(0)}},"personIds":{{personIds:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域缺员报警：{{regionName:default(未知区域)}}',
+    content_template = '区域 {{regionName:default(未知区域)}} 当前 {{count:default(0)}} 人，低于下限 {{limit:default(未配置)}} 人；名单缺席 {{rosterAbsent:default(false)}}；涉及人员 {{personCount:default(0)}} 人（{{personIds:default(无)}}）；触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"count":{{count:default(0)}},"limit":{{limit:default(0)}},"rosterAbsent":{{rosterAbsent:default(false)}},"personCount":{{personCount:default(0)}},"personIds":{{personIds:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.undercrowd';
 
 UPDATE public.msg_message
-SET title = '区域禁入超时升级告警：{{regionName:default(未知区域)}}',
-    content = '禁入报警超过 30 秒未消警，已升级为严重级；区域 {{regionName:default(未知区域)}}，人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人），当前所在区域 {{currentRegionId:default(无)}}，首次触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域禁入超时升级告警：{{regionName:default(未知区域)}}',
+    content_template = '禁入报警超过 30 秒未消警，已升级为严重级；区域 {{regionName:default(未知区域)}}，人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人），当前所在区域 {{currentRegionId:default(无)}}，首次触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.enter.forbidden.escalated';
 
 UPDATE public.msg_message
-SET title = '区域禁出超时升级告警：{{regionName:default(未知区域)}}',
-    content = '禁出报警超过 30 秒未消警，已升级为严重级；区域 {{regionName:default(未知区域)}}，人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人），当前所在区域 {{currentRegionId:default(无)}}，首次触发时间 {{triggerTimestamp:default(未知)}}',
-    ext = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
+SET title_template = '区域禁出超时升级告警：{{regionName:default(未知区域)}}',
+    content_template = '禁出报警超过 30 秒未消警，已升级为严重级；区域 {{regionName:default(未知区域)}}，人员 {{locatorCode}}（共 {{cardCount:default(1)}} 人），当前所在区域 {{currentRegionId:default(无)}}，首次触发时间 {{triggerTimestamp:default(未知)}}',
+    ext_template = '{"eventCode":{{eventCode:json}},"regionId":{{regionId:default(0)}},"regionName":{{regionName:json}},"locatorCode":{{locatorCode:json}},"locatorCodes":{{locatorCodes:json}},"cardCount":{{cardCount:default(1)}},"currentRegionId":{{currentRegionId:json}},"triggerTimestamp":{{triggerTimestamp:default(0)}}}'
 WHERE event_code = 'alarm.dtw.region.exit.forbidden.escalated';
