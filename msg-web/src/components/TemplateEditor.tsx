@@ -12,7 +12,8 @@
  * 不同的是下面的等宽字体类名。
  */
 
-import { Button, Select, Tag, Typography } from 'antd';
+import { Button, Tag, Typography } from 'antd';
+import OptionButtons from './OptionButtons';
 import { useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ChangeEvent } from 'react';
 import {
@@ -139,13 +140,14 @@ export default function TemplateEditor({
         <Typography.Text strong style={{ fontSize: 12 }}>
           模板类型
         </Typography.Text>
-        <Select
-          size="small"
+        <OptionButtons
+          ariaLabel="模板类型"
           value={parts.engine}
           disabled={readOnly}
-          onChange={(next) => emit(next, parts.body)}
+          onChange={(next) => {
+            if (next !== undefined) emit(next, parts.body);
+          }}
           options={options.map((item) => ({ value: item.value, label: item.label }))}
-          style={{ width: 250 }}
         />
         <Tag
           className={MONO_CLASS}

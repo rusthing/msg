@@ -49,6 +49,7 @@ import type { Row as MsgRow } from '../api/types';
 import BoolSwitch from '../components/BoolSwitch';
 import JsonEditor from '../components/JsonEditor';
 import JsonText from '../components/JsonText';
+import OptionButtons from '../components/OptionButtons';
 import StatusTag from '../components/StatusTag';
 import TemplateEditor from '../components/TemplateEditor';
 import type { EntityConfig, FieldConfig } from '../entities';
@@ -499,11 +500,30 @@ export default function EntityPage({ config }: EntityPageProps) {
     const common = { allowClear: true, className: 'msg-filter-control', placeholder: field.label };
 
     if (field.kind === 'dic') {
+      const options = dicOptions(field.dic ?? []);
+      // 规范：0–1 个选项不渲染选择控件，2–5 个用按钮组，≥6 个仍用下拉。
+      if (options.length <= 1) {
+        return <span className="msg-filter-static">{options[0]?.label ?? '无'}</span>;
+      }
+      if (options.length <= 5) {
+        return (
+          <div className="msg-filter-group">
+            <span className="msg-filter-label">{field.label}</span>
+            <OptionButtons
+              allowClear
+              ariaLabel={field.label}
+              value={value as number | undefined}
+              options={options}
+              onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+            />
+          </div>
+        );
+      }
       return (
         <Select
           {...common}
           value={value as number | undefined}
-          options={dicOptions(field.dic ?? [])}
+          options={options}
           onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
         />
       );
@@ -524,15 +544,19 @@ export default function EntityPage({ config }: EntityPageProps) {
     }
     if (field.kind === 'bool') {
       return (
-        <Select
-          {...common}
-          value={value === undefined ? undefined : String(value)}
-          options={[
-            { value: 'true', label: '是' },
-            { value: 'false', label: '否' },
-          ]}
-          onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
-        />
+        <div className="msg-filter-group">
+          <span className="msg-filter-label">{field.label}</span>
+          <OptionButtons
+            allowClear
+            ariaLabel={field.label}
+            value={value === undefined ? undefined : String(value)}
+            options={[
+              { value: 'true', label: '是' },
+              { value: 'false', label: '否' },
+            ]}
+            onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+          />
+        </div>
       );
     }
     return (
@@ -588,8 +612,16 @@ export default function EntityPage({ config }: EntityPageProps) {
         );
       case 'bool':
         return <Switch checkedChildren="是" unCheckedChildren="否" />;
-      case 'dic':
-        return <Select options={dicOptions(field.dic ?? [])} placeholder={`请选择${field.label}`} />;
+      case 'dic': {
+        const options = dicOptions(field.dic ?? []);
+        if (options.length <= 1) {
+          return <span>{options[0]?.label ?? '无'}</span>;
+        }
+        if (options.length <= 5) {
+          return <OptionButtons ariaLabel={field.label} options={options} onChange={() => undefined} />;
+        }
+        return <Select options={options} placeholder={`请选择${field.label}`} />;
+      }
       case 'ref': {
         const ref = field.ref ? refOptions[field.ref] : undefined;
         return (
