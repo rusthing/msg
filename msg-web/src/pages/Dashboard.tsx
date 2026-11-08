@@ -173,7 +173,14 @@ export default function Dashboard() {
       dataIndex: 'title',
       width: 140,
       ellipsis: true,
-      render: (value: string) => orDash(value),
+      render: (value: string, record) => (
+        <span className="msg-cell-with-tag">
+          <span className="msg-cell-ellipsis" title={value}>
+            {orDash(value)}
+          </span>
+          {record.simulated && <Tag color="orange">模拟</Tag>}
+        </span>
+      ),
     },
     { title: '事件编码', dataIndex: 'eventCode', width: 120, ellipsis: true },
     {
@@ -192,7 +199,20 @@ export default function Dashboard() {
   ];
 
   const deadColumns: ColumnsType<MsgDeadLetterVo> = [
-    { title: '原消息主题', dataIndex: 'subject', width: 140, ellipsis: true },
+    {
+      title: '原消息主题',
+      dataIndex: 'subject',
+      width: 140,
+      ellipsis: true,
+      render: (value: string, record) => (
+        <span className="msg-cell-with-tag">
+          <span className="msg-cell-ellipsis" title={value}>
+            {orDash(value)}
+          </span>
+          {record.simulated && <Tag color="orange">模拟</Tag>}
+        </span>
+      ),
+    },
     {
       title: '转入原因',
       dataIndex: 'reason',
@@ -211,7 +231,8 @@ export default function Dashboard() {
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div className="msg-page-bar">
         <Typography.Text type="secondary">
-          统计口径：直接读各表行数；失败取 `deliverStatus = 3`（全部目标都失败），死信取未勾选「已处理」
+          统计口径：直接读各表行数；失败取 `deliverStatus = 3`（全部目标都失败），死信取未勾选「已处理」；
+          投递、失败与死信三项均排除模拟数据（`simulated = true`），下方明细仍照常显示并带「模拟」标记
         </Typography.Text>
         <Button
           className="msg-page-bar-action"

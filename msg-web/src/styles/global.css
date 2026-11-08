@@ -271,6 +271,27 @@ input[type='color']:not(:disabled) {
   white-space: nowrap;
 }
 
+/* 单元格内「文本 + 小标签」：文本占满剩余宽度并省略，标签不换行、不压缩 */
+.msg-cell-with-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.msg-cell-with-tag .msg-cell-ellipsis {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-cell-with-tag .ant-tag {
+  flex: none;
+  margin-inline-end: 0;
+}
+
 .msg-break {
   word-break: break-all;
 }
