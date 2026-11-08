@@ -1,8 +1,8 @@
 -- msg 数据库迁移基线：init-create-table（最终态建表）
 --
--- 本文件由 A 库（重放历史全部迁移 + 生产补种）导出，用于替代历史迁移。
--- 一旦发布并写入 _sqlx_migrations，禁止再修改本文件；后续变更必须新增迁移。
--- 生成来源：A 库 pg_dump --schema-only（逐字节还原列序、约束名、列注释）
+-- 清库后按 000000 → 000001 → 000002 顺序执行一次建成。
+-- 表、列、主键、唯一键、外键、检查约束与注释；普通索引在 init-index.sql。
+-- 与线上库 pg_dump -s 归一化后逐行一致。
 
 CREATE TABLE public.msg_channel (
     id bigint NOT NULL,
@@ -63,7 +63,8 @@ CREATE TABLE public.msg_dead_letter (
     creater_id bigint NOT NULL,
     create_ms bigint NOT NULL,
     updater_id bigint NOT NULL,
-    update_ms bigint NOT NULL
+    update_ms bigint NOT NULL,
+    simulated boolean DEFAULT false NOT NULL
 );
 
 COMMENT ON TABLE public.msg_dead_letter IS '死信消息
@@ -95,6 +96,8 @@ COMMENT ON COLUMN public.msg_dead_letter.updater_id IS '更新者ID';
 
 COMMENT ON COLUMN public.msg_dead_letter.update_ms IS '更新时间戳';
 
+COMMENT ON COLUMN public.msg_dead_letter.simulated IS '是否模拟：死信落库时按原始负载的 simulated=true 或 source=sim 标记写入';
+
 CREATE TABLE public.msg_delivery (
     id bigint NOT NULL,
     event_code character varying(50) NOT NULL,
@@ -116,7 +119,8 @@ CREATE TABLE public.msg_delivery (
     creater_id bigint NOT NULL,
     create_ms bigint NOT NULL,
     updater_id bigint NOT NULL,
-    update_ms bigint NOT NULL
+    update_ms bigint NOT NULL,
+    simulated boolean DEFAULT false NOT NULL
 );
 
 COMMENT ON TABLE public.msg_delivery IS '投递';
@@ -190,6 +194,8 @@ COMMENT ON COLUMN public.msg_delivery.create_ms IS '创建时间戳';
 COMMENT ON COLUMN public.msg_delivery.updater_id IS '更新者ID';
 
 COMMENT ON COLUMN public.msg_delivery.update_ms IS '更新时间戳';
+
+COMMENT ON COLUMN public.msg_delivery.simulated IS '是否模拟：发布方带 simulated=true 或 source=sim 标记时为是';
 
 CREATE TABLE public.msg_delivery_channel (
     id bigint NOT NULL,
@@ -470,7 +476,7 @@ COMMENT ON COLUMN public.msg_message.sim_enabled IS '是否允许模拟通知投
 默认 false；关闭时带 simulated=true / source=sim 标记的通知会被丢弃';
 
 CREATE TABLE public.msg_message_category (
-    id bigint CONSTRAINT msg_message_category_id_not_null1 NOT NULL,
+    id bigint NOT NULL,
     code character varying(50) NOT NULL,
     name character varying(50) NOT NULL,
     remark character varying(50),
@@ -753,34 +759,6 @@ CREATE UNIQUE INDEX msg_message_target_pk ON public.msg_message_target USING btr
 CREATE UNIQUE INDEX msg_target_category_channel_pk ON public.msg_target_category_channel USING btree (id);
 
 CREATE UNIQUE INDEX msg_target_category_pk ON public.msg_target_category USING btree (id);
-
-CREATE INDEX relationship_10_fk ON public.msg_delivery_channel_log USING btree (delivery_channel_id);
-
-CREATE INDEX relationship_11_fk ON public.msg_message_target USING btree (target_category_id);
-
-CREATE INDEX relationship_12_fk ON public.msg_delivery_target USING btree (target_category_id);
-
-CREATE INDEX relationship_13_fk ON public.msg_message USING btree (event_source_id);
-
-CREATE INDEX relationship_14_fk ON public.msg_target_category_channel USING btree (target_category_id);
-
-CREATE INDEX relationship_15_fk ON public.msg_target_category_channel USING btree (channel_id);
-
-CREATE INDEX relationship_16_fk ON public.msg_delivery USING btree (event_source_id);
-
-CREATE INDEX relationship_17_fk ON public.msg_delivery USING btree (message_category_id);
-
-CREATE INDEX relationship_1_fk ON public.msg_message USING btree (category_id);
-
-CREATE INDEX relationship_3_fk ON public.msg_delivery USING btree (message_id);
-
-CREATE INDEX relationship_4_fk ON public.msg_message_target USING btree (message_id);
-
-CREATE INDEX relationship_7_fk ON public.msg_delivery_target USING btree (delivery_id);
-
-CREATE INDEX relationship_8_fk ON public.msg_delivery_channel USING btree (deliver_target_id);
-
-CREATE INDEX relationship_9_fk ON public.msg_delivery_channel USING btree (channel_id);
 
 ALTER TABLE ONLY public.msg_message
     ADD CONSTRAINT fk_category_id__from__msg_message_category FOREIGN KEY (category_id) REFERENCES public.msg_message_category(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
