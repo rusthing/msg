@@ -32,6 +32,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub ext: Option<String>,
     pub remark: Option<String>,
+    pub simulated: bool,
     pub creater_id: i64,
     pub create_ms: i64,
     pub updater_id: i64,

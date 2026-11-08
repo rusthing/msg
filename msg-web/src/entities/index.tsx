@@ -380,6 +380,15 @@ const delivery: EntityConfig = {
       inForm: false,
     },
     {
+      key: 'simulated',
+      label: '模拟',
+      kind: 'bool',
+      width: 90,
+      searchable: true,
+      inForm: false,
+      tip: '发布方带 simulated=true 或 source=sim 标记时为是',
+    },
+    {
       key: 'businessTriggerMs',
       label: '业务触发时间',
       kind: 'ms',

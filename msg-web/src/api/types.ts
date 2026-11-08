@@ -174,6 +174,8 @@ export interface MsgDeliveryVo extends AuditFields {
   content: string;
   ext?: string;
   remark?: string;
+  /** 是否模拟：发布方带 simulated=true 或 source=sim 标记时为是 */
+  simulated: boolean;
 }
 
 /** # 投递目标 */

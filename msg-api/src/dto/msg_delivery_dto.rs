@@ -43,4 +43,7 @@ pub struct MsgDeliveryDto {
     /// 备注
     /// @len 0..=50
     pub remark: Option<String>,
+    /// 是否模拟（发布方带 simulated=true 或 source=sim 标记时为是）
+    #[db_default]
+    pub simulated: bool,
 }

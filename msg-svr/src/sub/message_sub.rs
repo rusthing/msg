@@ -655,6 +655,8 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         content: Some(content.clone()),
         ext: Some(ext.clone()),
         remark: None,
+        // 与 2.5 的模拟门控复用同一套标记识别，避免两处判定口径漂移
+        simulated: Some(simulated_reason(&message_msg).is_some()),
         // 审计列写真实落库时刻，不是 `now_ms`：那是「收到消息」的业务时刻，
         // 拿它回填会让 `create_ms` 与 `receive_ms` 恒等，渲染 + 写库的耗时
         // 就从库里消失了

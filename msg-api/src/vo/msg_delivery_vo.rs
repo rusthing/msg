@@ -37,6 +37,8 @@ pub struct MsgDeliveryVo {
     pub ext: Option<String>,
     /// 备注
     pub remark: Option<String>,
+    /// 是否模拟（发布方带 simulated=true 或 source=sim 标记时为是）
+    pub simulated: bool,
     /// 创建者ID
     pub creater_id: u64,
     /// 创建时间戳

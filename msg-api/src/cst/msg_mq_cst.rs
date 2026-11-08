@@ -45,10 +45,10 @@ pub const MSG_CHANNEL_CODE_WEBSOCKET: &str = "websocket";
 
 /// 定位卡渠道编码
 ///
-/// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.locator_card`）
+/// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.locator`）
 /// 与 `ChannelSender::code` 的取值，三处必须一致。报文发到 `dtw.card.callback`，
 /// 由 dtw 订阅后写 RabbitMQ `queue_card_callback`（见 channel/locator_card.rs）。
-pub const MSG_CHANNEL_CODE_LOCATOR_CARD: &str = "locator_card";
+pub const MSG_CHANNEL_CODE_LOCATOR_CARD: &str = "locator";
 
 /// 目标标识的通配值：表示该目标类别下的全部目标
 ///

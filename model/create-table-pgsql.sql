@@ -163,6 +163,7 @@ create table msg_delivery (
    content              TEXT                 not null,
    ext                  TEXT                 null,
    remark               VARCHAR(50)          null,
+   simulated            BOOL                 not null default false,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
@@ -252,6 +253,9 @@ comment on column msg_delivery.ext is
 comment on column msg_delivery.remark is
 '备注
 @len 0..=50';
+
+comment on column msg_delivery.simulated is
+'是否模拟：发布方带 simulated=true 或 source=sim 标记时为是';
 
 comment on column msg_delivery.creater_id is
 '创建者ID';

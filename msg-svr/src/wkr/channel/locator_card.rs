@@ -5,7 +5,7 @@
 //! 懋特下行协议要求第三方平台往 RabbitMQ 队列 `queue_card_callback` 发
 //! `{"deviceId","code":0,"message"}` 让卡片红蓝双灯同时震动。RabbitMQ 连接归
 //! dtw 持有（契约 §1），msg-svr 不引入 RabbitMQ 依赖：这里只把投递任务转成一条
-//! Core NATS 广播到 **`dtw.card.callback`**，由 dtw 订阅后写那个队列。
+//! Core NATS 消息发到 **`dtw.card.callback`**，由 dtw 订阅后写那个队列。
 //!
 //! ## 字段从哪来
 //!
@@ -55,7 +55,7 @@ impl ChannelSender for LocatorCardSender {
             message: &message,
         };
 
-        // Core NATS：广播、不持久化（false），与投递队列 persisted=false 对齐
+        // Core NATS：at-most-once；投递任务已由 JetStream 队列组保证单实例消费
         match nats::publish(CARD_CALLBACK_SUBJECT, &payload, false).await {
             Ok(_) => {
                 debug!(
@@ -115,7 +115,7 @@ mod tests {
             delivery_id: None,
             delivery_target_id: None,
             delivery_channel_id: None,
-            event_code: "alarm.dtw.region.enter.forbidden".to_string(),
+            event_code: "alarm.dtw.enter".to_string(),
             message_id: 7,
             event_source_id: 3,
             message_category_id: 5,
@@ -127,18 +127,18 @@ mod tests {
             content: "定位卡 C001 进入禁入区域".to_string(),
             ext: None,
             create_ms: 1_700_000_000_000,
-            target_category_code: "locator_card".to_string(),
+            target_category_code: "locator".to_string(),
             target_category_id: 11,
             target_id: String::new(),
             channel_id: 2,
-            channel_code: "locator_card".to_string(),
+            channel_code: "locator".to_string(),
         }
     }
 
     /// 渠道编码与 cst、msg_channel.code、投递队列末段一致
     #[test]
-    fn code_is_locator_card() {
-        assert_eq!(LocatorCardSender.code(), "locator_card");
+    fn code_is_locator() {
+        assert_eq!(LocatorCardSender.code(), "locator");
     }
 
     /// 空 target_id 落成广播码

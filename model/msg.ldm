@@ -3211,6 +3211,21 @@ DAT 1792733861</a:History>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o9601">
+<a:ObjectID>7A4C9E1D-2B3F-4C5A-9D6E-8F0A1B2C3D4E</a:ObjectID>
+<a:Name>是否模拟</a:Name>
+<a:Code>simulated</a:Code>
+<a:CreationDate>1794136800</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1794136800</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>是否模拟：发布方带 simulated=true 或 source=sim 标记时为是
+@default false</a:Comment>
+<a:DefaultValue>false</a:DefaultValue>
+<a:DataType>BL</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 <o:EntityAttribute Id="o114">
 <a:ObjectID>4632D51A-A0F3-498F-BE7B-889DB9430444</a:ObjectID>
 <a:Name>创建者ID</a:Name>

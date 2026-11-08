@@ -28,7 +28,7 @@ fn message_dto(name: String, content_template: String) -> MsgMessageAddDto {
     MsgMessageAddDto {
         event_source_id: Some(U64(1)),
         category_id: Some(U64(2)),
-        event_code: Some("dtw.position.updated".to_string()),
+        event_code: Some("telemetry.dtw.position.updated".to_string()),
         name: Some(name),
         content_template: Some(Some(content_template)),
         _current_user_id: U64(0),

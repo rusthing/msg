@@ -13,6 +13,11 @@
  * 失败是**投递结论**（`deliverStatus = 3` 表示这条消息的所有目标都发失败了），死信是
  * **链路层面的放弃**（重投到上限才进死信）。一条消息可以「部分目标成功」而不算失败，
  * 也可能因为 NATS 层就投不出去而直接进死信、压根没有投递记录，两者不互相包含。
+ *
+ * ## 模拟数据不计入统计
+ *
+ * 投递计数与失败计数都带 `simulated = false`：模拟消息只用于联调，不能进健康度。
+ * 明细列表（最近失败、未处理死信）仍然正常显示，模拟投递在投递记录列表里带「模拟」标记。
  */
 
 import { Alert, Button, Card, Col, Row, Space, Table, Tag, Typography } from 'antd';
@@ -119,8 +124,8 @@ export default function Dashboard() {
       countOf(entityOf('message-category')!.path),
       countOf(entityOf('channel')!.path),
       countOf(entityOf('message')!.path),
-      countOf(delivery),
-      countOf(delivery, { deliverStatus: 3 }),
+      countOf(delivery, { simulated: false }),
+      countOf(delivery, { deliverStatus: 3, simulated: false }),
       countOf(deadLetter, { handled: false }),
       countOf(entityOf('message-queue')!.path),
       countOf(entityOf('delivery-queue')!.path),
