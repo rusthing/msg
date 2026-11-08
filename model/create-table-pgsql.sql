@@ -87,6 +87,7 @@ create table msg_dead_letter (
    delivered            INT8                 not null default 0,
    handled              BOOL                 not null default false,
    remark               VARCHAR(50)          null,
+   simulated            BOOL                 not null default false,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
@@ -122,6 +123,9 @@ comment on column msg_dead_letter.handled is
 comment on column msg_dead_letter.remark is
 '备注
 @len 0..=50';
+
+comment on column msg_dead_letter.simulated is
+'是否模拟：死信落库时按原始负载的 simulated=true 或 source=sim 标记写入';
 
 comment on column msg_dead_letter.creater_id is
 '创建者ID';

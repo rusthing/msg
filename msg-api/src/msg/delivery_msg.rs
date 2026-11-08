@@ -9,7 +9,8 @@
 //!
 //! - 消息内容：`msg_delivery` 的 `event_code` / `message_id` / `event_source_id` /
 //!   `message_category_id` / `business_id` / `business_trigger_ms` /
-//!   `first_trigger_ms` / `first_receive_ms` / `title` / `content` / `ext` / `create_ms`；
+//!   `first_trigger_ms` / `first_receive_ms` / `title` / `content` / `ext` / `create_ms` /
+//!   `simulated`；
 //! - 投递目标：`msg_delivery_target` 的 `target_category_id` / `target_id`，
 //!   外加 `msg_target_category.code`（消费方按类别编码决定发不发）；
 //! - 投递渠道：`msg_delivery_channel` 的 `channel_id`，外加 `msg_channel.code`
@@ -116,6 +117,13 @@ pub struct DeliveryMsg {
     pub ext: Option<String>,
     /// 消息创建时间戳（毫秒，`msg_delivery.create_ms`）
     pub create_ms: u64,
+
+    /// 是否模拟（原始消息带 `simulated=true` / `source=sim` 标记）
+    ///
+    /// 与 `msg_delivery.simulated` 同值。投递任务失败进死信时，死信表靠它
+    /// 记录模拟性质——死信没有外键，不能等落库后再关联投递记录推断。
+    #[serde(default)]
+    pub simulated: bool,
 
     /// 投递目标类别编码（`msg_target_category.code`）
     ///

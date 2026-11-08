@@ -127,6 +127,7 @@ mod tests {
             content: "定位卡 C001 进入禁入区域".to_string(),
             ext: None,
             create_ms: 1_700_000_000_000,
+            simulated: false,
             target_category_code: "locator".to_string(),
             target_category_id: 11,
             target_id: String::new(),

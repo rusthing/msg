@@ -9380,6 +9380,22 @@ DAT 1792298241</a:History>
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
 </o:Column>
+<o:Column Id="o9606">
+<a:ObjectID>C2D3E4F5-A6B7-4C8D-9E0F-1A2B3C4D5E6F</a:ObjectID>
+<a:Name>是否模拟</a:Name>
+<a:Code>simulated</a:Code>
+<a:CreationDate>1794136800</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1794136800</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>是否模拟：死信落库时按原始负载的 simulated=true 或 source=sim 标记写入</a:Comment>
+<a:History>ORG {B1F2C3D4-E5A6-4B7C-8D9E-0F1A2B3C4D5E}
+DAT 1794136800</a:History>
+<a:DefaultValue>false</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
 <o:Column Id="o303">
 <a:ObjectID>B47E687C-5587-4717-B6BF-56819197E560</a:ObjectID>
 <a:Name>创建者ID</a:Name>

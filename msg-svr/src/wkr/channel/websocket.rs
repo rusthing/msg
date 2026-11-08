@@ -281,6 +281,7 @@ mod tests {
             content: r#"{"text":"1F 东侧","lon":113.9,"lat":22.5}"#.to_string(),
             ext: None,
             create_ms: 1_700_000_000_000,
+            simulated: false,
             target_category_code: "screen".to_string(),
             target_category_id: 11,
             // 空串 = 该类别下的全部目标（按类别广播）

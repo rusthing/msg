@@ -16,8 +16,9 @@
  *
  * ## 模拟数据不计入统计
  *
- * 投递计数与失败计数都带 `simulated = false`：模拟消息只用于联调，不能进健康度。
- * 明细列表（最近失败、未处理死信）仍然正常显示，模拟投递在投递记录列表里带「模拟」标记。
+ * 投递计数、失败计数与未处理死信计数都带 `simulated = false`：模拟消息只用于联调，
+ * 不能进健康度。明细列表（最近失败、未处理死信）仍然正常显示，模拟投递/死信在各自的
+ * 明细列表里带「模拟」标记。
  */
 
 import { Alert, Button, Card, Col, Row, Space, Table, Tag, Typography } from 'antd';
@@ -126,7 +127,7 @@ export default function Dashboard() {
       countOf(entityOf('message')!.path),
       countOf(delivery, { simulated: false }),
       countOf(delivery, { deliverStatus: 3, simulated: false }),
-      countOf(deadLetter, { handled: false }),
+      countOf(deadLetter, { handled: false, simulated: false }),
       countOf(entityOf('message-queue')!.path),
       countOf(entityOf('delivery-queue')!.path),
       // 最近的失败与未处理死信：按主键倒序，等价于「最新」

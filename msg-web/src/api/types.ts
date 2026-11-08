@@ -243,4 +243,6 @@ export interface MsgDeadLetterVo extends AuditFields {
   /** 是否已人工处理 */
   handled: boolean;
   remark?: string;
+  /** 是否模拟（原始负载带 simulated=true 或 source=sim 标记时为是） */
+  simulated: boolean;
 }

@@ -4744,6 +4744,21 @@ websocket 渠道要求渲染结果是合法 JSON，不是就告警并回退默�
 <a:Length>50</a:Length>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o9605">
+<a:ObjectID>B1F2C3D4-E5A6-4B7C-8D9E-0F1A2B3C4D5E</a:ObjectID>
+<a:Name>是否模拟</a:Name>
+<a:Code>simulated</a:Code>
+<a:CreationDate>1794136800</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1794136800</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>是否模拟：死信落库时按原始负载的 simulated=true 或 source=sim 标记写入
+@default false</a:Comment>
+<a:DefaultValue>false</a:DefaultValue>
+<a:DataType>BL</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 <o:EntityAttribute Id="o211">
 <a:ObjectID>E36D36C5-0D9F-4B98-B61E-BF41036264A2</a:ObjectID>
 <a:Name>创建者ID</a:Name>

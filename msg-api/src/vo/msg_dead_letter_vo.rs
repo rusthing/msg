@@ -16,6 +16,8 @@ pub struct MsgDeadLetterVo {
     pub handled: bool,
     /// 备注
     pub remark: Option<String>,
+    /// 是否模拟（原始负载带 simulated=true 或 source=sim 标记时为是）
+    pub simulated: bool,
     /// 创建者ID
     pub creater_id: u64,
     /// 创建时间戳

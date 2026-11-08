@@ -18,6 +18,7 @@ use crate::svc::MsgDeadLetterSvc;
 use arc_swap::ArcSwapOption;
 use async_nats::jetstream::{consumer, stream};
 use idworker::next_id;
+use msg_api::msg::{DeliveryMsg, message_msg::MessageMsg};
 use robotech::api::U64;
 use robotech::db::get_db_conn;
 use robotech::mq::nats;
@@ -106,6 +107,21 @@ async fn handle_dead_letter(msg: async_nats::Message) -> Result<(), NatsError> {
     let now_ms = chrono::Utc::now().timestamp_millis() as u64;
     let id = next_id().map_err(|e| NatsError::Handle(format!("生成死信ID失败: {e}")))?;
 
+    // 死信表没有外键，模拟标记必须在落库时随负载一起带上，不能事后关联推断。
+    // 两种负载都要认：
+    // - 业务消息原始负载（`MessageMsg`）：按 labels/annotations 的 simulated=true /
+    //   source=sim 判定，与投递链路共用同一套规则；
+    // - 投递任务负载（`DeliveryMsg`）：直接取任务里的 simulated（投递记录同值）。
+    // 先按 DeliveryMsg 解，命中说明是渠道投递失败后的死信；否则再按 MessageMsg 解。
+    // 其余内部消息解析不出来，无从判断，按 false 处理。
+    let simulated = match serde_json::from_slice::<DeliveryMsg>(&msg.payload) {
+        Ok(task) => task.simulated,
+        Err(_) => serde_json::from_slice::<MessageMsg>(&msg.payload)
+            .ok()
+            .and_then(|message_msg| super::message_sub::simulated_reason(&message_msg))
+            .is_some(),
+    };
+
     let add = MsgDeadLetterAddDto {
         id: Some(U64(id)),
         subject: Some(subject),
@@ -114,6 +130,7 @@ async fn handle_dead_letter(msg: async_nats::Message) -> Result<(), NatsError> {
         delivered: Some(U64(delivered)),
         handled: Some(false),
         remark: None,
+        simulated: Some(simulated),
         _current_ms: Some(U64(now_ms)),
         _current_user_id: U64(0),
     };

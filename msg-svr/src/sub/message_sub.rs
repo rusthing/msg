@@ -845,7 +845,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 /// 同名键以 `labels` 为准（与模板变量取值规则一致）。
 ///
 /// 返回命中的标记本身，供日志说明是哪条规则拦下的。
-fn simulated_reason(message_msg: &MessageMsg) -> Option<&'static str> {
+pub(crate) fn simulated_reason(message_msg: &MessageMsg) -> Option<&'static str> {
     let matches = |map: &HashMap<String, String>, key: &str, expected: &str| {
         map.get(key)
             .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
@@ -982,6 +982,8 @@ fn build_task(
         content: ctx.content.to_string(),
         ext: ctx.ext.map(str::to_string),
         create_ms: ctx.create_ms,
+        // 模拟标记随任务一路带下去：投递任务失败进死信时，死信表直接取这个值
+        simulated: simulated_reason(ctx.message_msg).is_some(),
         target_category_code: target.target_category.code.clone(),
         target_category_id: target.target_category.id,
         target_id: target.target_id.clone(),
