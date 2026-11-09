@@ -1,8 +1,3 @@
--- msg 数据库迁移基线：init-data（清库后可运行的最小种子集）
---
--- 由仓库历史迁移在空库重放后的结果导出；插入顺序按外键依赖排列。
--- 业务数据不预置，运行期数据不在本文件内。
-
 -- msg_channel
 INSERT INTO public.msg_channel (id, code, name, options, payload_template, remark, enabled, creater_id, create_ms, updater_id, update_ms) VALUES (2, 'websocket', 'websocket', '{"token":""}', '@engine: robotech
 {"eventCode":{{eventCode:json}},"data":{{ext:json}}}', 'WebSocket长连接', true, 0, 1793976041647, 0, 1793976041647);
