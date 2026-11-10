@@ -423,12 +423,17 @@ export default function EntityPage({ config }: EntityPageProps) {
       });
     }
 
+    // 启用类开关（启用 / 允许模拟）统一挪到「操作」列紧前面：状态操作离行尾
+    // 按钮最近，也不再被「更新时间」隔在中间，与 alarm / dtw 等前端的列表一致。
+    // 其它 switchable 字段（如持久化）仍留在业务列原位，避免整排开关都堆到末尾。
+    const trailingSwitches: ColumnsType<MsgRow> = [];
+
     for (const field of config.fields) {
       if (field.inTable === false) {
         continue;
       }
       const center = field.kind === 'dic' || field.kind === 'bool';
-      result.push({
+      const column: ColumnsType<MsgRow>[number] = {
         title: field.label,
         dataIndex: field.key,
         width: field.width,
@@ -449,7 +454,12 @@ export default function EntityPage({ config }: EntityPageProps) {
           }
           return renderCell(field, record, refOptions);
         },
-      });
+      };
+      if (field.switchable && (field.key === 'enabled' || field.key === 'simEnabled')) {
+        trailingSwitches.push(column);
+      } else {
+        result.push(column);
+      }
     }
 
     for (const extra of config.extraColumns ?? []) {
@@ -462,6 +472,8 @@ export default function EntityPage({ config }: EntityPageProps) {
       width: 180,
       render: (value: string) => <span className="msg-mono msg-nowrap">{formatMs(value)}</span>,
     });
+
+    result.push(...trailingSwitches);
 
     result.push({
       title: '操作',

@@ -295,6 +295,17 @@ const message: EntityConfig = {
       tip: 'JSON 模板（渲染结果原样下发给消费方）。字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；如 {"name": {{userName:json}}, "at": {{createAt:time}}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', inTable: false, maxLength: 50 },
+    {
+      key: 'simEnabled',
+      label: '允许模拟',
+      kind: 'bool',
+      width: 110,
+      defaultValue: false,
+      dbDefault: true,
+      switchable: true,
+      inForm: false,
+      tip: '打开后，带 simulated=true / source=sim 标记的通知才允许投递；关闭时模拟通知在投递前被丢弃，不会上大屏',
+    },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true, inForm: false },
   ],
 };
