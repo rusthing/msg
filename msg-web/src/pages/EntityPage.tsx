@@ -294,7 +294,9 @@ export default function EntityPage({ config }: EntityPageProps) {
     () => config.fields.filter((field) => field.kind === 'ref' && field.ref).map((field) => field.ref!),
     [config.fields],
   );
-  const refOptions = useRefOptions(refKeys);
+  // 当前页记录一并交给选项层：批量映射没覆盖到的外键 ID 会按主键补查，
+  // 避免生产环境「消息类别」这类列退化成一串短 ID
+  const refOptions = useRefOptions(refKeys, data.list, config.fields);
 
   const searchFields = useMemo(
     () => config.fields.filter((field) => field.searchable),
@@ -425,7 +427,8 @@ export default function EntityPage({ config }: EntityPageProps) {
 
     // 启用类开关（启用 / 允许模拟）统一挪到「操作」列紧前面：状态操作离行尾
     // 按钮最近，也不再被「更新时间」隔在中间，与 alarm / dtw 等前端的列表一致。
-    // 其它 switchable 字段（如持久化）仍留在业务列原位，避免整排开关都堆到末尾。
+    // 其余 switchable 字段（死信的「已处理」）留在业务列原位，避免整排开关都堆到末尾。
+    // 持久化已移出列表，只在编辑弹窗里改：它会改变消息链路语义，不该在列表上误触。
     const trailingSwitches: ColumnsType<MsgRow> = [];
 
     for (const field of config.fields) {

@@ -115,7 +115,8 @@ export interface FieldConfig {
   /**
    * 表格里是否用开关直接切换（仅布尔字段有效）
    *
-   * 状态类标记位只在列表操作，不再进编辑表单：开启、已处理、持久化。
+   * 只给「改了就一件事」的标记位开：启用、已处理、允许模拟。像 `persisted` 这种会改变
+   * 消息链路语义的开关不给，必须进编辑弹窗看一眼上下文。
    */
   switchable?: boolean;
 }
@@ -268,7 +269,7 @@ const message: EntityConfig = {
     },
     { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
     { key: 'name', label: '名称', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
-    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: true, dbDefault: true, switchable: true, inForm: false, tip: '不持久化时投递不落库，出问题只能看日志' },
+    { key: 'persisted', label: '持久化', kind: 'bool', defaultValue: true, dbDefault: true, inTable: false, tip: '不持久化时投递不落库，出问题只能看日志' },
     {
       key: 'titleTemplate',
       label: '标题模板',
@@ -624,7 +625,7 @@ const messageQueue: EntityConfig = {
   fields: [
     { key: 'code', label: '编码（主题）', kind: 'text', width: 240, required: true, searchable: true, maxLength: 50 },
     { key: 'name', label: '名称', kind: 'text', width: 200, required: true, searchable: true, maxLength: 50 },
-    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: true, dbDefault: true, switchable: true, inForm: false, tip: '持久化走 JetStream（等 ACK、重启补消费）；不持久化走 Core NATS，发出即不管送达' },
+    { key: 'persisted', label: '持久化', kind: 'bool', defaultValue: true, dbDefault: true, inTable: false, tip: '持久化走 JetStream（等 ACK、重启补消费）；不持久化走 Core NATS，发出即不管送达' },
     { key: 'remark', label: '备注', kind: 'text', maxLength: 50 },
   ],
 };
@@ -650,7 +651,7 @@ const deliveryQueue: EntityConfig = {
       tip: '末段必须等于某个渠道编码，渠道编码从主题反解，本表不存渠道 ID',
     },
     { key: 'name', label: '名称', kind: 'text', width: 200, required: true, searchable: true, maxLength: 50 },
-    { key: 'persisted', label: '持久化', kind: 'bool', width: 100, defaultValue: false, dbDefault: true, switchable: true, inForm: false },
+    { key: 'persisted', label: '持久化', kind: 'bool', defaultValue: false, dbDefault: true, inTable: false },
     { key: 'remark', label: '备注', kind: 'text', maxLength: 50 },
   ],
 };
