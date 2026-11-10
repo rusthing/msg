@@ -119,6 +119,21 @@ export interface FieldConfig {
    * 消息链路语义的开关不给，必须进编辑弹窗看一眼上下文。
    */
   switchable?: boolean;
+  /**
+   * 归入编辑表单的「模板」区域，与同组字段一起用 Tabs 分页展示。
+   *
+   * 只给「标题 / 内容 / 附加」这类成组的模板字段开；单个模板（如渠道载荷模板）
+   * 仍按普通字段平铺，没必要为了一个 tab 套一层区域。
+   */
+  templateGroup?: boolean;
+  /**
+   * 编辑时把「用户清空」提交成 JSON `null`，真正把数据库列置为 NULL。
+   *
+   * 后端 `#[crud_dto]` 给 `Option<String>` 挂了三态 serde：字段不出现 = 不修改、
+   * 显式 `null` = 置空。默认提交逻辑会跳过空串，表现为「留空不改」，已保存的模板
+   * 因此删不掉；打开这个开关后，被用户动过且清空的字段会提交 `null`。
+   */
+  nullable?: boolean;
 }
 
 /** # 侧边栏分组 */
@@ -277,6 +292,8 @@ const message: EntityConfig = {
       rows: 3,
       maxLength: 150,
       inTable: false,
+      templateGroup: true,
+      nullable: true,
       tip: '纯文本模板，变量取 labels 与 annotations。直接写 {{var}}，过滤器链示例 {{var:trim|truncate(20)}}、{{var:default(未知)}}；${var} 等价；留空用发布方给的标题',
     },
     {
@@ -285,6 +302,8 @@ const message: EntityConfig = {
       kind: 'template',
       rows: 6,
       inTable: false,
+      templateGroup: true,
+      nullable: true,
       tip: '纯文本模板。过滤器示例 {{amount:fixed(2)}}、{{phone:mask(3,4)}}、{{createAt:time}}；过滤器链示例 {{var:trim|upper}}；${var} 等价；留空用发布方给的内容',
     },
     {
@@ -293,6 +312,8 @@ const message: EntityConfig = {
       kind: 'jsonTemplate',
       rows: 4,
       inTable: false,
+      templateGroup: true,
+      nullable: true,
       tip: 'JSON 模板（渲染结果原样下发给消费方）。字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；如 {"name": {{userName:json}}, "at": {{createAt:time}}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', inTable: false, maxLength: 50 },

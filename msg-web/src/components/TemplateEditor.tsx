@@ -48,8 +48,8 @@ const TOKEN_STYLE: Record<TemplateTokenKind, CSSProperties> = {
 export interface TemplateEditorProps {
   /** 传给内部 textarea，供 Form.Item 的 label 关联 */
   id?: string;
-  /** 完整模板（含首行声明） */
-  value?: string;
+  /** 完整模板（含首行声明）；`null` 表示未配置（用户点了「清空」） */
+  value?: string | null;
   onChange?: (value: string) => void;
   /** 类型列表可扩展；默认 robotech / minijinja */
   types?: TemplateTypeOption[];

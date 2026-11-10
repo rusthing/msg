@@ -6,8 +6,9 @@
  *
  * ## 三个和后端语义相关的注意点
  *
- * 1. **可选字段清空无效**：ModifyDto 的字段都是 `Option<T>`，表达不了「置为 NULL」，
- *    所以编辑时留空的字段等于「不修改」。表单里对此有明确提示，不要当成 bug。
+ * 1. **可选字段默认清空无效**：ModifyDto 用「字段不出现」表达「不改」。只有标了
+ *    `nullable` 的模板字段会用「清空」按钮提交 JSON `null`，把列真正置为 NULL
+ *    （后端 `#[crud_dto]` 给 `Option<String>` 挂了三态 serde）。其余字段留空仍是「不修改」。
  * 2. **`u64` 一律按字符串提交**：ID、`businessId`、时间戳在 JSON 里必须是字符串，
  *    输入框用文本 + 数字校验，不用 `InputNumber`（它会给出 number）。
  * 3. **筛选是等值匹配**：只有「关键字」走服务端模糊搜索，其余条件都是 `=`。
@@ -33,6 +34,7 @@ import {
   Space,
   Switch,
   Table,
+  Tabs,
   Tag,
   Tooltip,
   Typography,
@@ -132,6 +134,7 @@ interface SubmitOptions {
  * - 新增时，`dbDefault` 字段没被用户动过就不提交，交给数据库默认值兜底；
  * - `ms`：Dayjs → 毫秒字符串（`u64`），日期控件清空时不提交；
  * - `bool`：始终提交（`false` 是有意义的值）；
+ * - `nullable` 字段被用户动过且清空时提交 `null`（服务端会写成 SQL NULL）；
  * - 其余空串/`undefined` 跳过，交给服务端的 `Option` 语义。
  */
 function toSubmitBody(
@@ -159,12 +162,74 @@ function toSubmitBody(
       body[field.key] = Boolean(value);
       continue;
     }
+    // 三态：没动过的空值跳过（= 不修改）；动过且清空 → 显式 null（= 置 NULL）。
+    // 新增时列本来就是 NULL，不必多写一次。
+    if (field.nullable && (value === null || value === '')) {
+      if (!options.isAdd && options.isTouched(field.key)) {
+        body[field.key] = null;
+      }
+      continue;
+    }
     if (value === undefined || value === null || (value === '' && !field.allowEmptySubmit)) {
       continue;
     }
     body[field.key] = value;
   }
   return body;
+}
+
+/**
+ * # 「模板」区域里单个 tab 的内容
+ *
+ * 外层 Tabs 用 `forceRender` 让三个 Form.Item 始终挂载，否则没点开过的那一页
+ * 不会注册校验规则，保存时 `validateFields()` 会漏掉它。
+ *
+ * 「清空」直接把表单值设成 `null` 并标记 touched：`toSubmitBody` 据此区分
+ * 「用户主动删除」与「字段没动过」，前者提交 `null` 由后端写成 SQL NULL。
+ */
+function TemplateTabPane({
+  field,
+  rules,
+  children,
+}: {
+  field: FieldConfig;
+  rules: FormRule[];
+  children: ReactNode;
+}) {
+  const form = Form.useFormInstance();
+  const value = Form.useWatch(field.key, form);
+  const configured = value !== undefined && value !== null && String(value).trim() !== '';
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+        <Tag color={configured ? 'blue' : 'default'} style={{ marginInlineEnd: 0 }}>
+          {configured ? '已配置' : '未配置（NULL）'}
+        </Tag>
+        <Button
+          size="small"
+          disabled={!configured}
+          onClick={() => {
+            form.setFields([{ name: field.key, value: null, touched: true, errors: [] }]);
+          }}
+        >
+          清空（置 NULL）
+        </Button>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          清空后保存会删除已保存的模板
+        </Typography.Text>
+      </div>
+      <Form.Item
+        name={field.key}
+        rules={rules}
+        // 输入过程中不校验，避免刚敲一个 `{` 就整片标红；失焦和保存时仍会校验
+        validateTrigger={['onBlur']}
+        extra={field.tip}
+        style={{ marginBottom: 0 }}
+      >
+        {children}
+      </Form.Item>
+    </>
+  );
 }
 
 /** # 长文本单元格：单行省略，悬停看全文 */
@@ -306,6 +371,16 @@ export default function EntityPage({ config }: EntityPageProps) {
     () => config.fields.filter((field) => field.inForm !== false),
     [config.fields],
   );
+  /** 成组模板字段抽出来放进「模板」Card 的 Tabs，其余字段仍按两列平铺 */
+  const templateFields = useMemo(
+    () => formFields.filter((field) => field.templateGroup),
+    [formFields],
+  );
+  const normalFields = useMemo(
+    () => formFields.filter((field) => !field.templateGroup),
+    [formFields],
+  );
+  const [activeTemplateTab, setActiveTemplateTab] = useState('');
 
   /** 把草稿 + 关键字翻成 QueryDto 的查询参数；空值不传，避免变成等值条件 */
   const applyFilters = (next: FilterDraft, nextKeyword: string) => {
@@ -355,8 +430,13 @@ export default function EntityPage({ config }: EntityPageProps) {
     let values: FormValues;
     try {
       values = await form.validateFields();
-    } catch {
-      // 校验失败由 Form.Item 自己标红，不用弹窗
+    } catch (info) {
+      // 校验失败由 Form.Item 自己标红；若错在未点开的模板页，先切过去让用户看得见
+      const errorFields = (info as { errorFields?: { name?: (string | number)[] }[] }).errorFields;
+      const failedKey = errorFields?.[0]?.name?.[0];
+      if (typeof failedKey === 'string' && templateFields.some((field) => field.key === failedKey)) {
+        setActiveTemplateTab(failedKey);
+      }
       return;
     }
 
@@ -830,7 +910,7 @@ export default function EntityPage({ config }: EntityPageProps) {
       >
         <Form form={form} layout="vertical" className="msg-form">
           <AntRow gutter={[16, 0]}>
-            {formFields.map((field) => (
+            {normalFields.map((field) => (
               <Col xs={24} sm={isWideField(field) ? 24 : 12} key={field.key}>
                 <Form.Item
                   name={field.key}
@@ -852,9 +932,41 @@ export default function EntityPage({ config }: EntityPageProps) {
               </Col>
             ))}
           </AntRow>
+          {templateFields.length > 0 && (
+            <Card
+              size="small"
+              title="模板"
+              style={{ marginTop: 8 }}
+              extra={
+                <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}>
+                  三个模板共用一套编辑器；清空后保存会把该字段置为 NULL
+                </Typography.Text>
+              }
+            >
+              <Tabs
+                size="small"
+                activeKey={activeTemplateTab || templateFields[0]?.key}
+                onChange={setActiveTemplateTab}
+                items={templateFields.map((field) => ({
+                  key: field.key,
+                  label: field.label,
+                  // 非激活页也挂载：否则那里的 Form.Item 不注册，保存时会漏掉它的校验规则
+                  forceRender: true,
+                  children: (
+                    <TemplateTabPane field={field} rules={rulesFor(field)}>
+                      {renderFormControl(field)}
+                    </TemplateTabPane>
+                  ),
+                }))}
+              />
+            </Card>
+          )}
           {editing && (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              留空的可选字段不会提交，服务端会把它们当作「不修改」，而不是清空。
+            <Typography.Text
+              type="secondary"
+              style={{ fontSize: 12, display: 'block', marginTop: 8 }}
+            >
+              留空的可选字段不会提交，服务端会把它们当作「不修改」；要删除已保存的模板，请用模板区域的「清空（置 NULL）」按钮。
             </Typography.Text>
           )}
         </Form>
