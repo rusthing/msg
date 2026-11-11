@@ -93,6 +93,13 @@ export interface FieldConfig {
   emptyLabel?: string;
   /** 是否作为列表上方的等值筛选条件 */
   searchable?: boolean;
+  /**
+   * 字典字段的筛选控件固定用下拉，不走「少量选项渲染成按钮组」的默认规则。
+   *
+   * 默认规则看选项个数（0–1 个静态文字、2–5 个按钮组、≥6 个下拉），适合「是/否」
+   * 这种二选一；投递状态这类四项枚举在筛选区用按钮组会占掉一整行，统一改下拉。
+   */
+  filterAsSelect?: boolean;
   /** 字典表，`kind = 'dic'` 时必填 */
   dic?: DicItem[];
   /** 被引用实体的 `key`，`kind = 'ref'` 时必填 */
@@ -180,6 +187,13 @@ export interface EntityConfig {
   group: EntityGroup;
   /** 业务字段（审计列由 EntityPage 统一追加，不写在这里） */
   fields: FieldConfig[];
+  /**
+   * 列表的默认排序，形如 `update_ms:desc`（服务端 `_orderBy`，列名用数据库列名）。
+   *
+   * 只写在这张表上：查询、重置、刷新都会带上它；不填则由数据库自然顺序返回。
+   * 投递记录这类「一直在追加」的表必须倒序，否则默认看到的是最旧的一批。
+   */
+  defaultOrderBy?: string;
   /** 表格里是否展示主键（雪花ID 很长，默认不展示） */
   showId?: boolean;
   /** 新增/编辑弹窗宽度 */
@@ -429,9 +443,13 @@ const delivery: EntityConfig = {
   icon: <CloudUploadOutlined />,
   group: 'delivery',
   modalWidth: 860,
+  // 投递记录只增不减，默认按更新时间倒序：刷新后最上面一条就是刚动过的那条
+  defaultOrderBy: 'update_ms:desc',
   fields: [
-    { key: 'title', label: '标题', kind: 'text', width: 220, required: true, searchable: true, maxLength: 150, ellipsis: true },
-    { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
+    // 标题 / 事件编码 / 业务ID 只展示不参与筛选：它们要么是自由文本，要么是长数字，
+    // 精确等值匹配在投递记录上没什么用（模糊搜索走「关键字」，模糊不到就去投递目标里下钻）
+    { key: 'title', label: '标题', kind: 'text', width: 220, required: true, maxLength: 150, ellipsis: true },
+    { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, maxLength: 50 },
     {
       key: 'deliverStatus',
       label: '投递状态',
@@ -439,6 +457,7 @@ const delivery: EntityConfig = {
       dic: deliverStatusDic,
       width: 120,
       searchable: true,
+      filterAsSelect: true,
       defaultValue: 0,
       inForm: false,
     },
@@ -488,7 +507,6 @@ const delivery: EntityConfig = {
       kind: 'u64',
       width: 180,
       required: true,
-      searchable: true,
       inTable: false,
       tip: '业务触发时生成，或用业务 ID 本身；与 businessTriggerMs 一起做幂等去重',
     },

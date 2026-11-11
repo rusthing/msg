@@ -179,10 +179,12 @@ input[type='color']:not(:disabled) {
   overflow-y: auto;
 }
 
-/* 表格工具栏：筛选一行、按钮一行，动作固定在右侧 */
+/* 表格工具栏：条件与「查询 / 重置 / 刷新 / 新增」排在一行，动作贴右。
+   条件区按剩余宽度均分并可压缩，压到最小才在窄屏换行。 */
 .msg-toolbar {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
 }
 
@@ -191,20 +193,36 @@ input[type='color']:not(:disabled) {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  /* 基数为 0：条件区只吃「按钮组之外的剩余宽度」，不会把按钮组挤到下一行 */
+  flex: 1 1 0;
   min-width: 0;
 }
 
 .msg-filter-keyword {
-  width: 220px;
+  flex: 1 1 160px;
+  min-width: 140px;
+  max-width: 220px;
 }
 
 .msg-filter-control {
-  width: 180px;
+  /* 宽度交给外层 .msg-filter-item，控件自己占满它 */
+  width: 100%;
 }
 
 .msg-filter-item {
   display: inline-flex;
+  /* flex-basis 要给最小值：Flex 换行判断看的是基准尺寸，基准给 180 时条件一多就会
+     把动作按钮顶到下一行；给 0 后各项按剩余宽度均分，最小 112px 仍能放下标签。 */
+  flex: 1 1 0;
+  min-width: 112px;
+  max-width: 180px;
+}
+
+/* 按钮组（是/否这类）宽度由按钮个数决定，不参与均分，也不压窄 */
+.msg-filter-item:has(.msg-filter-group) {
+  flex: 0 0 auto;
   min-width: 0;
+  max-width: none;
 }
 
 /* 按钮组筛选：保留字段名，窄屏允许换行 */
@@ -231,9 +249,6 @@ input[type='color']:not(:disabled) {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.msg-toolbar-actions {
   margin-left: auto;
 }
 
@@ -435,18 +450,29 @@ input[type='color']:not(:disabled) {
     width: 100%;
   }
 
-  .msg-filter-item {
+  /* 窄屏不再均分：每个条件占满一行宽度，按钮组单独一行靠右 */
+  .msg-filter-keyword {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .msg-filter-item,
+  .msg-filter-item:has(.msg-filter-group) {
     flex: 1 1 180px;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .msg-toolbar-filters {
+    flex: 1 1 100%;
   }
 
   .msg-toolbar-foot {
-    flex-wrap: wrap;
-  }
-
-  .msg-toolbar-actions {
-    margin-left: 0;
     width: 100%;
+    flex-wrap: wrap;
     justify-content: flex-end;
+    margin-left: 0;
   }
 
   .msg-toolbar .ant-btn {

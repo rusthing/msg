@@ -344,7 +344,11 @@ export default function EntityPage({ config }: EntityPageProps) {
   const api = useMemo(() => crudOf(config.path), [config.path]);
 
   const { data, loading, error, pageNum, pageSize, search, reload, setPageNum, setPageSize } =
-    usePagedQuery<MsgRow>((params) => api.page(params));
+    usePagedQuery<MsgRow>(
+      (params) => api.page(params),
+      // 首屏也要带默认排序，否则第一页与「查询」之后的顺序不一致
+      config.defaultOrderBy ? { _orderBy: config.defaultOrderBy } : {},
+    );
 
   const [draft, setDraft] = useState<FilterDraft>({});
   const [keyword, setKeyword] = useState('');
@@ -384,7 +388,11 @@ export default function EntityPage({ config }: EntityPageProps) {
 
   /** 把草稿 + 关键字翻成 QueryDto 的查询参数；空值不传，避免变成等值条件 */
   const applyFilters = (next: FilterDraft, nextKeyword: string) => {
-    const params: QueryParams = { _keyword: nextKeyword.trim() || undefined };
+    const params: QueryParams = {
+      _keyword: nextKeyword.trim() || undefined,
+      // 排序跟着条件一起走：重置之后仍然是「最新的在最上面」
+      _orderBy: config.defaultOrderBy,
+    };
     for (const field of searchFields) {
       const value = next[field.key];
       if (value === undefined || value === '') {
@@ -625,10 +633,11 @@ export default function EntityPage({ config }: EntityPageProps) {
     if (field.kind === 'dic') {
       const options = dicOptions(field.dic ?? []);
       // 规范：0–1 个选项不渲染选择控件，2–5 个用按钮组，≥6 个仍用下拉。
-      if (options.length <= 1) {
+      // 标了 `filterAsSelect` 的字段跳过这套规则，固定下拉（状态类枚举铺成按钮组太占地方）。
+      if (options.length <= 1 && !field.filterAsSelect) {
         return <span className="msg-filter-static">{options[0]?.label ?? '无'}</span>;
       }
-      if (options.length <= 5) {
+      if (options.length <= 5 && !field.filterAsSelect) {
         return (
           <div className="msg-filter-group">
             <span className="msg-filter-label">{field.label}</span>
@@ -841,6 +850,10 @@ export default function EntityPage({ config }: EntityPageProps) {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Card variant="borderless">
+        {/*
+          条件与「查询 / 重置 / 刷新 / 新增」同一行：条件区自动换行占满左侧，
+          按钮组靠右。窄屏由样式把按钮组压到下一行，不影响点击热区。
+        */}
         <div className="msg-toolbar">
           <div className="msg-toolbar-filters">
             <Input
@@ -865,14 +878,12 @@ export default function EntityPage({ config }: EntityPageProps) {
             <Button icon={<UndoOutlined />} onClick={resetFilters}>
               重置
             </Button>
-            <Space size={8} wrap className="msg-toolbar-actions">
-              <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>
-                刷新
-              </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-                新增{config.name}
-              </Button>
-            </Space>
+            <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>
+              刷新
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+              新增{config.name}
+            </Button>
           </div>
         </div>
       </Card>
