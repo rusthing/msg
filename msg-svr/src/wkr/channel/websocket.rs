@@ -282,6 +282,7 @@ mod tests {
             ext: None,
             create_ms: 1_700_000_000_000,
             simulated: false,
+            redeliver: false,
             target_category_code: "screen".to_string(),
             target_category_id: 11,
             // 空串 = 该类别下的全部目标（按类别广播）
@@ -350,11 +351,11 @@ mod tests {
         assert_eq!(content["lon"], 113.9);
     }
 
-    /// `ext` 有就原样带下去：大屏靠它拿 alertId 与 Unity 坐标
+    /// `ext` 有就原样带下去：大屏靠它拿 alertId、Unity 坐标与模拟标记
     #[test]
     fn frame_carries_ext() {
         let task = DeliveryMsg {
-            ext: Some(r#"{"alertId":"7","unityX":"1.5"}"#.to_string()),
+            ext: Some(r#"{"alertId":"7","unityX":"1.5","simulated":"true"}"#.to_string()),
             ..task()
         };
 
@@ -363,6 +364,8 @@ mod tests {
             serde_json::from_str(frame["ext"].as_str().expect("ext 不是字符串"))
                 .expect("ext 不是合法 JSON");
         assert_eq!(ext["alertId"], "7");
+        // 消息中心在 ext 里注入的 simulated=true 一路不改地到大屏帧
+        assert_eq!(ext["simulated"], "true");
     }
 
     /// 没有 `ext` 时整个字段不出现：大屏按「有没有 ext」判断，不该收到 null

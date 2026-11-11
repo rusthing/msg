@@ -128,6 +128,7 @@ mod tests {
             ext: None,
             create_ms: 1_700_000_000_000,
             simulated: false,
+            redeliver: false,
             target_category_code: "locator".to_string(),
             target_category_id: 11,
             target_id: String::new(),
