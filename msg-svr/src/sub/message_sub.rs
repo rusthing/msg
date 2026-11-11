@@ -449,10 +449,10 @@ async fn start_subscription_for_queue(
 /// - `Err(NatsError)`：处理失败；标题/内容为空、持久化消息缺 `business_id` /
 ///   `business_trigger_ms` 时是 `Discard`（配置错误，重投多少次都一样）
 ///
-/// 带模拟标记（`simulated=true` / 历史别名 `source=sim`）的消息在模板查到时先
-/// 过一道门控：`msg_message.sim_enabled = false` 时直接丢弃（`Ok(())`，ACK 掉，
-/// 不重投），不建投递记录、不发渠道、不上大屏。真实通知不带这两个标记，不受
-/// 影响；放行的模拟通知会在 `ext` 里带上 `simulated=true` 再投递（见第 3 步）。
+/// 带 `simulated=true` 标记的消息在模板查到时先过一道门控：
+/// `msg_message.sim_enabled = false` 时直接丢弃（`Ok(())`，ACK 掉，不重投），
+/// 不建投递记录、不发渠道、不上大屏。真实通知不带标记，不受影响；放行的
+/// 模拟通知会在 `ext` 里带上 `simulated=true` 再投递（见第 3 步）。
 ///
 /// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递；
 /// 只有 `Discard` 是终止性的，直接 ACK 丢弃。
@@ -496,15 +496,13 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //
     // 模拟产生的通知只在 `msg_message.sim_enabled` 打开时才允许投递。关闭时
     // 就地丢弃并 ACK：继续往下走会落投递记录、推渠道（大屏），而模拟数据不该
-    // 出现在生产屏上。真实通知不带 `simulated` / `source=sim` 标记，不受影响。
-    if let Some(marker) = simulated_reason(&message_msg) {
-        if !msg.sim_enabled {
-            warn!(
-                "模拟通知被丢弃: message_id={}, event_code={}, business_id={:?}, 原因=消息未开启「允许模拟投递」（标记 {marker}）",
-                msg.id, msg.event_code, message_msg.business_id
-            );
-            return Ok(());
-        }
+    // 出现在生产屏上。真实通知不带 `simulated` 标记，不受影响。
+    if is_simulated(&message_msg) && !msg.sim_enabled {
+        warn!(
+            "模拟通知被丢弃: message_id={}, event_code={}, business_id={:?}, 原因=消息未开启「允许模拟投递」（带 simulated=true 标记）",
+            msg.id, msg.event_code, message_msg.business_id
+        );
+        return Ok(());
     }
 
     // ── 3. 渲染标题、内容与附加内容 ──
@@ -557,7 +555,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //
     // 只有过了 2.5 门控（msg_message.sim_enabled 已打开）的模拟消息才会走到
     // 这里；真实消息完全不进这个分支，ext 一位不改。
-    let ext = if simulated_reason(&message_msg).is_some() {
+    let ext = if is_simulated(&message_msg) {
         inject_simulated_ext(ext.as_deref())
     } else {
         ext
@@ -670,7 +668,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         ext: Some(ext.clone()),
         remark: None,
         // 与 2.5 的模拟门控复用同一套标记识别，避免两处判定口径漂移
-        simulated: Some(simulated_reason(&message_msg).is_some()),
+        simulated: Some(is_simulated(&message_msg)),
         // 审计列写真实落库时刻，不是 `now_ms`：那是「收到消息」的业务时刻，
         // 拿它回填会让 `create_ms` 与 `receive_ms` 恒等，渲染 + 写库的耗时
         // 就从库里消失了
@@ -854,29 +852,17 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
 /// # 消息是否带模拟标记
 ///
-/// 发布方把模拟标记写在 `labels` / `annotations` 里，两种写法都认：
-/// `simulated=true` 与 `source=sim`。后者是早期版本的写法，与前者完全等价，
-/// **写入侧已不再产生**；这里保留识别只为兼容存量报警记录与老版本发布方。
-/// 值做去空白、忽略大小写比较；同名键以 `labels` 为准（与模板变量取值规则一致）。
+/// 发布方把模拟标记写在 `labels` / `annotations` 里，只认 `simulated=true`：
+/// 值做去空白、忽略大小写比较，两份里任意一份命中即算模拟。
 ///
-/// 返回命中的标记本身，供日志说明是哪条规则拦下的。
-pub(crate) fn simulated_reason(message_msg: &MessageMsg) -> Option<&'static str> {
-    let matches = |map: &HashMap<String, String>, key: &str, expected: &str| {
-        map.get(key)
-            .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
+/// 早期版本还有一个等价别名，写入侧与读取侧都已移除，**不要再加回兼容分支**：
+/// 存量报警快照由迁移统一补齐 `simulated=true`，旧版本发布方不再被识别。
+pub(crate) fn is_simulated(message_msg: &MessageMsg) -> bool {
+    let matches = |map: &HashMap<String, String>| {
+        map.get("simulated")
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
     };
-
-    if matches(&message_msg.labels, "simulated", "true")
-        || matches(&message_msg.annotations, "simulated", "true")
-    {
-        return Some("simulated=true");
-    }
-    if matches(&message_msg.labels, "source", "sim")
-        || matches(&message_msg.annotations, "source", "sim")
-    {
-        return Some("source=sim");
-    }
-    None
+    matches(&message_msg.labels) || matches(&message_msg.annotations)
 }
 
 /// # 把 `simulated=true` 写进大屏读的那份 `ext`
@@ -1034,7 +1020,7 @@ fn build_task(
         ext: ctx.ext.map(str::to_string),
         create_ms: ctx.create_ms,
         // 模拟标记随任务一路带下去：投递任务失败进死信时，死信表直接取这个值
-        simulated: simulated_reason(ctx.message_msg).is_some(),
+        simulated: is_simulated(ctx.message_msg),
         // 首次投递，不是手工重投
         redeliver: false,
         target_category_code: target.target_category.code.clone(),
@@ -1169,7 +1155,7 @@ mod tests {
         assert_ne!(token, nats_name_token(&"b".repeat(60)));
     }
 
-    /// 模拟标记两种写法都认；真实消息（无标记）不命中
+    /// 只认 simulated=true：真实消息与只带旧别名的消息都不命中
     #[test]
     fn simulated_marker_is_recognized() {
         let message = |labels: &[(&str, &str)], annotations: &[(&str, &str)]| {
@@ -1192,25 +1178,16 @@ mod tests {
                 .build()
         };
 
-        assert_eq!(
-            simulated_reason(&message(&[("simulated", "true")], &[])),
-            Some("simulated=true")
-        );
-        assert_eq!(
-            simulated_reason(&message(&[], &[("source", "sim")])),
-            Some("source=sim")
-        );
+        assert!(is_simulated(&message(&[("simulated", "true")], &[])));
+        assert!(is_simulated(&message(&[], &[("simulated", "true")])));
         // 值做去空白、忽略大小写比较
-        assert_eq!(
-            simulated_reason(&message(&[("source", " SIM ")], &[])),
-            Some("source=sim")
-        );
+        assert!(is_simulated(&message(&[("simulated", " TRUE ")], &[])));
         // 真实通知：没有标记，或者标记不是模拟
-        assert_eq!(simulated_reason(&message(&[], &[])), None);
-        assert_eq!(
-            simulated_reason(&message(&[("simulated", "false")], &[])),
-            None
-        );
+        assert!(!is_simulated(&message(&[], &[])));
+        assert!(!is_simulated(&message(&[("simulated", "false")], &[])));
+        // 早期别名已彻底废弃：只带它的消息一律按真实通知处理
+        assert!(!is_simulated(&message(&[("source", "sim")], &[])));
+        assert!(!is_simulated(&message(&[], &[("source", " SIM ")])));
     }
 
     /// 模拟标记随 ext 下发：大屏解析的那段 JSON 里能读到 simulated=true，
@@ -1245,7 +1222,7 @@ mod tests {
         );
     }
 
-    /// 真实消息不走注入分支：调用方只在 simulated_reason 命中时才调，
+    /// 真实消息不走注入分支：调用方只在 is_simulated 命中时才调，
     /// 这里钉住「无标记 = 不命中」这一侧，保证真实报警/位置的 ext 不变
     #[test]
     fn real_message_ext_is_untouched() {
@@ -1254,6 +1231,6 @@ mod tests {
             .business_id(None)
             .business_trigger_ms(None)
             .build();
-        assert_eq!(simulated_reason(&message), None);
+        assert!(!is_simulated(&message));
     }
 }

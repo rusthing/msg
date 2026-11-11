@@ -118,7 +118,7 @@ pub struct MessageCache {
     pub persisted: bool,
     /// 是否允许模拟通知投递（默认关）
     ///
-    /// 关闭时带 `simulated=true` / `source=sim` 标记的消息在投递前被丢弃。
+    /// 关闭时带 `simulated=true` 标记的消息在投递前被丢弃。
     pub sim_enabled: bool,
     /// 标题模板（为 null 时用发布方给的标题）
     pub title_template: Option<String>,

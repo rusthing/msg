@@ -109,8 +109,8 @@ async fn handle_dead_letter(msg: async_nats::Message) -> Result<(), NatsError> {
 
     // 死信表没有外键，模拟标记必须在落库时随负载一起带上，不能事后关联推断。
     // 两种负载都要认：
-    // - 业务消息原始负载（`MessageMsg`）：按 labels/annotations 的 simulated=true /
-    //   source=sim 判定，与投递链路共用同一套规则；
+    // - 业务消息原始负载（`MessageMsg`）：按 labels/annotations 的
+    //   simulated=true 判定，与投递链路共用同一套规则；
     // - 投递任务负载（`DeliveryMsg`）：直接取任务里的 simulated（投递记录同值）。
     // 先按 DeliveryMsg 解，命中说明是渠道投递失败后的死信；否则再按 MessageMsg 解。
     // 其余内部消息解析不出来，无从判断，按 false 处理。
@@ -118,8 +118,7 @@ async fn handle_dead_letter(msg: async_nats::Message) -> Result<(), NatsError> {
         Ok(task) => task.simulated,
         Err(_) => serde_json::from_slice::<MessageMsg>(&msg.payload)
             .ok()
-            .and_then(|message_msg| super::message_sub::simulated_reason(&message_msg))
-            .is_some(),
+            .is_some_and(|message_msg| super::message_sub::is_simulated(&message_msg)),
     };
 
     let add = MsgDeadLetterAddDto {

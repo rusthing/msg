@@ -118,7 +118,7 @@ pub struct DeliveryMsg {
     /// 消息创建时间戳（毫秒，`msg_delivery.create_ms`）
     pub create_ms: u64,
 
-    /// 是否模拟（原始消息带 `simulated=true` / `source=sim` 标记）
+    /// 是否模拟（原始消息带 `simulated=true` 标记）
     ///
     /// 与 `msg_delivery.simulated` 同值。投递任务失败进死信时，死信表靠它
     /// 记录模拟性质——死信没有外键，不能等落库后再关联投递记录推断。

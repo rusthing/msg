@@ -5325,7 +5325,7 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1793865600</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>是否允许模拟通知投递
-默认 false；关闭时带 simulated=true / source=sim 标记的通知会被丢弃</a:Comment>
+默认 false；关闭时带 simulated=true 标记的通知会被丢弃</a:Comment>
 <a:DefaultValue>false</a:DefaultValue>
 <a:DataType>BOOL</a:DataType>
 <a:Column.Mandatory>1</a:Column.Mandatory>
@@ -6782,7 +6782,7 @@ DAT 1790046262</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1794136800</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>是否模拟：发布方带 simulated=true 或 source=sim 标记时为是</a:Comment>
+<a:Comment>是否模拟：发布方带 simulated=true 标记时为是</a:Comment>
 <a:History>ORG {7A4C9E1D-2B3F-4C5A-9D6E-8F0A1B2C3D4E}
 DAT 1794136800</a:History>
 <a:DefaultValue>false</a:DefaultValue>
@@ -9388,7 +9388,7 @@ DAT 1792298241</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1794136800</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>是否模拟：死信落库时按原始负载的 simulated=true 或 source=sim 标记写入</a:Comment>
+<a:Comment>是否模拟：死信落库时按原始负载的 simulated=true 标记写入</a:Comment>
 <a:History>ORG {B1F2C3D4-E5A6-4B7C-8D9E-0F1A2B3C4D5E}
 DAT 1794136800</a:History>
 <a:DefaultValue>false</a:DefaultValue>

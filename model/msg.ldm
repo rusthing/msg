@@ -2343,7 +2343,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1793865600</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>是否允许模拟通知投递
-默认 false；关闭时带 simulated=true / source=sim 标记的通知会被丢弃</a:Comment>
+默认 false；关闭时带 simulated=true 标记的通知会被丢弃</a:Comment>
 <a:DefaultValue>false</a:DefaultValue>
 <a:DataType>BL</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
@@ -3219,7 +3219,7 @@ DAT 1792733861</a:History>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1794136800</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>是否模拟：发布方带 simulated=true 或 source=sim 标记时为是
+<a:Comment>是否模拟：发布方带 simulated=true 标记时为是
 @default false</a:Comment>
 <a:DefaultValue>false</a:DefaultValue>
 <a:DataType>BL</a:DataType>
@@ -4752,7 +4752,7 @@ websocket 渠道要求渲染结果是合法 JSON，不是就告警并回退默�
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1794136800</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
-<a:Comment>是否模拟：死信落库时按原始负载的 simulated=true 或 source=sim 标记写入
+<a:Comment>是否模拟：死信落库时按原始负载的 simulated=true 标记写入
 @default false</a:Comment>
 <a:DefaultValue>false</a:DefaultValue>
 <a:DataType>BL</a:DataType>

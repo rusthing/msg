@@ -125,7 +125,7 @@ comment on column msg_dead_letter.remark is
 @len 0..=50';
 
 comment on column msg_dead_letter.simulated is
-'是否模拟：死信落库时按原始负载的 simulated=true 或 source=sim 标记写入';
+'是否模拟：死信落库时按原始负载的 simulated=true 标记写入';
 
 comment on column msg_dead_letter.creater_id is
 '创建者ID';
@@ -259,7 +259,7 @@ comment on column msg_delivery.remark is
 @len 0..=50';
 
 comment on column msg_delivery.simulated is
-'是否模拟：发布方带 simulated=true 或 source=sim 标记时为是';
+'是否模拟：发布方带 simulated=true 标记时为是';
 
 comment on column msg_delivery.creater_id is
 '创建者ID';
@@ -738,7 +738,7 @@ comment on column msg_message.enabled is
 
 comment on column msg_message.sim_enabled is
 '是否允许模拟通知投递
-默认 false；关闭时带 simulated=true / source=sim 标记的通知会被丢弃';
+默认 false；关闭时带 simulated=true 标记的通知会被丢弃';
 
 comment on column msg_message.creater_id is
 '创建者ID';
