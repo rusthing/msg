@@ -449,9 +449,10 @@ async fn start_subscription_for_queue(
 /// - `Err(NatsError)`：处理失败；标题/内容为空、持久化消息缺 `business_id` /
 ///   `business_trigger_ms` 时是 `Discard`（配置错误，重投多少次都一样）
 ///
-/// 带模拟标记（`simulated=true` / `source=sim`）的消息在模板查到时先过一道
-/// 门控：`msg_message.sim_enabled = false` 时直接丢弃（`Ok(())`，ACK 掉，不重投），
-/// 不建投递记录、不发渠道、不上大屏。真实通知不带这两个标记，不受影响。
+/// 带模拟标记（`simulated=true` / 历史别名 `source=sim`）的消息在模板查到时先
+/// 过一道门控：`msg_message.sim_enabled = false` 时直接丢弃（`Ok(())`，ACK 掉，
+/// 不重投），不建投递记录、不发渠道、不上大屏。真实通知不带这两个标记，不受
+/// 影响；放行的模拟通知会在 `ext` 里带上 `simulated=true` 再投递（见第 3 步）。
 ///
 /// JetStream 模式下 `Ok(())` 会触发 ACK，`Err` 会导致消息被重新投递；
 /// 只有 `Discard` 是终止性的，直接 ACK 丢弃。
@@ -548,6 +549,19 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         &message_msg.labels,
         &message_msg.annotations,
     );
+
+    // 让模拟标记随 ext 一起上大屏。labels / annotations 只是模板输入，不随投递
+    // 下发；而 ext 在三处各自生成（报警策略模板、位置消息定义模板、恢复消息
+    // 固定 JSON），靠每条模板都记得写 `{{simulated:json}}` 必然漏配，存量库里的
+    // 旧模板更不会被重写。在渲染收口之后统一补一次，三类消息一网打尽。
+    //
+    // 只有过了 2.5 门控（msg_message.sim_enabled 已打开）的模拟消息才会走到
+    // 这里；真实消息完全不进这个分支，ext 一位不改。
+    let ext = if simulated_reason(&message_msg).is_some() {
+        inject_simulated_ext(ext.as_deref())
+    } else {
+        ext
+    };
 
     info!("内容渲染完成: title={title:?}, content={content:?}, ext={ext:?}");
 
@@ -841,8 +855,9 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 /// # 消息是否带模拟标记
 ///
 /// 发布方把模拟标记写在 `labels` / `annotations` 里，两种写法都认：
-/// `simulated=true` 与 `source=sim`。值做去空白、忽略大小写比较；
-/// 同名键以 `labels` 为准（与模板变量取值规则一致）。
+/// `simulated=true` 与 `source=sim`。后者是早期版本的写法，与前者完全等价，
+/// **写入侧已不再产生**；这里保留识别只为兼容存量报警记录与老版本发布方。
+/// 值做去空白、忽略大小写比较；同名键以 `labels` 为准（与模板变量取值规则一致）。
 ///
 /// 返回命中的标记本身，供日志说明是哪条规则拦下的。
 pub(crate) fn simulated_reason(message_msg: &MessageMsg) -> Option<&'static str> {
@@ -862,6 +877,42 @@ pub(crate) fn simulated_reason(message_msg: &MessageMsg) -> Option<&'static str>
         return Some("source=sim");
     }
     None
+}
+
+/// # 把 `simulated=true` 写进大屏读的那份 `ext`
+///
+/// `ext` 是「格式不约定、接收方自己解」的载荷槽，大屏解析的是这段 JSON。
+/// 模拟标记原本只在 `labels` / `annotations` 里，而这两份只是模板输入，不随
+/// 投递下发；在渲染收口之后补一次，大屏就能按同一个键判断「这是演示数据」，
+/// 不必按事件类型分叉，也不依赖任何策略模板是否升级过。
+///
+/// 值保持字符串 `"true"`，与发布方 labels/annotations 里的写法一致，避免大屏
+/// 再处理布尔与字符串两种形态。原本就是 JSON 对象时并进去（键已存在则覆盖成
+/// `"true"`，防止模板自己写了 `null`）；原本没有 `ext` 时补一份最小对象。
+///
+/// 渲染结果不是 JSON 对象（数组、标量或压根不是 JSON）时不硬塞：强行包一层会
+/// 改掉接收方认识的形状，只告警并原样发。这种形状本来就少见，且不该为了一个
+/// 标记把整帧变成大屏解析不了的东西。
+fn inject_simulated_ext(ext: Option<&str>) -> Option<String> {
+    let marker = serde_json::Value::String("true".to_string());
+    let Some(text) = ext else {
+        return Some(serde_json::json!({ "simulated": "true" }).to_string());
+    };
+
+    match serde_json::from_str::<serde_json::Value>(text) {
+        Ok(serde_json::Value::Object(mut map)) => {
+            map.insert("simulated".to_string(), marker);
+            Some(serde_json::Value::Object(map).to_string())
+        }
+        Ok(_) => {
+            warn!("模拟消息的 ext 不是 JSON 对象，simulated 标记未并入: {text}");
+            Some(text.to_string())
+        }
+        Err(e) => {
+            warn!("模拟消息的 ext 不是合法 JSON，simulated 标记未并入: {e}, ext={text}");
+            Some(text.to_string())
+        }
+    }
 }
 
 /// # 把投递记录收口成「全部失败」
@@ -1160,5 +1211,49 @@ mod tests {
             simulated_reason(&message(&[("simulated", "false")], &[])),
             None
         );
+    }
+
+    /// 模拟标记随 ext 下发：大屏解析的那段 JSON 里能读到 simulated=true，
+    /// 其余键一位不改；模板自己渲染出的 `null` 会被覆盖成 `"true"`。
+    #[test]
+    fn simulated_marker_is_injected_into_ext() {
+        let ext = r#"{"alertId":"7","simulated":null,"unityX":"1.5"}"#;
+        let marked = inject_simulated_ext(Some(ext)).expect("模拟消息必须有 ext");
+        let value: serde_json::Value =
+            serde_json::from_str(&marked).expect("ext 必须仍是合法 JSON");
+        assert_eq!(value["simulated"], "true");
+        assert_eq!(value["alertId"], "7");
+        assert_eq!(value["unityX"], "1.5");
+
+        // 原本没有 ext 的模拟消息也补一份最小对象，不能让大屏收不到标记
+        let created = inject_simulated_ext(None).expect("模拟消息必须有 ext");
+        let value: serde_json::Value =
+            serde_json::from_str(&created).expect("ext 必须仍是合法 JSON");
+        assert_eq!(value, serde_json::json!({ "simulated": "true" }));
+    }
+
+    /// ext 形状认不出来时原样发，不强行包一层改掉接收方认识的形状
+    #[test]
+    fn unparsable_ext_is_left_alone() {
+        assert_eq!(
+            inject_simulated_ext(Some("不是 JSON")).as_deref(),
+            Some("不是 JSON")
+        );
+        assert_eq!(
+            inject_simulated_ext(Some("[1,2]")).as_deref(),
+            Some("[1,2]")
+        );
+    }
+
+    /// 真实消息不走注入分支：调用方只在 simulated_reason 命中时才调，
+    /// 这里钉住「无标记 = 不命中」这一侧，保证真实报警/位置的 ext 不变
+    #[test]
+    fn real_message_ext_is_untouched() {
+        let message = MessageMsg::builder()
+            .event_code("alarm.region".to_string())
+            .business_id(None)
+            .business_trigger_ms(None)
+            .build();
+        assert_eq!(simulated_reason(&message), None);
     }
 }
