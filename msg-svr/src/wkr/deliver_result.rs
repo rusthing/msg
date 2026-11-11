@@ -39,6 +39,31 @@ use tracing::{debug, error, warn};
 /// `receive_ms` 是消费端收到这条投递任务的时刻，由调用方在发送前取：它和
 /// `finish_ms`（本次写库时刻）之差是渠道内的发送耗时。
 pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome, receive_ms: u64) {
+    // 手工重投的备注由任务自己带着（`DeliveryMsg.redeliver`）：消费者与
+    // 「发布就失败」那条路径都调用本函数，两处都要能标出来，所以判定放在这里
+    let note = task.redeliver.then_some(MANUAL_REDELIVER_NOTE);
+    record_with_note(task, outcome, receive_ms, note).await;
+}
+
+/// 手工重投在渠道日志里的备注前缀
+///
+/// 见 [`record_with_note`]：重投沿用原始 `business_trigger_ms`，没有这个标记，
+/// 渠道日志里「端到端耗时两小时」会被当成链路卡顿。
+pub const MANUAL_REDELIVER_NOTE: &str = "手工重投";
+
+/// # 记录一次发送结果（带备注）
+///
+/// `note` 会拼在渠道日志的 `detail` 前面，用来区分「第一次投递」与
+/// 「用户手工重投」这两种同样会写进 `msg_delivery_channel_log` 的尝试。
+/// 不区分的话，一个隔了两小时的手工重投在日志里看起来就是一次超长延迟的
+/// 首发（`business_trigger_ms` 是原始业务时刻，端到端耗时自然很大），
+/// 排查的人会去追根本不存在的链路卡顿。
+pub async fn record_with_note(
+    task: &DeliveryMsg,
+    outcome: &SendOutcome,
+    receive_ms: u64,
+    note: Option<&str>,
+) {
     // 广播任务的「本实例没连接」不算失败：屏可能连在别的实例上，那边会把
     // 这条渠道记成送达。这里跟着记一笔失败，就会把别人的成功覆盖掉——
     // 多实例部署下渠道状态完全取决于谁最后回写。所以广播只回写送达/发送失败，
@@ -103,7 +128,10 @@ pub async fn record(task: &DeliveryMsg, outcome: &SendOutcome, receive_ms: u64) 
                 business_trigger_ms: Some(U64(business_trigger_ms)),
                 deliver_channel_status: Some(status),
                 address: Some(outcome.address()),
-                detail: Some(Some(outcome.detail().to_string())),
+                detail: Some(Some(match note {
+                    Some(note) => format!("{note}；{}", outcome.detail()),
+                    None => outcome.detail().to_string(),
+                })),
                 // 审计列写真实落库时刻：`finish_ms` 已经是「发送结束」的业务
                 // 时刻，再拿它回填 `create_ms` 只会让两列恒等
                 _current_ms: Some(U64(server_now_ms())),

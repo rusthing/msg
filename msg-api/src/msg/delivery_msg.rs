@@ -125,6 +125,17 @@ pub struct DeliveryMsg {
     #[serde(default)]
     pub simulated: bool,
 
+    /// 是否是用户手工重投（「投递记录 → 再次投递」重发出来的任务）
+    ///
+    /// 只影响渠道日志的备注，不参与任何路由或判重。**为什么不靠 `business_trigger_ms`
+    /// 判断**：重投沿用原始业务时刻（它是幂等键的一部分），渠道日志上的端到端
+    /// 耗时会很大——没有这个标记，一次隔了两小时的手工重投看起来就是一次超长
+    /// 延迟的首发，排查的人会去追根本不存在的链路卡顿。
+    ///
+    /// 老发布方不带这个字段，`serde(default)` 当作 `false`，报文向后兼容。
+    #[serde(default)]
+    pub redeliver: bool,
+
     /// 投递目标类别编码（`msg_target_category.code`）
     ///
     /// 消费方按它认领任务：websocket 渠道拿它和连接上报的类别编码比对，

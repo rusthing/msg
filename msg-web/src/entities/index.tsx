@@ -21,6 +21,7 @@
 
 import type { ReactNode } from 'react';
 import type { ColumnsType } from 'antd/es/table';
+import { Button } from 'antd';
 import {
   AimOutlined,
   ApiOutlined,
@@ -36,9 +37,10 @@ import {
   TeamOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
+import { deliveryApi } from '../api/delivery';
 import type { Row } from '../api/types';
 import { deliverChannelStatusDic, deliverStatusDic, deliverTargetStatusDic, type DicItem } from '../dic';
-import { durationMs } from '../utils/format';
+import { durationMs, errorMessage } from '../utils/format';
 
 /** # 字段控件类型 */
 export type FieldKind =
@@ -139,6 +141,27 @@ export interface FieldConfig {
 /** # 侧边栏分组 */
 export type EntityGroup = 'definition' | 'delivery' | 'queue';
 
+/**
+ * # 行内附加操作的上下文
+ *
+ * 附加操作写在实体元数据里（「这张表上还能做什么」属于表的知识），但它要刷新
+ * 列表、弹确认框、出提示——这些都在页面手里。所以页面把这三件事以函数形式递进
+ * 来，元数据只负责描述动作本身，不碰 React 状态。
+ */
+export interface RowActionContext {
+  /** 重新拉当前页（保留筛选与页码） */
+  reload: () => void;
+  /** 轻提示 */
+  notify: (type: 'success' | 'error', text: string) => void;
+  /** 二次确认；`onOk` 抛错时弹窗保持打开，调用方可以重试 */
+  confirm: (options: {
+    title: string;
+    content: string;
+    okText?: string;
+    onOk: () => Promise<void>;
+  }) => void;
+}
+
 /** # 一个实体的完整元数据 */
 export interface EntityConfig {
   /** 路由段，同时是 `/msg/{key}` 的最后一段 */
@@ -163,6 +186,13 @@ export interface EntityConfig {
   modalWidth?: number;
   /** 额外列（放计算出来的耗时之类，不能直接对应某个字段） */
   extraColumns?: ColumnsType<Row>;
+  /**
+   * 行内附加操作，渲染在「操作」列最前面
+   *
+   * 只给「CRUD 之外的业务动作」用（如投递记录的「再次投递」）。不放这里的动作
+   * 一律走通用的详情 / 编辑 / 删除，别再往 EntityPage 里加特例。
+   */
+  extraActions?: (record: Row, ctx: RowActionContext) => ReactNode;
 }
 
 /** 编码 + 名称 + 备注：事件来源、消息类别、目标类别三张表结构一致 */
@@ -477,6 +507,46 @@ const delivery: EntityConfig = {
       render: (_, record) => durationMs(record.businessTriggerMs as string, record.receiveMs as string),
     },
   ],
+  /**
+   * 再次投递
+   *
+   * 渠道挂过、大屏重启过、或者当时那一路失败了：运营不必重新触发一次业务事件
+   * （那会造出一条新的投递记录、业务时刻也变了），直接按原目标与渠道补发一遍。
+   *
+   * 不加「投递中不可点」的限制：广播目标在所有实例都没连接时状态会停在「投递中」，
+   * 那恰恰是最需要补发的场景。
+   */
+  extraActions: (record, ctx) => (
+    <Button
+      type="link"
+      size="small"
+      onClick={() =>
+        ctx.confirm({
+          title: '再次投递这条消息？',
+          content:
+            '按这条投递原来的目标与渠道重新发一遍：状态会回到「投递中」，已经成功的渠道也会再收一次；渠道投递日志里会多一行「手工重投」。',
+          okText: '再次投递',
+          onOk: async () => {
+            try {
+              const result = await deliveryApi.redeliver(record.id);
+              ctx.notify(
+                'success',
+                `已提交 ${result.publishedCount}/${result.taskCount} 路投递任务` +
+                  (result.failedCount > 0 ? `，其中 ${result.failedCount} 路发布失败` : ''),
+              );
+              ctx.reload();
+            } catch (reason) {
+              ctx.notify('error', errorMessage(reason));
+              // 抛回给 Modal：失败时保持弹窗，用户可以重试
+              throw reason;
+            }
+          },
+        })
+      }
+    >
+      再次投递
+    </Button>
+  ),
 };
 
 /** # 投递目标 */

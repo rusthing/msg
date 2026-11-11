@@ -984,6 +984,8 @@ fn build_task(
         create_ms: ctx.create_ms,
         // 模拟标记随任务一路带下去：投递任务失败进死信时，死信表直接取这个值
         simulated: simulated_reason(ctx.message_msg).is_some(),
+        // 首次投递，不是手工重投
+        redeliver: false,
         target_category_code: target.target_category.code.clone(),
         target_category_id: target.target_category.id,
         target_id: target.target_id.clone(),

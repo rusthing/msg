@@ -54,7 +54,7 @@ import JsonText from '../components/JsonText';
 import OptionButtons from '../components/OptionButtons';
 import StatusTag from '../components/StatusTag';
 import TemplateEditor from '../components/TemplateEditor';
-import type { EntityConfig, FieldConfig } from '../entities';
+import type { EntityConfig, FieldConfig, RowActionContext } from '../entities';
 import { dicOptions } from '../dic';
 import { usePagedQuery } from '../hooks/usePagedQuery';
 import { useRefOptions, type RefOptions } from '../hooks/useRefOptions';
@@ -489,6 +489,32 @@ export default function EntityPage({ config }: EntityPageProps) {
     reload();
   };
 
+  /**
+   * 行内附加操作要用到的三件事
+   *
+   * 元数据只描述「这个动作是什么」，刷新 / 提示 / 确认必须由页面提供：
+   * 那里才有 `usePagedQuery` 的 `reload`、antd 的 message 与 modal。
+   */
+  const rowActionContext: RowActionContext = {
+    reload,
+    notify: (type, text) => {
+      if (type === 'success') {
+        message.success(text);
+      } else {
+        message.error(text);
+      }
+    },
+    confirm: (options) => {
+      modal.confirm({
+        title: options.title,
+        content: options.content,
+        okText: options.okText ?? '确定',
+        cancelText: '取消',
+        onOk: options.onOk,
+      });
+    },
+  };
+
   const columns = useMemo<ColumnsType<MsgRow>>(() => {
     const result: ColumnsType<MsgRow> = [];
 
@@ -561,10 +587,12 @@ export default function EntityPage({ config }: EntityPageProps) {
     result.push({
       title: '操作',
       key: 'actions',
-      width: 150,
+      // 附加操作会多出一两个链接，150 塞不下四个就换行挤压，命中率很低
+      width: config.extraActions ? 220 : 150,
       fixed: isDesktop ? 'right' : undefined,
       render: (_: unknown, record: MsgRow) => (
         <Space size={0} className="msg-table-actions">
+          {config.extraActions?.(record, rowActionContext)}
           <Button type="link" size="small" onClick={() => setDetail(record)}>
             详情
           </Button>
