@@ -24,7 +24,8 @@
 //!
 //! `token` 为空表示不校验（联调用）；渠道表里没有 websocket 这条渠道、或这条
 //! 渠道被禁用（`enabled = false`）时直接拒绝——没有可用的渠道配置就没人会往
-//! 这个渠道投递，连上也收不到消息。
+//! 这个渠道投递，连上也收不到消息。`options` 存在但解析不出 JSON、或 `token`
+//! 不是字符串时同样拒绝（503）：那是「本来要配令牌但写坏了」，不能退化成不校验。
 
 use crate::config::get_msg_config;
 use crate::dto::MsgChannelQueryDto;
@@ -111,17 +112,20 @@ async fn check_token(token: Option<&str>) -> Result<(), StatusCode> {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     }
 
-    let expected = channel
-        .options
-        .as_deref()
-        .and_then(|options| match serde_json::from_str::<WsChannelOptions>(options) {
-            Ok(options) => Some(options.token),
+    // 没配置渠道参数（或配置成空白）才视为「不校验令牌」，方便联调。
+    // 配置存在但解析不了时必须拒绝：那是运营本意要配令牌却写坏了，按「未配置」
+    // 放行等于把鉴权关掉，任何人都能连上来收大屏消息。
+    let expected = match channel.options.as_deref() {
+        None => String::new(),
+        Some(options) if options.trim().is_empty() => String::new(),
+        Some(options) => match serde_json::from_str::<WsChannelOptions>(options) {
+            Ok(parsed) => parsed.token,
             Err(e) => {
-                warn!("websocket 渠道 options 解析失败，按未配置令牌处理: {e}");
-                None
+                warn!("websocket 渠道 options 解析失败，拒绝连接（请修正渠道配置）: {e}");
+                return Err(StatusCode::SERVICE_UNAVAILABLE);
             }
-        })
-        .unwrap_or_default();
+        },
+    };
 
     // 没配令牌就是不校验，方便联调
     if expected.is_empty() {

@@ -673,7 +673,9 @@ const deliveryChannelLog: EntityConfig = {
     { key: 'firstReceiveMs', label: '首收时间', kind: 'ms', width: 180, inTable: false },
     { key: 'firstTriggerMs', label: '首次触发时间', kind: 'ms', width: 180, inTable: false },
     { key: 'address', label: '投递地址', kind: 'text', width: 220, maxLength: 80, searchable: true, ellipsis: true },
-    { key: 'detail', label: '投递详情', kind: 'json', rows: 6, inTable: false, tip: '失败原因或渠道返回的原始响应' },
+    // 详情是自由文本（「发送成功」/异常原因/渠道原始响应），不是 JSON：
+    // 用 json 控件会让编辑这条日志时因存量纯文本过不了 JSON 校验而无法保存
+    { key: 'detail', label: '投递详情', kind: 'textarea', rows: 6, inTable: false, tip: '失败原因或渠道返回的原始响应' },
   ],
   extraColumns: [
     {

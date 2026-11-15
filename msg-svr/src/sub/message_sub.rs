@@ -181,6 +181,7 @@ pub async fn on_message_queue_refresh() {
 /// - 队列 `code` 不存在于当前订阅 → 启动新订阅
 /// - 队列 `code` 已存在且订阅任务仍在运行 → 保留（跳过）
 /// - 队列 `code` 已存在但订阅任务**已退出** → 视为不存在，重建
+/// - 队列 `code` 已存在但**持久化方式已变更** → 停掉旧订阅，按新方式重建
 /// - 队列 `code` 已存在但**重投上限已变更** → 停掉旧订阅，按新上限重建
 /// - 当前订阅中的 `code` 不在 `queues` 中 → 停止
 ///
@@ -208,6 +209,13 @@ pub async fn sync_message_queue_subscriptions(queues: &HashSet<MessageQueueSpec>
     // 重投上限来自配置文件，改配置后热更新会重新走到这里
     let max_deliver = get_msg_config().effective_max_deliver();
 
+    // 队列当前的持久化方式：它决定订阅走 JetStream 还是 Core NATS，不是能原地
+    // 刷新到 consumer 上的参数，只能重建订阅。
+    let persisted_by_code: HashMap<&str, bool> = queues
+        .iter()
+        .map(|queue| (queue.code.as_str(), queue.persisted))
+        .collect();
+
     // ── 保留仍然存活的订阅，死句柄/配置已变的直接丢弃（下面会按新增重建）──
 
     let mut next: HashMap<String, MessageQueueSubscription> = HashMap::new();
@@ -216,6 +224,19 @@ pub async fn sync_message_queue_subscriptions(queues: &HashSet<MessageQueueSpec>
     for (code, subscription) in current.iter() {
         if subscription.handle.is_finished() {
             warn!("队列订阅任务已退出，将重建: {code}");
+            continue;
+        }
+        // 持久化方式变了必须重建：旧订阅还按老方式收，而发布方已经按新配置发。
+        // 尤其是 false → true：没有 stream 时发布方的 JetStream 发布（默认模式）
+        // 会一直报「no stream matches subject」，直到服务重启才恢复。
+        if let Some(&persisted) = persisted_by_code.get(code.as_str())
+            && persisted != subscription.persisted
+        {
+            info!(
+                "队列订阅方式变更（persisted {} → {persisted}），重建订阅: {code}",
+                subscription.persisted
+            );
+            subscription.handle.abort();
             continue;
         }
         if subscription.persisted && subscription.max_deliver != max_deliver {
