@@ -33,8 +33,9 @@ use idworker::next_id;
 use msg_api::cst::{MSG_MESSAGE_NORMAL_TOPIC, MSG_MESSAGE_QUEUE_REFRESH_SUBJECT};
 use msg_api::dic::{DeliverChannelStatus, DeliverStatus, DeliverTargetStatus};
 use msg_api::dto::{
-    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryModifyDto, MsgDeliveryTargetAddDto,
-    MsgMessageQueueAddDto,
+    MsgDeliveryAddDto, MsgDeliveryChannelAddDto, MsgDeliveryChannelQueryDto, MsgDeliveryModifyDto,
+    MsgDeliveryQueryDto, MsgDeliveryTargetAddDto, MsgDeliveryTargetModifyDto,
+    MsgDeliveryTargetQueryDto, MsgMessageQueueAddDto,
 };
 use msg_api::msg::{DeliveryMsg, message_msg::MessageMsg};
 use robotech::api::U64;
@@ -44,6 +45,7 @@ use robotech::db::get_db_conn;
 use robotech::mq::nats;
 use robotech::mq::nats::NatsError;
 use robotech::svc::SvcError;
+use sea_orm::{ConnectionTrait, DatabaseConnection, TransactionTrait};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
@@ -132,9 +134,16 @@ pub async fn reload_message_queue_subscriptions() -> anyhow::Result<()> {
 /// JetStream 订阅会创建覆盖 `msg.message.normal` 的 stream，发布方无论等不等
 /// ACK 都能被服务端落盘。
 ///
-/// 重复注册不算失败：`code` 上有唯一约束，已存在时插入会返回
-/// [`DaoError::DuplicateKey`]，与 HTTP 侧「RTW00001 唯一键重复」是同一个语义
-/// （见 dbz 注册健康检查任务的写法），这里直接当作已完成。
+/// 重复注册只有 **`code` 冲突**才算「已注册」：`code` 就是订阅与发布共用的
+/// subject，`code = msg.message.normal` 的行在，默认入口才真的存在。`name` 上
+/// 也有唯一约束，但它是给运营看的展示名，别的队列先占了「普通消息队列」这个名字
+/// 时，那条队列的 subject 不是 `msg.message.normal`，msg-svr 依然没有默认入口
+/// ——把这种冲突也当成成功，发布方会一直报「no stream matches subject」，而启动
+/// 日志里看不出任何异常。所以 `name` 冲突必须打明确错误并让启动失败。
+///
+/// 既有行还要校验 `persisted`：队列存在但 `persisted = false` 时订阅走 Core
+/// NATS，没有 JetStream stream，而 `msg-pub` 的默认发布会等 ACK，结果是发布
+/// 直接失败。这不是能自动纠正的状态（改配置属于运营决策），同样让启动失败。
 ///
 /// 只在启动流程中调用一次，不参与运行期的队列刷新，避免刷新链路上多一次写库。
 pub async fn ensure_normal_message_queue() -> anyhow::Result<()> {
@@ -143,7 +152,7 @@ pub async fn ensure_normal_message_queue() -> anyhow::Result<()> {
     let add_result = MsgMessageQueueSvc::add(
         MsgMessageQueueAddDto {
             code: Some(MSG_MESSAGE_NORMAL_TOPIC.to_string()),
-            name: Some("普通消息队列".to_string()),
+            name: Some(MSG_MESSAGE_NORMAL_QUEUE_NAME.to_string()),
             persisted: Some(true),
             remark: Some(Some("msg-pub 默认发布入口".to_string())),
             _current_user_id: U64(SYS_OPERATOR_USER_ID),
@@ -158,11 +167,90 @@ pub async fn ensure_normal_message_queue() -> anyhow::Result<()> {
             info!("普通消息队列注册成功: {MSG_MESSAGE_NORMAL_TOPIC}");
             Ok(())
         }
-        Err(SvcError::Dao(DaoError::DuplicateKey(..))) => {
-            info!("普通消息队列已存在: {MSG_MESSAGE_NORMAL_TOPIC}");
+        Err(SvcError::Dao(DaoError::DuplicateKey(key, value))) => match key.key_name.as_str() {
+            "code" => ensure_existing_normal_queue(db.as_ref()).await,
+            "name" => {
+                let conflict = MsgMessageQueueSvc::get_by_query_dto(
+                    MsgMessageQueueQueryDto {
+                        name: Some(MSG_MESSAGE_NORMAL_QUEUE_NAME.to_string()),
+                        ..Default::default()
+                    },
+                    Some(db.as_ref()),
+                )
+                .await?
+                .extra;
+
+                let detail = conflict
+                    .map(|q| {
+                        format!(
+                            "id={}, code(subject)={}, name={}, persisted={}",
+                            q.id, q.code, q.name, q.persisted
+                        )
+                    })
+                    .unwrap_or_else(|| "按 name 回查不到冲突行".to_string());
+
+                error!(
+                    "普通消息队列注册失败：name={MSG_MESSAGE_NORMAL_QUEUE_NAME:?} 已被占用，\
+                     期望 code(subject)={MSG_MESSAGE_NORMAL_TOPIC}；冲突行: {detail}。\
+                     默认发布入口不存在，msg-pub 发布普通消息会失败，启动中止"
+                );
+                Err(anyhow::anyhow!(
+                    "普通消息队列 name={MSG_MESSAGE_NORMAL_QUEUE_NAME:?} 与既有队列冲突（冲突值={value}），\
+                     无法注册 {MSG_MESSAGE_NORMAL_TOPIC}；请先修正冲突行的 name"
+                ))
+            }
+            other => Err(anyhow::anyhow!(
+                "普通消息队列注册失败：未预期的唯一键冲突 {other}={value}，无法确认 {MSG_MESSAGE_NORMAL_TOPIC} 是否已注册"
+            )),
+        },
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// 普通消息队列的 `name`
+///
+/// `name` 与 `code` 是两条独立的唯一键，冲突时插入报的键名不同，处理方式也
+/// 不同（见 [`ensure_normal_message_queue`]）。
+const MSG_MESSAGE_NORMAL_QUEUE_NAME: &str = "普通消息队列";
+
+/// # 校验已存在的普通消息队列
+///
+/// `code` 冲突说明 subject 已经被占用，但「存在」不等于「可用」：
+/// `persisted = false` 时没有 JetStream stream，默认持久化发布会失败。
+/// 这里只报告事实并让启动失败，不替运营改配置。
+async fn ensure_existing_normal_queue(db: &DatabaseConnection) -> anyhow::Result<()> {
+    let existing = MsgMessageQueueSvc::get_by_query_dto(
+        MsgMessageQueueQueryDto {
+            code: Some(MSG_MESSAGE_NORMAL_TOPIC.to_string()),
+            ..Default::default()
+        },
+        Some(db),
+    )
+    .await?
+    .extra;
+
+    match existing {
+        Some(queue) if queue.persisted => {
+            info!(
+                "普通消息队列已存在: code={}, name={}, persisted=true",
+                queue.code, queue.name
+            );
             Ok(())
         }
-        Err(e) => Err(e.into()),
+        Some(queue) => {
+            error!(
+                "普通消息队列已存在但 persisted=false: code={}, name={}。\
+                 该队列走 Core NATS，不会创建 JetStream stream，msg-pub 的默认持久化发布会失败，启动中止",
+                queue.code, queue.name
+            );
+            Err(anyhow::anyhow!(
+                "普通消息队列 {} 的 persisted=false，默认持久化发布会失败；请将其改为 true",
+                queue.code
+            ))
+        }
+        None => Err(anyhow::anyhow!(
+            "普通消息队列注册报 code 冲突，但回查不到 code={MSG_MESSAGE_NORMAL_TOPIC} 的记录"
+        )),
     }
 }
 
@@ -453,11 +541,12 @@ async fn start_subscription_for_queue(
 /// 3. 渲染标题、内容与附加内容（模板优先、发布方兜底；标题和内容为空就拒收）
 /// 4. 非持久化消息直接按缓存里的目标×渠道投递并返回
 /// 5. 幂等检查（`(event_code, business_id, business_trigger_ms)` 唯一约束）
-/// 6. 创建 `msg_delivery` 投递记录（含 labels / annotations 快照，供排查）
-/// 7. 为每个目标创建 `msg_delivery_target`
-/// 8. 为每个（目标 × 渠道）组合创建 `msg_delivery_channel`
-/// 9. 发布投递任务；一个任务都没有（没挂目标 / 目标类别没绑渠道）时报错并把
-///    投递记录收口成「全部失败」
+/// 6. 同一事务内创建 `msg_delivery` 投递记录（含 labels / annotations 快照）、
+///    每个目标的 `msg_delivery_target`、每个（目标 × 渠道）的 `msg_delivery_channel`
+/// 7. 事务提交后再发布投递任务：消费者回写状态时要能查到渠道行
+/// 8. 撞幂等键时检查既有投递：缺目标/渠道就补建并补发，历史半截数据自愈
+/// 9. 一个任务都没有（没挂目标 / 目标类别没绑渠道）时报错并把投递记录收口成
+///    「全部失败」
 ///
 /// 投递任务与投递三张表一一对应：渲染好的标题、内容、附加内容，三张表的行 ID
 /// 与目标/渠道字段。`labels` / `annotations` 只是模板的输入，渲染完就只剩
@@ -596,6 +685,12 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         }
     };
 
+    // `msg_delivery.title` 是 varchar(150)，标题模板本身就能顶满 150，再叠加
+    // 变量（或发布方直传）很容易超长；超长会在建投递记录时校验/入库失败，消息
+    // 重投几次后进死信，一条都投不出去。标题只用于展示，正文里已有完整内容，
+    // 这里按字符（不是字节，按字节截中文会截出坏字符）截断并留一条 warn。
+    let title = truncate_title(title);
+
     // ── 4. 非持久化消息：不落库、不回写，发不出去就丢 ──
     //
     //   `msg_message.persisted = false` 的消息没有投递记录（三张表的行 ID 全空），
@@ -633,6 +728,16 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         )));
     };
 
+    // 任务要等记录建好再发：先有 ID 才能回写，发不出去也能在库里看到
+    let task_ctx = TaskContext {
+        msg,
+        message_msg: &message_msg,
+        title: &title,
+        content: &content,
+        ext: ext.as_deref(),
+        create_ms: now_ms,
+    };
+
     let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
 
     // ── 5+6. 创建投递记录（唯一键即幂等判据） ──
@@ -642,7 +747,11 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     // 了一遍，代价是多一次 RTT，还留着「查完到插入之间」的并发空窗——两个
     // 重复投递同时进来，两边都查不到、都去插，后到的撞键退化成 500 再重投。
     //
-    // 直接让约束说话：插入成功就是第一次，撞唯一键就是已经投过，就地返回。
+    // 直接让约束说话：插入成功就是第一次，撞唯一键就是已经投过。
+    //
+    // 投递记录、目标、渠道三张表必须同生共死：只落了投递记录就中断的话，重投
+    // 会撞唯一键被当成「已投递」跳过，目标和渠道永远补不上，记录停在「投递中」。
+    // 所以三张表放进同一个事务，失败整体回滚，提交之后才允许发布任务。
 
     let delivery_id = next_id().map_err(|e| NatsError::Handle(format!("生成投递ID失败: {e}")))?;
 
@@ -697,21 +806,36 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         _current_user_id: U64(0),
     };
 
-    match MsgDeliverySvc::add(delivery_add, Some(db.as_ref())).await {
+    let tx = db
+        .begin()
+        .await
+        .map_err(|e| NatsError::Handle(format!("开启投递事务失败: {e}")))?;
+
+    match MsgDeliverySvc::add(delivery_add, Some(&tx)).await {
         Ok(_) => {}
         // 撞幂等键：这条消息已经投过了（重投 / 两个消费者抢同一条）。
         // 正常路径，不是故障，日志降到 info 一行收掉。
         Err(SvcError::Dao(DaoError::DuplicateKey(key, _)))
             if key.table == DELIVERY_TABLE && key.key_name == DELIVERY_IDEM_KEY =>
         {
-            info!(
-                "消息已投递，幂等跳过: event_code={}, business_id={business_id}, business_trigger_ms={business_trigger_ms}",
-                message_msg.event_code
-            );
-            info!(
-                "{trace} cost_ms={} result=idempotent",
-                started.elapsed().as_millis()
-            );
+            // 失败的事务在 PG 里已经 aborted，先回滚再查。历史实现可能只落了
+            // 投递记录、没来得及建目标/渠道，这里按当前配置补建并补发。
+            let _ = tx.rollback().await;
+            if backfill_delivery(&task_ctx, business_id, business_trigger_ms).await? {
+                info!(
+                    "{trace} cost_ms={} result=idempotent_backfilled",
+                    started.elapsed().as_millis()
+                );
+            } else {
+                info!(
+                    "消息已投递，幂等跳过: event_code={}, business_id={business_id}, business_trigger_ms={business_trigger_ms}",
+                    message_msg.event_code
+                );
+                info!(
+                    "{trace} cost_ms={} result=idempotent",
+                    started.elapsed().as_millis()
+                );
+            }
             return Ok(());
         }
         Err(e) => {
@@ -726,99 +850,22 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         msg.id
     );
 
-    // ── 7. 创建投递目标与渠道记录，并把投递任务收起来 ──
+    // ── 7+8. 创建投递目标与渠道记录（同一事务），并把投递任务收起来 ──
 
-    // 任务要等记录建好再发：先有 ID 才能回写，发不出去也能在库里看到
-    let task_ctx = TaskContext {
-        msg,
-        message_msg: &message_msg,
-        title: &title,
-        content: &content,
-        ext: ext.as_deref(),
-        create_ms: now_ms,
-    };
-    let mut tasks: Vec<DeliveryMsg> = Vec::new();
-
-    for target in &msg.targets {
-        let target_id_val =
-            next_id().map_err(|e| NatsError::Handle(format!("生成投递目标ID失败: {e}")))?;
-
-        let target_add = MsgDeliveryTargetAddDto {
-            id: Some(U64(target_id_val)),
-            delivery_id: Some(delivery_id.into()),
-            target_category_id: Some(target.target_category.id.into()),
-            // 广播目标（target_id 为空串）也要落一行：投递记录得说明「这次覆盖了
-            // 哪个类别」，否则渠道记录挂不到目标上，状态也没法逐级汇总
-            target_id: Some(target.target_id.clone()),
-            deliver_target_status: Some(DeliverTargetStatus::Delivering),
-            _current_ms: Some(U64(server_now_ms())),
-            _current_user_id: U64(0),
-        };
-
-        match MsgDeliveryTargetSvc::add(target_add, Some(db.as_ref())).await {
-            Ok(ro) => {
-                let created_target = ro.extra.as_ref().unwrap();
-                info!(
-                    "投递目标已创建: target_id={}, category_code={}, delivery_id={delivery_id}",
-                    created_target.id, target.target_category.code
-                );
-
-                // ── 8. 直接用目标内嵌的渠道列表创建投递渠道记录 ──
-
-                for channel in &target.target_category.channels {
-                    let channel_id_val = next_id()
-                        .map_err(|e| NatsError::Handle(format!("生成投递渠道ID失败: {e}")))?;
-
-                    let channel_add = MsgDeliveryChannelAddDto {
-                        id: Some(U64(channel_id_val)),
-                        deliver_target_id: Some(created_target.id),
-                        channel_id: Some(channel.id.into()),
-                        deliver_channel_status: Some(DeliverChannelStatus::Delivering),
-                        address: None,
-                        _current_ms: Some(U64(server_now_ms())),
-                        _current_user_id: U64(0),
-                    };
-
-                    if let Err(e) = MsgDeliveryChannelSvc::add(channel_add, Some(db.as_ref())).await
-                    {
-                        error!(
-                            "创建投递渠道失败: target_id={}, channel_id={}, error={e}",
-                            created_target.id, channel.id
-                        );
-                    } else {
-                        info!(
-                            "投递渠道已创建: target_id={}, channel_id={}, channel_name={}",
-                            created_target.id, channel.id, channel.name
-                        );
-                        tasks.push(build_task(
-                            &task_ctx,
-                            (
-                                Some(delivery_id),
-                                Some(created_target.id.0),
-                                Some(channel_id_val),
-                            ),
-                            target,
-                            channel,
-                        ));
-                    }
-                }
-            }
-            Err(e) => {
-                error!(
-                    "创建投递目标失败: category_code={}, error={e}",
-                    target.target_category.code
-                );
-            }
+    let tasks = match create_targets_and_channels(&tx, delivery_id, &task_ctx).await {
+        Ok(tasks) => tasks,
+        Err(e) => {
+            // tx 在这里 drop，事务随之回滚：不会留下没有目标/渠道的投递记录
+            return Err(NatsError::Handle(e));
         }
-    }
-
-    // ── 9. 发布投递任务 ──
+    };
 
     // 一个任务都没组装出来，说明这条消息谁都收不到：要么它没挂投递目标
     // （`msg_message_target` 缺行，比如发布方登记顺序不对），要么目标类别没绑
     // 渠道（`msg_target_category_channel` 缺行）。这两种情况下投递记录都不会
     // 再有人回写，会永远停在「投递中」——从后台看就是「已收下、没下文」，
-    // 只能翻库才发现。所以就地收口成「全部失败」并报错。
+    // 只能翻库才发现。趁事务还在就地收口成「全部失败」，避免提交后再回写失败
+    // 又留下一条永远「投递中」的记录。
     //
     // 重投救不了：目标表没变，缓存重建后照样是零个任务。照常确认。
     if tasks.is_empty() {
@@ -831,13 +878,36 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             "{reason}，本条消息判为投递失败: event_code={}, delivery_id={delivery_id}, business_id={business_id}",
             msg.event_code
         );
-        mark_delivery_failed(db.as_ref(), delivery_id).await;
+
+        MsgDeliverySvc::modify(
+            MsgDeliveryModifyDto {
+                id: Some(U64(delivery_id)),
+                deliver_status: Some(DeliverStatus::AllFailed),
+                _current_user_id: U64(0),
+                ..Default::default()
+            },
+            Some(&tx),
+        )
+        .await
+        .map_err(|e| NatsError::Handle(format!("回写投递失败状态失败: {e}")))?;
+
+        tx.commit()
+            .await
+            .map_err(|e| NatsError::Handle(format!("提交投递事务失败: {e}")))?;
+
         info!(
             "{trace} cost_ms={} result=no_task delivery_id={delivery_id}",
             started.elapsed().as_millis()
         );
         return Ok(());
     }
+
+    // 记录先落定，提交后再发任务：消费者回写时要能查到渠道行
+    tx.commit()
+        .await
+        .map_err(|e| NatsError::Handle(format!("提交投递事务失败: {e}")))?;
+
+    // ── 9. 发布投递任务 ──
 
     let task_count = tasks.len();
     for task in tasks {
@@ -849,12 +919,18 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             // 发不出去就不会有发送结果回来，就地记失败，避免渠道一直挂在「投递中」。
             // 渠道日志的「接收时间」用这次发布尝试的时刻：任务根本没到消费端，
             // 这是最接近的事实。
-            deliver_result::record(
+            if let Err(write_err) = deliver_result::record(
                 &task,
                 &SendOutcome::Failed(format!("发布投递任务失败: {e}")),
                 chrono::Utc::now().timestamp_millis() as u64,
             )
-            .await;
+            .await
+            {
+                error!(
+                    "发布投递任务失败后回写投递状态也失败: channel={}, target_id={}, error={write_err}",
+                    task.channel_code, task.target_id
+                );
+            }
         }
     }
 
@@ -869,6 +945,341 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     );
 
     Ok(())
+}
+
+/// # 在事务里创建目标与渠道记录，返回待发布的任务
+///
+/// 必须由调用方提供事务连接：记录要么一起提交，要么一起回滚。渠道创建失败
+/// 直接返回错误（回滚重投），不再像旧实现那样跳过——跳过会在目标下留下缺
+/// 渠道的半截数据，那条目标永远等不到结果回写。
+///
+/// 只创建「至少绑定了一个渠道」的目标：没有渠道的目标不会有任务，也不会有
+/// 结果回写，会永远停在「投递中」并拖住整条投递的收口。
+async fn create_targets_and_channels<C>(
+    db: &C,
+    delivery_id: u64,
+    task_ctx: &TaskContext<'_>,
+) -> Result<Vec<DeliveryMsg>, String>
+where
+    C: ConnectionTrait,
+{
+    let mut tasks = Vec::new();
+
+    for target in &task_ctx.msg.targets {
+        if target.target_category.channels.is_empty() {
+            error!(
+                "目标类别未绑定渠道，跳过该目标: message={}, category_code={}",
+                task_ctx.msg.event_code, target.target_category.code
+            );
+            continue;
+        }
+
+        let target_id = next_id().map_err(|e| format!("生成投递目标ID失败: {e}"))?;
+
+        let target_add = MsgDeliveryTargetAddDto {
+            id: Some(U64(target_id)),
+            delivery_id: Some(delivery_id.into()),
+            target_category_id: Some(target.target_category.id.into()),
+            // 广播目标（target_id 为空串）也要落一行：投递记录得说明「这次覆盖了
+            // 哪个类别」，否则渠道记录挂不到目标上，状态也没法逐级汇总
+            target_id: Some(target.target_id.clone()),
+            deliver_target_status: Some(DeliverTargetStatus::Delivering),
+            _current_ms: Some(U64(server_now_ms())),
+            _current_user_id: U64(0),
+        };
+
+        MsgDeliveryTargetSvc::add(target_add, Some(db))
+            .await
+            .map_err(|e| {
+                format!(
+                    "创建投递目标失败 (category_code={}): {e}",
+                    target.target_category.code
+                )
+            })?;
+
+        info!(
+            "投递目标已创建: target_id={target_id}, category_code={}, delivery_id={delivery_id}",
+            target.target_category.code
+        );
+
+        for channel in &target.target_category.channels {
+            let channel_id = next_id().map_err(|e| format!("生成投递渠道ID失败: {e}"))?;
+
+            let channel_add = MsgDeliveryChannelAddDto {
+                id: Some(U64(channel_id)),
+                deliver_target_id: Some(U64(target_id)),
+                channel_id: Some(channel.id.into()),
+                deliver_channel_status: Some(DeliverChannelStatus::Delivering),
+                address: None,
+                _current_ms: Some(U64(server_now_ms())),
+                _current_user_id: U64(0),
+            };
+
+            MsgDeliveryChannelSvc::add(channel_add, Some(db))
+                .await
+                .map_err(|e| {
+                    format!(
+                        "创建投递渠道失败 (target_id={target_id}, channel_id={}): {e}",
+                        channel.id
+                    )
+                })?;
+
+            info!(
+                "投递渠道已创建: target_id={target_id}, channel_id={}, channel_name={}",
+                channel.id, channel.name
+            );
+
+            tasks.push(build_task(
+                task_ctx,
+                (Some(delivery_id), Some(target_id), Some(channel_id)),
+                target,
+                channel,
+            ));
+        }
+    }
+
+    Ok(tasks)
+}
+
+/// # 幂等键冲突时补齐既有投递的目标/渠道
+///
+/// 历史实现先落投递记录、再建目标/渠道，中途失败会留下「有投递、没目标」的
+/// 半截数据；旧逻辑重投时直接按幂等跳过，消息就永远停在「投递中」。这里按
+/// 当前缓存的目标配置检查既有投递：缺目标补目标、缺渠道补渠道，只把补出来的
+/// 那几路发出去。已有渠道不重发——那属于「再次投递」，不由幂等冲突触发。
+///
+/// 返回 `Ok(true)` 表示补建过并已发任务，`Ok(false)` 表示既有记录本来就完整。
+async fn backfill_delivery(
+    task_ctx: &TaskContext<'_>,
+    business_id: u64,
+    business_trigger_ms: u64,
+) -> Result<bool, NatsError> {
+    let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
+    let tx = db
+        .begin()
+        .await
+        .map_err(|e| NatsError::Handle(format!("开启补建事务失败: {e}")))?;
+
+    let delivery = MsgDeliverySvc::list_by_query_dto(
+        MsgDeliveryQueryDto {
+            event_code: Some(task_ctx.msg.event_code.clone()),
+            business_id: Some(business_id.into()),
+            business_trigger_ms: Some(business_trigger_ms.into()),
+            ..Default::default()
+        },
+        Some(&tx),
+    )
+    .await
+    .map_err(|e| NatsError::Handle(format!("查询既有投递记录失败: {e}")))?
+    .extra
+    .unwrap_or_default()
+    .into_iter()
+    .next()
+    .ok_or_else(|| NatsError::Handle("幂等键冲突但查不到既有投递记录，等待重投".to_string()))?;
+
+    let targets = MsgDeliveryTargetSvc::list_by_query_dto(
+        MsgDeliveryTargetQueryDto {
+            delivery_id: Some(delivery.id),
+            ..Default::default()
+        },
+        Some(&tx),
+    )
+    .await
+    .map_err(|e| NatsError::Handle(format!("查询既有投递目标失败: {e}")))?
+    .extra
+    .unwrap_or_default();
+
+    // 补建出来的任务沿用原投递的创建时刻：历史事件不该在大屏上显示成「刚刚」
+    let backfill_ctx = TaskContext {
+        msg: task_ctx.msg,
+        message_msg: task_ctx.message_msg,
+        title: task_ctx.title,
+        content: task_ctx.content,
+        ext: task_ctx.ext,
+        create_ms: delivery.create_ms.0,
+    };
+
+    let mut tasks = Vec::new();
+    let mut repaired = false;
+
+    for target in &task_ctx.msg.targets {
+        if target.target_category.channels.is_empty() {
+            continue;
+        }
+
+        let existing_target = targets.iter().find(|row| {
+            row.target_category_id == U64(target.target_category.id)
+                && row.target_id == target.target_id
+        });
+
+        let target_id = match existing_target {
+            Some(row) => row.id.0,
+            None => {
+                let target_id =
+                    next_id().map_err(|e| NatsError::Handle(format!("生成投递目标ID失败: {e}")))?;
+                let target_add = MsgDeliveryTargetAddDto {
+                    id: Some(U64(target_id)),
+                    delivery_id: Some(delivery.id),
+                    target_category_id: Some(target.target_category.id.into()),
+                    target_id: Some(target.target_id.clone()),
+                    deliver_target_status: Some(DeliverTargetStatus::Delivering),
+                    _current_ms: Some(U64(server_now_ms())),
+                    _current_user_id: U64(0),
+                };
+                MsgDeliveryTargetSvc::add(target_add, Some(&tx))
+                    .await
+                    .map_err(|e| {
+                        NatsError::Handle(format!(
+                            "补建投递目标失败 (category_code={}): {e}",
+                            target.target_category.code
+                        ))
+                    })?;
+                repaired = true;
+                target_id
+            }
+        };
+
+        // 目标已存在时先看它已经挂了哪些渠道，避免重复补建同一路
+        let existing_channels = if existing_target.is_some() {
+            MsgDeliveryChannelSvc::list_by_query_dto(
+                MsgDeliveryChannelQueryDto {
+                    deliver_target_id: Some(U64(target_id)),
+                    ..Default::default()
+                },
+                Some(&tx),
+            )
+            .await
+            .map_err(|e| NatsError::Handle(format!("查询既有投递渠道失败: {e}")))?
+            .extra
+            .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        let mut added_channel = false;
+        for channel in &target.target_category.channels {
+            if existing_channels
+                .iter()
+                .any(|row| row.channel_id == U64(channel.id))
+            {
+                continue;
+            }
+
+            let channel_id =
+                next_id().map_err(|e| NatsError::Handle(format!("生成投递渠道ID失败: {e}")))?;
+            let channel_add = MsgDeliveryChannelAddDto {
+                id: Some(U64(channel_id)),
+                deliver_target_id: Some(U64(target_id)),
+                channel_id: Some(channel.id.into()),
+                deliver_channel_status: Some(DeliverChannelStatus::Delivering),
+                address: None,
+                _current_ms: Some(U64(server_now_ms())),
+                _current_user_id: U64(0),
+            };
+            MsgDeliveryChannelSvc::add(channel_add, Some(&tx))
+                .await
+                .map_err(|e| {
+                    NatsError::Handle(format!(
+                        "补建投递渠道失败 (target_id={target_id}, channel_id={}): {e}",
+                        channel.id
+                    ))
+                })?;
+
+            tasks.push(build_task(
+                &backfill_ctx,
+                (Some(delivery.id.0), Some(target_id), Some(channel_id)),
+                target,
+                channel,
+            ));
+            added_channel = true;
+            repaired = true;
+        }
+
+        // 给已有目标补了渠道：目标可能停在「失败」，拉回「投递中」等新任务回写
+        if added_channel && existing_target.is_some() {
+            MsgDeliveryTargetSvc::modify(
+                MsgDeliveryTargetModifyDto {
+                    id: Some(U64(target_id)),
+                    deliver_target_status: Some(DeliverTargetStatus::Delivering),
+                    _current_user_id: U64(0),
+                    ..Default::default()
+                },
+                Some(&tx),
+            )
+            .await
+            .map_err(|e| NatsError::Handle(format!("重置投递目标状态失败: {e}")))?;
+        }
+    }
+
+    if !repaired {
+        // 既有投递本来就是完整的，真正的重复消息：事务里什么都没写，直接回滚
+        let _ = tx.rollback().await;
+        return Ok(false);
+    }
+
+    // 半截数据已补齐，把整条投递拉回「投递中」，等新旧任务一起收口
+    MsgDeliverySvc::modify(
+        MsgDeliveryModifyDto {
+            id: Some(delivery.id),
+            deliver_status: Some(DeliverStatus::Delivering),
+            _current_user_id: U64(0),
+            ..Default::default()
+        },
+        Some(&tx),
+    )
+    .await
+    .map_err(|e| NatsError::Handle(format!("重置投递状态失败: {e}")))?;
+
+    tx.commit()
+        .await
+        .map_err(|e| NatsError::Handle(format!("提交补建事务失败: {e}")))?;
+
+    let task_count = tasks.len();
+    for task in &tasks {
+        if let Err(e) = wkr::publish_task(task).await {
+            error!(
+                "补建后发布投递任务失败: channel={}, target_id={}, error={e}",
+                task.channel_code, task.target_id
+            );
+            if let Err(write_err) = deliver_result::record(
+                task,
+                &SendOutcome::Failed(format!("发布投递任务失败: {e}")),
+                chrono::Utc::now().timestamp_millis() as u64,
+            )
+            .await
+            {
+                error!(
+                    "补建后发布失败且回写状态也失败: channel={}, target_id={}, error={write_err}",
+                    task.channel_code, task.target_id
+                );
+            }
+        }
+    }
+
+    info!(
+        "幂等冲突的既有投递已补建: delivery_id={}, tasks={task_count}",
+        delivery.id.0
+    );
+    Ok(true)
+}
+
+/// `msg_delivery.title` 列宽，也是 `MsgDeliveryDto.title` 的校验上限
+const TITLE_MAX_CHARS: usize = 150;
+
+/// # 按字符截断标题
+///
+/// 用 `char_indices` 而不是 `String::truncate(len)`：后者按字节切，中文会被
+/// 切成非法 UTF-8 片段直接 panic。截断只影响展示，完整内容仍在 `content`。
+fn truncate_title(mut title: String) -> String {
+    if let Some((cut, _)) = title.char_indices().nth(TITLE_MAX_CHARS) {
+        let preview: String = title.chars().take(50).collect();
+        warn!(
+            "标题超过 {TITLE_MAX_CHARS} 字符，已截断: 原长度={}, preview={preview:?}",
+            title.chars().count()
+        );
+        title.truncate(cut);
+    }
+    title
 }
 
 /// # 消息是否带模拟标记
@@ -919,25 +1330,6 @@ fn inject_simulated_ext(ext: Option<&str>) -> Option<String> {
             warn!("模拟消息的 ext 不是合法 JSON，simulated 标记未并入: {e}, ext={text}");
             Some(text.to_string())
         }
-    }
-}
-
-/// # 把投递记录收口成「全部失败」
-///
-/// 一个投递任务都没发出去的消息不会有人回写状态，投递记录会永远停在「投递中」
-/// ——后台看到的和「正在发」一样，等于没有记录。这里直接改库，把「这条消息
-/// 没送到」变成看得见的事实。
-async fn mark_delivery_failed(db: &sea_orm::DatabaseConnection, delivery_id: u64) {
-    let modify = MsgDeliveryModifyDto {
-        id: Some(U64(delivery_id)),
-        deliver_status: Some(DeliverStatus::AllFailed),
-        // 审计列交给框架：这次更新发生在「发布任务全部失败」之后，
-        // 拿收到消息的时刻回填会让 update_ms 早于实际动作
-        _current_user_id: U64(0),
-        ..Default::default()
-    };
-    if let Err(e) = MsgDeliverySvc::modify(modify, Some(db)).await {
-        error!("回写投递状态失败: delivery_id={delivery_id}, error={e}");
     }
 }
 
@@ -1136,6 +1528,21 @@ mod tests {
             None
         );
         assert_eq!(pick(None, Some(""), &builtins, &labels, &annotations), None);
+    }
+
+    /// 标题按字符截断：150 字符是列宽，恰好 150 不动，超一个字符才截。
+    ///
+    /// 用中文验证「按字符不是按字节」：按字节切会落在 UTF-8 中间而 panic，
+    /// 或者留下坏字符。
+    #[test]
+    fn truncate_title_keeps_limit_and_counts_chars() {
+        let exact = "中".repeat(TITLE_MAX_CHARS);
+        assert_eq!(truncate_title(exact.clone()), exact);
+
+        let long = "警".repeat(TITLE_MAX_CHARS + 10);
+        let truncated = truncate_title(long);
+        assert_eq!(truncated.chars().count(), TITLE_MAX_CHARS);
+        assert!(truncated.chars().all(|c| c == '警'));
     }
 
     /// NATS stream / consumer 名允许的字符集
