@@ -38,6 +38,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { deliveryApi } from '../api/delivery';
+import { deadLetterApi } from '../api/deadLetter';
 import type { Row } from '../api/types';
 import { deliverChannelStatusDic, deliverStatusDic, deliverTargetStatusDic, type DicItem } from '../dic';
 import { durationMs, errorMessage } from '../utils/format';
@@ -124,8 +125,9 @@ export interface FieldConfig {
   /**
    * 表格里是否用开关直接切换（仅布尔字段有效）
    *
-   * 只给「改了就一件事」的标记位开：启用、已处理、允许模拟。像 `persisted` 这种会改变
-   * 消息链路语义的开关不给，必须进编辑弹窗看一眼上下文。
+   * 只给「改了就一件事」的标记位开：启用、允许模拟。像 `persisted` 这种会改变
+   * 消息链路语义的开关不给，必须进编辑弹窗看一眼上下文；死信的「已处理」走
+   * 专用动作按钮，不在列表上直接切换。
    */
   switchable?: boolean;
   /**
@@ -196,6 +198,14 @@ export interface EntityConfig {
   defaultOrderBy?: string;
   /** 表格里是否展示主键（雪花ID 很长，默认不展示） */
   showId?: boolean;
+  /**
+   * 只读实体：隐藏「新增 / 编辑 / 删除」，只保留「详情」与 `extraActions`。
+   *
+   * 只给由链路自动维护、手工增删改会破坏状态一致性的表开（投递、投递目标、
+   * 渠道任务、渠道日志、死信）。服务端这些表也只暴露查询接口，前端隐藏按钮
+   * 只是不让用户点到必然失败的入口。
+   */
+  readOnly?: boolean;
   /** 新增/编辑弹窗宽度 */
   modalWidth?: number;
   /** 额外列（放计算出来的耗时之类，不能直接对应某个字段） */
@@ -576,6 +586,7 @@ const deliveryTarget: EntityConfig = {
   desc: '一次投递按目标类别展开出的具体目标；目标标识为空表示按类别广播',
   icon: <AimOutlined />,
   group: 'delivery',
+  readOnly: true,
   fields: [
     { key: 'deliveryId', label: '投递ID', kind: 'u64', width: 190, required: true, searchable: true },
     {
@@ -620,6 +631,7 @@ const deliveryChannel: EntityConfig = {
   desc: '一个投递目标 × 一个渠道 = 一条发送任务；每次发送尝试在「渠道投递日志」里留一行',
   icon: <ApiOutlined />,
   group: 'delivery',
+  readOnly: true,
   fields: [
     { key: 'deliverTargetId', label: '投递目标ID', kind: 'u64', width: 190, required: true, searchable: true },
     { key: 'channelId', label: '渠道', kind: 'ref', ref: 'channel', width: 160, required: true, searchable: true },
@@ -646,6 +658,7 @@ const deliveryChannelLog: EntityConfig = {
   desc: '每次发送尝试一条：接收 → 发送 → 完成，失败原因写在详情里',
   icon: <FileTextOutlined />,
   group: 'delivery',
+  readOnly: true,
   modalWidth: 820,
   fields: [
     { key: 'deliveryChannelId', label: '投递渠道ID', kind: 'u64', width: 190, required: true, searchable: true },
@@ -701,15 +714,16 @@ const deadLetter: EntityConfig = {
   path: '/msg/dead-letter',
   name: '死信',
   title: '死信',
-  desc: '重投达到上限后转入 dlq.<原主题> 再落库的负载；排查完把「已处理」勾上',
+  desc: '重投达到上限后转入 dlq.<原主题> 再落库的负载；排查完用行内「标记已处理」收口',
   icon: <WarningOutlined />,
   group: 'delivery',
+  readOnly: true,
   modalWidth: 820,
   fields: [
     { key: 'subject', label: '原消息主题', kind: 'text', width: 240, required: true, searchable: true, maxLength: 150 },
     { key: 'reason', label: '转入原因', kind: 'textarea', rows: 3, required: true, width: 260, ellipsis: true },
     { key: 'delivered', label: '投递次数', kind: 'u64', width: 110, defaultValue: '0' },
-    { key: 'handled', label: '已处理', kind: 'bool', width: 90, searchable: true, defaultValue: false, switchable: true, inForm: false },
+    { key: 'handled', label: '已处理', kind: 'bool', width: 90, searchable: true, defaultValue: false, inForm: false },
     {
       key: 'simulated',
       label: '模拟',
@@ -722,6 +736,39 @@ const deadLetter: EntityConfig = {
     { key: 'payload', label: '原始负载', kind: 'textarea', rows: 8, required: true, inTable: false },
     { key: 'remark', label: '备注', kind: 'text', maxLength: 50, inTable: false },
   ],
+  /**
+   * 标记已处理
+   *
+   * 死信只读，排查完后不再需要改其它列。这个动作只写 `handled = true`，
+   * 原始负载与转入原因都保持原样。
+   */
+  extraActions: (record, ctx) =>
+    record.handled ? null : (
+      <Button
+        type="link"
+        size="small"
+        onClick={() =>
+          ctx.confirm({
+            title: '把这条死信标记为已处理？',
+            content: '只把「已处理」置为是，原始负载、转入原因与投递次数都保持不变。',
+            okText: '标记已处理',
+            onOk: async () => {
+              try {
+                await deadLetterApi.markHandled(record.id);
+                ctx.notify('success', '已标记为已处理');
+                ctx.reload();
+              } catch (reason) {
+                ctx.notify('error', errorMessage(reason));
+                // 抛回给 Modal：失败时保持弹窗，用户可以重试
+                throw reason;
+              }
+            },
+          })
+        }
+      >
+        标记已处理
+      </Button>
+    ),
 };
 
 /** # 消息队列 */

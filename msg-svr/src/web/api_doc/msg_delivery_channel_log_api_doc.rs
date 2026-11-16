@@ -1,13 +1,7 @@
 use robotech::macros::api_doc;
 
+/// 渠道投递日志只读。
 #[api_doc(
-    add,
-    modify,
-    save,
-    upsert,
-    sync,
-    del_by_id,
-    del_by_query_dto,
     get_by_id,
     get_ex_by_id,
     get_by_query_dto,

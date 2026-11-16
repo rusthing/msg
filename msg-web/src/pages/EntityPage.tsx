@@ -541,7 +541,6 @@ export default function EntityPage({ config }: EntityPageProps) {
 
     // 启用类开关（启用 / 允许模拟）统一挪到「操作」列紧前面：状态操作离行尾
     // 按钮最近，也不再被「更新时间」隔在中间，与 alarm / dtw 等前端的列表一致。
-    // 其余 switchable 字段（死信的「已处理」）留在业务列原位，避免整排开关都堆到末尾。
     // 持久化已移出列表，只在编辑弹窗里改：它会改变消息链路语义，不该在列表上误触。
     const trailingSwitches: ColumnsType<MsgRow> = [];
 
@@ -604,12 +603,16 @@ export default function EntityPage({ config }: EntityPageProps) {
           <Button type="link" size="small" onClick={() => setDetail(record)}>
             详情
           </Button>
-          <Button type="link" size="small" onClick={() => openEdit(record)}>
-            编辑
-          </Button>
-          <Button type="link" size="small" danger onClick={() => handleDelete(record)}>
-            删除
-          </Button>
+          {config.readOnly ? null : (
+            <>
+              <Button type="link" size="small" onClick={() => openEdit(record)}>
+                编辑
+              </Button>
+              <Button type="link" size="small" danger onClick={() => handleDelete(record)}>
+                删除
+              </Button>
+            </>
+          )}
         </Space>
       ),
     });
@@ -841,9 +844,11 @@ export default function EntityPage({ config }: EntityPageProps) {
     <span>加载失败，请重试</span>
   ) : (
     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`暂无${config.name}`}>
-      <Button type="primary" onClick={openAdd}>
-        新增{config.name}
-      </Button>
+      {config.readOnly ? null : (
+        <Button type="primary" onClick={openAdd}>
+          新增{config.name}
+        </Button>
+      )}
     </Empty>
   );
 
@@ -881,9 +886,11 @@ export default function EntityPage({ config }: EntityPageProps) {
             <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>
               刷新
             </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-              新增{config.name}
-            </Button>
+            {config.readOnly ? null : (
+              <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+                新增{config.name}
+              </Button>
+            )}
           </div>
         </div>
       </Card>

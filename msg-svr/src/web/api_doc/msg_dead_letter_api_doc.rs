@@ -1,13 +1,7 @@
 use robotech::macros::api_doc;
 
+/// 死信只读；`handle` 是唯一写动作。
 #[api_doc(
-    add,
-    modify,
-    save,
-    upsert,
-    sync,
-    del_by_id,
-    del_by_query_dto,
     get_by_id,
     get_ex_by_id,
     get_by_query_dto,
@@ -23,6 +17,7 @@ use robotech::macros::api_doc;
     search_ex_by_id,
     search_ex_by_condition,
     search_list_ex,
-    search_page_ex
+    search_page_ex,
+    handle
 )]
 pub struct MsgDeadLetterApiDoc;
