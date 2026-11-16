@@ -30,13 +30,11 @@
 
 use crate::dto::{
     MsgChannelQueryDto, MsgDeliveryChannelModifyDto, MsgDeliveryChannelQueryDto,
-    MsgDeliveryModifyDto, MsgDeliveryQueryDto, MsgDeliveryRedeliverDto,
-    MsgDeliveryTargetModifyDto, MsgDeliveryTargetQueryDto, MsgMessageQueryDto,
-    MsgTargetCategoryQueryDto,
+    MsgDeliveryModifyDto, MsgDeliveryQueryDto, MsgDeliveryRedeliverDto, MsgDeliveryTargetModifyDto,
+    MsgDeliveryTargetQueryDto, MsgMessageQueryDto, MsgTargetCategoryQueryDto,
 };
 use crate::svc::{
-    MsgChannelSvc, MsgDeliveryChannelSvc, MsgDeliveryTargetSvc, MsgMessageSvc,
-    MsgTargetCategorySvc,
+    MsgChannelSvc, MsgDeliveryChannelSvc, MsgDeliveryTargetSvc, MsgMessageSvc, MsgTargetCategorySvc,
 };
 use crate::utils::server_now_ms;
 use crate::vo::MsgDeliveryRedeliverVo;
@@ -139,12 +137,18 @@ impl MsgDeliverySvc {
                     // 「投递中」。接收时间用这次发布尝试的时刻——任务压根没到消费端，
                     // 这是最接近的事实。`redeliver = true` 会让日志的 detail 带上
                     // 「手工重投」，见 `deliver_result::record`。
-                    deliver_result::record(
+                    if let Err(write_err) = deliver_result::record(
                         &task,
                         &SendOutcome::Failed(format!("再次投递时发布任务失败: {e}")),
                         server_now_ms(),
                     )
-                    .await;
+                    .await
+                    {
+                        error!(
+                            "再次投递发布失败后回写投递状态也失败: delivery_id={}, error={write_err}",
+                            delivery.id
+                        );
+                    }
                 }
             }
         }
@@ -155,13 +159,15 @@ impl MsgDeliverySvc {
             delivery.id
         );
 
-        Ok(Ro::success(format!("已重投 {published_count}/{task_count} 路")).extra(Some(
-            MsgDeliveryRedeliverVo {
-                task_count,
-                published_count,
-                failed_count,
-            },
-        )))
+        Ok(
+            Ro::success(format!("已重投 {published_count}/{task_count} 路")).extra(Some(
+                MsgDeliveryRedeliverVo {
+                    task_count,
+                    published_count,
+                    failed_count,
+                },
+            )),
+        )
     }
 }
 

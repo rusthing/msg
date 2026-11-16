@@ -150,15 +150,15 @@ pub async fn reload_delivery_queues() -> anyhow::Result<()> {
             match channels.get(&channel_code) {
                 // 渠道被删掉了：没有发送器，订阅和发布都只会白费
                 None => {
-                    warn!("投递队列 {} 指向不存在的渠道 {channel_code}，跳过", queue.code);
+                    warn!(
+                        "投递队列 {} 指向不存在的渠道 {channel_code}，跳过",
+                        queue.code
+                    );
                     return None;
                 }
                 // 渠道禁用：不订阅、也不进发布快照，等于立刻停投
                 Some(false) => {
-                    info!(
-                        "渠道 {channel_code} 已禁用，跳过投递队列 {}",
-                        queue.code
-                    );
+                    info!("渠道 {channel_code} 已禁用，跳过投递队列 {}", queue.code);
                     return None;
                 }
                 Some(true) => {}
@@ -293,8 +293,8 @@ async fn start_delivery_subscription(
             let receive_ms = chrono::Utc::now().timestamp_millis() as u64;
             let outcome = channel::dispatch(&task).await;
 
-            if task.persisted {
-                deliver_result::record(&task, &outcome, receive_ms).await;
+            let record_result = if task.persisted {
+                deliver_result::record(&task, &outcome, receive_ms).await
             } else {
                 // 非持久化：不落库、不回写，成败都到此为止
                 debug!(
@@ -304,13 +304,32 @@ async fn start_delivery_subscription(
                     task.target_id,
                     outcome.detail()
                 );
-            }
+                Ok(())
+            };
 
             // JetStream 投递队列：发送失败要 NAK 回服务端，由它按 `max_deliver`
             // 重投，超限后进死信（`dlq.{subject}`）。Core NATS 没有 ACK/NAK，
             // 返回值只影响日志。
             if transport_persisted && let SendOutcome::Failed(reason) = &outcome {
                 return Err(NatsError::Handle(format!("投递失败 [{subject}]: {reason}")));
+            }
+
+            // 状态回写最终失败（已重试过）：
+            // - 发送失败：NAK 让服务端重投，重发和回写一起重来；
+            // - 已送达 / 无连接：为了回写状态而重发，会让大屏看到重复消息，
+            //   不能 NAK，只告警等补偿（人工「再次投递」或后续修复）。
+            if let Err(e) = record_result {
+                match &outcome {
+                    SendOutcome::Failed(_) => {
+                        return Err(NatsError::Handle(format!(
+                            "投递失败且状态回写失败 [{subject}]: {e}"
+                        )));
+                    }
+                    _ => error!(
+                        "【告警】消息已发送但投递状态回写失败，记录可能停在「投递中」: event_code={}, channel={}, target_id={}, error={e}",
+                        task.event_code, task.channel_code, task.target_id
+                    ),
+                }
             }
 
             Ok::<(), NatsError>(())
