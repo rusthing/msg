@@ -77,7 +77,13 @@ INSERT INTO public.msg_message_target (id, message_id, target_category_id, targe
 INSERT INTO public.msg_message_target (id, message_id, target_category_id, target_id, creater_id, create_ms, updater_id, update_ms) VALUES (1060348598600695830, 3, 4, '', 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_message_target (id, message_id, target_category_id, target_id, creater_id, create_ms, updater_id, update_ms) VALUES (1060348598600695831, 4, 4, '', 0, 1794136800000, 0, 1794136800000);
 
+-- 内置系统管理员角色（role_id=2）默认接收报警状态 websocket 推送
+INSERT INTO public.msg_message_target (id, message_id, target_category_id, target_id, creater_id, create_ms, updater_id, update_ms) VALUES (16, 2, 2, '2', 0, 1793976041860, 0, 1793976041860);
+
 -- msg_target_category_channel
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (1, 4, 2, 0, 1793976041672, 0, 1793976041672);
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (2, 5, 3, 0, 1793976042425, 0, 1793976042425);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (3, 1, 2, 0, 1793976041672, 0, 1793976041672);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (4, 2, 2, 0, 1793976041672, 0, 1793976041672);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (5, 3, 2, 0, 1793976041672, 0, 1793976041672);
 
