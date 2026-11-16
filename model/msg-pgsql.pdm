@@ -5325,8 +5325,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1793865600</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>是否允许模拟通知投递
-默认 false；关闭时带 simulated=true 标记的通知会被丢弃</a:Comment>
-<a:DefaultValue>false</a:DefaultValue>
+默认 true；关闭时带 simulated=true 标记的通知会被丢弃</a:Comment>
+<a:DefaultValue>true</a:DefaultValue>
 <a:DataType>BOOL</a:DataType>
 <a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>

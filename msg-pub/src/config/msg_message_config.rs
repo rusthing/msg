@@ -4,6 +4,13 @@
 //! 启动时转成 AddDto 直接调用 msg-svr 的 `add` 接口注册。
 //! 与 [`MsgEventSourceConfig`](crate::MsgEventSourceConfig) 一样只做声明，
 //! 不封装注册流程——是否需要判重、何时注册由业务方自己决定。
+//!
+//! ## 模拟投递（`sim-enabled`）
+//!
+//! 注册消息时可以声明 `sim-enabled`，**不写时默认 `true`**：老服务升级
+//! msg-pub 后，不传该字段的行为与过去一致，仍然允许模拟投递。生产上要禁止
+//! 模拟，需要显式配置 `sim-enabled: false`，或在管理端关闭该消息的
+//! 「允许模拟」。这个开关只影响带 `simulated=true` 标记的通知，真实消息不受影响。
 
 use derive_setters::Setters;
 use msg_api_client::dto::MsgMessageAddDto;
@@ -58,6 +65,14 @@ pub struct MsgMessageConfig {
     #[serde(default = "persisted_default")]
     #[builder(default = persisted_default())]
     pub persisted: bool,
+    /// 是否允许模拟投递
+    ///
+    /// **缺省为 `true`**：老服务不写这个字段时行为与过去「模拟消息直接放行」
+    /// 一致，不会因为升级 msg-pub 而把联调流量挡掉。生产上要禁止模拟投递，
+    /// 需要显式配置 `sim-enabled: false`（或在管理端关闭该消息的「允许模拟」）。
+    #[serde(default = "sim_enabled_default")]
+    #[builder(default = sim_enabled_default())]
+    pub sim_enabled: bool,
     /// 标题模板（为 null 时用发布方给的标题）
     ///
     /// 首行可用 `@engine: <name>` 声明模板引擎（如 `@engine: minijinja`），
@@ -97,6 +112,14 @@ fn persisted_default() -> bool {
     true
 }
 
+/// `sim_enabled` 的缺省值
+///
+/// 与数据库列的默认值保持一致（都为 `true`）。老服务不传该字段时，注册上来
+/// 的消息允许模拟投递；需要关闭的服务显式写 `sim-enabled: false`。
+fn sim_enabled_default() -> bool {
+    true
+}
+
 impl MsgMessageConfig {
     /// # 组装 `MsgMessageAddDto`
     ///
@@ -115,6 +138,7 @@ impl MsgMessageConfig {
             event_code: Some(self.event_code.clone()),
             name: Some(self.name.clone()),
             persisted: Some(self.persisted),
+            sim_enabled: Some(self.sim_enabled),
             title_template: Some(self.title_template.clone()),
             content_template: Some(self.content_template.clone()),
             ext_template: Some(self.ext_template.clone()),
