@@ -186,6 +186,7 @@ export default function TemplateEditor({
         <pre
           ref={preRef}
           aria-hidden
+          className={MONO_CLASS}
           style={{
             position: 'absolute',
             inset: 0,
