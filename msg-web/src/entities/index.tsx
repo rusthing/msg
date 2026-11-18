@@ -199,6 +199,14 @@ export interface EntityConfig {
   /** 表格里是否展示主键（雪花ID 很长，默认不展示） */
   showId?: boolean;
   /**
+   * 是否在列表里隐藏「更新时间」列（默认展示）。
+   *
+   * 字典 / 配置类表（事件来源、各类别、渠道、队列等）改完即止，更新时间对排查
+   * 没有帮助；投递链路这类持续追加的记录表保留，方便看出哪条刚动过。详情抽屉
+   * 里的「更新时间」不受影响，任何表都能看到。
+   */
+  hideUpdateTime?: boolean;
+  /**
    * 只读实体：隐藏「新增 / 编辑 / 删除」，只保留「详情」与 `extraActions`。
    *
    * 只给由链路自动维护、手工增删改会破坏状态一致性的表开（投递、投递目标、
@@ -237,6 +245,7 @@ const eventSource: EntityConfig = {
   desc: '谁在发消息：按应用登记来源，消息定义必须挂在某个来源下',
   icon: <ApiOutlined />,
   group: 'definition',
+  hideUpdateTime: true,
   fields: codeNameRemarkFields(),
 };
 
@@ -249,6 +258,7 @@ const messageCategory: EntityConfig = {
   desc: '消息的业务分类，用于统计与按类别检索',
   icon: <TagsOutlined />,
   group: 'definition',
+  hideUpdateTime: true,
   fields: codeNameRemarkFields(),
 };
 
@@ -261,6 +271,7 @@ const targetCategory: EntityConfig = {
   desc: '收消息的对象类型（用户 / 角色 / 分组 / 大屏），与渠道的绑定决定最终从哪发出去',
   icon: <TeamOutlined />,
   group: 'definition',
+  hideUpdateTime: true,
   fields: codeNameRemarkFields(),
 };
 
@@ -273,6 +284,7 @@ const channel: EntityConfig = {
   desc: '真正发消息的通道（站内 / 短信 / 邮件 / websocket 大屏…），编码同时是投递主题的末段',
   icon: <NotificationOutlined />,
   group: 'definition',
+  hideUpdateTime: true,
   modalWidth: 780,
   fields: [
     {
@@ -316,8 +328,13 @@ const message: EntityConfig = {
   desc: '一个事件编码对应一条消息定义：模板决定最终文案，目标决定发给谁',
   icon: <MessageOutlined />,
   group: 'definition',
+  hideUpdateTime: true,
   modalWidth: 820,
   fields: [
+    // 列表列顺序与 fields 一致：事件编码、名称是最先看的身份列，放最前；
+    // 两个外键来源退到它们后面（筛选区与详情抽屉也跟着这个顺序）
+    { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
+    { key: 'name', label: '名称', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
     {
       key: 'eventSourceId',
       label: '事件来源',
@@ -336,8 +353,6 @@ const message: EntityConfig = {
       required: true,
       searchable: true,
     },
-    { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
-    { key: 'name', label: '名称', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
     { key: 'persisted', label: '持久化', kind: 'bool', defaultValue: true, dbDefault: true, inTable: false, tip: '不持久化时投递不落库，出问题只能看日志' },
     {
       key: 'titleTemplate',
@@ -781,6 +796,7 @@ const messageQueue: EntityConfig = {
   desc: '消息中心订阅的业务主题：发布方往这里发事件，服务端按订阅消费',
   icon: <ProfileOutlined />,
   group: 'queue',
+  hideUpdateTime: true,
   fields: [
     { key: 'code', label: '编码（主题）', kind: 'text', width: 240, required: true, searchable: true, maxLength: 50 },
     { key: 'name', label: '名称', kind: 'text', width: 200, required: true, searchable: true, maxLength: 50 },
@@ -798,6 +814,7 @@ const deliveryQueue: EntityConfig = {
   desc: '每个渠道一条投递主题，编码固定为 `msg.delivery.<渠道编码>`，服务端会校验前缀与渠道是否存在',
   icon: <BarsOutlined />,
   group: 'queue',
+  hideUpdateTime: true,
   fields: [
     {
       key: 'code',

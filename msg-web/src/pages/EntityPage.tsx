@@ -540,7 +540,7 @@ export default function EntityPage({ config }: EntityPageProps) {
     }
 
     // 启用类开关（启用 / 允许模拟）统一挪到「操作」列紧前面：状态操作离行尾
-    // 按钮最近，也不再被「更新时间」隔在中间，与 alarm / dtw 等前端的列表一致。
+    // 按钮最近，与 alarm / dtw 等前端的列表一致。
     // 持久化已移出列表，只在编辑弹窗里改：它会改变消息链路语义，不该在列表上误触。
     const trailingSwitches: ColumnsType<MsgRow> = [];
 
@@ -582,12 +582,14 @@ export default function EntityPage({ config }: EntityPageProps) {
       result.push(extra);
     }
 
-    result.push({
-      title: '更新时间',
-      dataIndex: 'updateMs',
-      width: 180,
-      render: (value: string) => <span className="msg-mono msg-nowrap">{formatMs(value)}</span>,
-    });
+    if (!config.hideUpdateTime) {
+      result.push({
+        title: '更新时间',
+        dataIndex: 'updateMs',
+        width: 180,
+        render: (value: string) => <span className="msg-mono msg-nowrap">{formatMs(value)}</span>,
+      });
+    }
 
     result.push(...trailingSwitches);
 
