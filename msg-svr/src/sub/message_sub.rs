@@ -595,10 +595,16 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     // ── 2. 查找消息模板 ──
 
     let cache = get_message_cache();
-    let msg: &MessageCache = cache.get(&message_msg.event_code).ok_or_else(|| {
+    // 模板编码与事件编码默认一致；发布方显式给了 `template_code` 时按它查
+    // 模板（例如报警状态推送：事件编码是报警本身，模板固定是 alarm.alert.status）。
+    let template_code = message_msg
+        .template_code
+        .as_deref()
+        .unwrap_or(&message_msg.event_code);
+    let msg: &MessageCache = cache.get(template_code).ok_or_else(|| {
         NatsError::Handle(format!(
             "未找到事件编码对应的消息模板: {}",
-            message_msg.event_code
+            template_code
         ))
     })?;
 
@@ -1417,7 +1423,9 @@ fn build_task(
         delivery_id: ids.0,
         delivery_target_id: ids.1,
         delivery_channel_id: ids.2,
-        event_code: ctx.msg.event_code.clone(),
+        // 下发的是发布方的事件编码，不是模板编码：大屏按事件编码渲染/路由，
+        // 报警状态推送这类「模板编码 ≠ 事件编码」的消息要拿到真实事件。
+        event_code: ctx.message_msg.event_code.clone(),
         message_id: ctx.msg.id,
         event_source_id: ctx.msg.source.id,
         message_category_id: ctx.msg.category.id,

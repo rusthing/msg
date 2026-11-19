@@ -7,6 +7,19 @@ use typed_builder::TypedBuilder;
 #[serde(rename_all = "camelCase")]
 pub struct MessageMsg {
     pub event_code: String,
+    /// 消息模板编码
+    ///
+    /// **可选**。默认按 [`Self::event_code`] 去 `msg_message` 里查模板渲染。
+    /// 只有当「发布方的事件编码」和「消息中心的模板编码」不一致时才需要给：
+    /// 典型例子是报警状态推送——事件编码是「哪个报警事件在变状态」，而渲染
+    /// 文案的模板固定是 `alarm.alert.status`。
+    ///
+    /// 服务端按它（缺省时回落 `event_code`）查模板，投递任务里下发的事件编码
+    /// 仍取发布方的 [`Self::event_code`]：大屏按事件编码路由/渲染时拿到的是
+    /// 真实事件，而不是模板编码。
+    #[serde(default)]
+    #[builder(default)]
+    pub template_code: Option<String>,
     /// 业务 ID
     ///
     /// **可选**。与 `event_code`、`business_trigger_ms` 一起构成幂等键
