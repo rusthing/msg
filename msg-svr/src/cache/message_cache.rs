@@ -69,15 +69,13 @@ use tracing::{error, info};
 // ── SVC 引用 ──
 use crate::dto::{
     MsgChannelQueryDto, MsgEventSourceQueryDto, MsgMessageCategoryQueryDto, MsgMessageQueryDto,
-    MsgMessageTargetQueryDto, MsgTargetCategoryChannelQueryDto, MsgTargetCategoryQueryDto,
+    MsgMessageTargetChannelQueryDto, MsgMessageTargetQueryDto, MsgTargetCategoryQueryDto,
 };
 use crate::svc::{
-    MsgChannelSvc, MsgEventSourceSvc, MsgMessageCategorySvc, MsgMessageSvc, MsgMessageTargetSvc,
-    MsgTargetCategoryChannelSvc, MsgTargetCategorySvc,
+    MsgChannelSvc, MsgEventSourceSvc, MsgMessageCategorySvc, MsgMessageSvc,
+    MsgMessageTargetChannelSvc, MsgMessageTargetSvc, MsgTargetCategorySvc,
 };
-use crate::vo::{
-    MsgChannelVo, MsgMessageExVo, MsgMessageTargetVo, MsgTargetCategoryChannelVo,
-};
+use crate::vo::{MsgChannelVo, MsgMessageExVo, MsgMessageTargetChannelVo, MsgMessageTargetVo};
 
 // ═══════════════════════════════════════════════════════════════
 //  全局缓存
@@ -179,8 +177,8 @@ pub struct ChannelCache {
 
 /// # 缓存的目标类别
 ///
-/// 聚合了目标类别基本信息及其渠道列表，处理消息投递时可直接拿到该目标类别
-/// 关联的渠道，无需额外查询。
+/// 只是个分类标签：渠道不再挂在类别上（类别上的 `msg_target_category_channel`
+/// 已降级成「默认渠道集」，只供新建消息时预填，不参与投递）。
 #[derive(Debug, Clone)]
 pub struct TargetCategoryCache {
     /// 类别 ID
@@ -189,20 +187,61 @@ pub struct TargetCategoryCache {
     pub code: String,
     /// 名称
     pub name: String,
-    /// 该目标类别绑定的渠道列表（含完整配置，刷新时组装）
-    pub channels: Vec<ChannelCache>,
 }
 
 /// # 缓存的消息目标
 ///
-/// 直接内嵌 [`TargetCategoryCache`]（含渠道列表），消息投递处理时无需
-/// 再通过 `target_category_id` 去额外查找，直接从 `target.target_category.channels`
-/// 拿渠道。
+/// 直接内嵌所属类别，并把该目标在 `msg_message_target_channel` 里配的渠道一并组装好。
+/// 投递时只看 `target.channels` —— 这是渠道的唯一来源，不再向上找类别。
 #[derive(Debug, Clone)]
 pub struct TargetCache {
+    /// 该目标的 ID（`msg_message_target.id`）
+    pub id: u64,
     pub target_category: TargetCategoryCache,
     /// 目标标识；空串表示该目标类别下的全部目标（按类别广播）
     pub target_id: String,
+    /// 该目标绑定的渠道列表（含完整配置，刷新时组装）
+    ///
+    /// 为空说明这条消息的这个目标没配渠道，投递侧会报错跳过（不会静默成功）。
+    pub channels: Vec<ChannelCache>,
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  内部实现 — 渠道解析
+// ═══════════════════════════════════════════════════════════════
+
+/// 把渠道查询结果转成缓存结构
+fn to_channel_cache(ch: &MsgChannelVo) -> ChannelCache {
+    ChannelCache {
+        id: ch.id.0,
+        code: ch.code.clone(),
+        name: ch.name.clone(),
+        options: ch.options.clone(),
+        payload_template: ch.payload_template.clone(),
+        remark: ch.remark.clone(),
+    }
+}
+
+/// 取某个消息目标绑定的渠道（含完整配置）
+///
+/// 渠道配在 `msg_message_target_channel` 上，这里是投递侧唯一的取渠道入口：
+/// 先按 `msg_message_target.id` 找到渠道 ID，再换成渠道配置。
+/// 渠道本身 `enabled=false` 时不会出现在 `channels_by_id` 里，等价于没配。
+fn resolve_target_channels(
+    message_target_channels: &HashMap<u64, Vec<u64>>,
+    message_target_id: u64,
+    channels_by_id: &HashMap<u64, &MsgChannelVo>,
+) -> Vec<ChannelCache> {
+    message_target_channels
+        .get(&message_target_id)
+        .map(|ch_ids| {
+            ch_ids
+                .iter()
+                .filter_map(|ch_id| channels_by_id.get(ch_id).copied())
+                .map(to_channel_cache)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -338,25 +377,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
     })
     .collect();
 
-    // ── 目标类别（含渠道列表），先查出类别、再查出类别-渠道关联、再组装 ──
-
-    let target_category_channels: HashMap<u64, Vec<u64>> = {
-        let links: Vec<MsgTargetCategoryChannelVo> =
-            MsgTargetCategoryChannelSvc::list_by_query_dto(
-                MsgTargetCategoryChannelQueryDto::default(),
-                Some(db.as_ref()),
-            )
-            .await?
-            .extra
-            .unwrap_or_default();
-        let mut map: HashMap<u64, Vec<u64>> = HashMap::new();
-        for link in links {
-            map.entry(link.target_category_id.0)
-                .or_default()
-                .push(link.channel_id.0);
-        }
-        map
-    };
+    // ── 目标类别（只做分类标签，渠道不在这里） ──
 
     let target_categories: HashMap<u64, TargetCategoryCache> =
         MsgTargetCategorySvc::list_by_query_dto(
@@ -368,35 +389,35 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
         .unwrap_or_default()
         .into_iter()
         .map(|m| {
-            let channels: Vec<ChannelCache> = target_category_channels
-                .get(&m.id.0)
-                .map(|ch_ids| {
-                    ch_ids
-                        .iter()
-                        .filter_map(|ch_id| channels_by_id.get(ch_id))
-                        .map(|ch| ChannelCache {
-                            id: ch.id.0,
-                            code: ch.code.clone(),
-                            name: ch.name.clone(),
-                            options: ch.options.clone(),
-                            payload_template: ch.payload_template.clone(),
-                            remark: ch.remark.clone(),
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-
             (
                 m.id.0,
                 TargetCategoryCache {
                     id: m.id.0,
                     code: m.code,
                     name: m.name,
-                    channels,
                 },
             )
         })
         .collect();
+
+    // ── 消息目标 → 渠道（投递的唯一来源） ──
+
+    let message_target_channels: HashMap<u64, Vec<u64>> = {
+        let links: Vec<MsgMessageTargetChannelVo> = MsgMessageTargetChannelSvc::list_by_query_dto(
+            MsgMessageTargetChannelQueryDto::default(),
+            Some(db.as_ref()),
+        )
+        .await?
+        .extra
+        .unwrap_or_default();
+        let mut map: HashMap<u64, Vec<u64>> = HashMap::new();
+        for link in links {
+            map.entry(link.message_target_id.0)
+                .or_default()
+                .push(link.channel_id.0);
+        }
+        map
+    };
 
     // ── 消息（通过 SVC list_ex 查询） ──
 
@@ -411,7 +432,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
     .extra
     .unwrap_or_default();
 
-    // ── 消息-渠道关联（通过消息目标 → 已缓存的目标类别渠道推导） ──
+    // ── 消息-渠道关联（该消息各目标的渠道并集，去重） ──
 
     let message_channels: HashMap<u64, Vec<ChannelCache>> = {
         let links: Vec<MsgMessageTargetVo> = MsgMessageTargetSvc::list_by_query_dto(
@@ -423,12 +444,11 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
         .unwrap_or_default();
         let mut map: HashMap<u64, Vec<ChannelCache>> = HashMap::new();
         for link in links {
-            if let Some(tc) = target_categories.get(&link.target_category_id.0) {
-                for ch in &tc.channels {
-                    let entry = map.entry(link.message_id.0).or_default();
-                    if !entry.iter().any(|c| c.id == ch.id) {
-                        entry.push(ch.clone());
-                    }
+            for ch in resolve_target_channels(&message_target_channels, link.id.0, &channels_by_id)
+            {
+                let entry = map.entry(link.message_id.0).or_default();
+                if !entry.iter().any(|c| c.id == ch.id) {
+                    entry.push(ch);
                 }
             }
         }
@@ -436,6 +456,9 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
     };
 
     // ── 消息-目标关联（复用 target_categories） ──
+
+    // 目标配了却没有任何渠道的，缓存里照样留着（投递侧报错跳过），组装完统一报一次
+    let mut empty_channel_targets: Vec<(u64, String, String)> = Vec::new();
 
     let message_targets: HashMap<u64, Vec<TargetCache>> = {
         let links: Vec<MsgMessageTargetVo> = MsgMessageTargetSvc::list_by_query_dto(
@@ -448,9 +471,20 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
         let mut map: HashMap<u64, Vec<TargetCache>> = HashMap::new();
         for link in links {
             if let Some(tc) = target_categories.get(&link.target_category_id.0) {
+                let channels =
+                    resolve_target_channels(&message_target_channels, link.id.0, &channels_by_id);
+                if channels.is_empty() {
+                    empty_channel_targets.push((
+                        link.message_id.0,
+                        tc.code.clone(),
+                        link.target_id.clone(),
+                    ));
+                }
                 map.entry(link.message_id.0).or_default().push(TargetCache {
+                    id: link.id.0,
                     target_category: tc.clone(),
                     target_id: link.target_id,
+                    channels,
                 });
             }
         }
@@ -473,6 +507,14 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
         }
         map
     };
+
+    if !empty_channel_targets.is_empty() {
+        error!(
+            "有消息目标未配渠道，这些目标不会产生任何投递任务: 共 {} 条，示例(消息ID, 类别编码, 目标标识): {:?}",
+            empty_channel_targets.len(),
+            &empty_channel_targets[..empty_channel_targets.len().min(10)]
+        );
+    }
 
     // ── 组装消息 ──
 

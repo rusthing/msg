@@ -26,6 +26,8 @@ pub struct Model {
     pub msg_delivery_channels: HasMany<super::msg_delivery_channel::Entity>,
     #[sea_orm(has_many)]
     pub msg_target_category_channels: HasMany<super::msg_target_category_channel::Entity>,
+    #[sea_orm(has_many)]
+    pub msg_message_target_channels: HasMany<super::msg_message_target_channel::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

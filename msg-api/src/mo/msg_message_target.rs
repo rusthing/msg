@@ -35,6 +35,8 @@ pub struct Model {
         on_delete = "Restrict"
     )]
     pub msg_target_category: BelongsTo<super::msg_target_category::Entity>,
+    #[sea_orm(has_many)]
+    pub msg_message_target_channels: HasMany<super::msg_message_target_channel::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

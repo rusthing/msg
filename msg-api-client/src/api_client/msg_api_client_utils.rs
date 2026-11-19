@@ -2,7 +2,8 @@ use crate::{
     MsgChannelApiClient, MsgDeliveryApiClient, MsgDeliveryChannelApiClient,
     MsgDeliveryChannelLogApiClient, MsgDeliveryTargetApiClient, MsgEventSourceApiClient,
     MsgMessageApiClient, MsgMessageCategoryApiClient, MsgMessageQueueApiClient,
-    MsgMessageTargetApiClient, MsgTargetCategoryApiClient, MsgTargetCategoryChannelApiClient,
+    MsgMessageTargetApiClient, MsgMessageTargetChannelApiClient, MsgTargetCategoryApiClient,
+    MsgTargetCategoryChannelApiClient,
 };
 use robotech::macros::api_client;
 
@@ -18,6 +19,7 @@ pub struct MsgApiClient {
     pub message_category: MsgMessageCategoryApiClient,
     pub message_queue: MsgMessageQueueApiClient,
     pub message_target: MsgMessageTargetApiClient,
+    pub message_target_channel: MsgMessageTargetChannelApiClient,
     pub target_category: MsgTargetCategoryApiClient,
     pub target_category_channel: MsgTargetCategoryChannelApiClient,
 }

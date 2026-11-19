@@ -10,6 +10,7 @@ mod msg_message_api_client;
 mod msg_message_category_api_client;
 mod msg_message_queue_api_client;
 mod msg_message_target_api_client;
+mod msg_message_target_channel_api_client;
 mod msg_target_category_api_client;
 mod msg_target_category_channel_api_client;
 
@@ -25,5 +26,6 @@ pub use msg_message_api_client::*;
 pub use msg_message_category_api_client::*;
 pub use msg_message_queue_api_client::*;
 pub use msg_message_target_api_client::*;
+pub use msg_message_target_channel_api_client::*;
 pub use msg_target_category_api_client::*;
 pub use msg_target_category_channel_api_client::*;

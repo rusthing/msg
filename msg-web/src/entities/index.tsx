@@ -435,13 +435,36 @@ const messageTarget: EntityConfig = {
   ],
 };
 
+/** # 消息目标与渠道的绑定（投递的唯一来源） */
+const messageTargetChannel: EntityConfig = {
+  key: 'message-target-channel',
+  path: '/msg/message-target-channel',
+  name: '目标渠道绑定',
+  title: '目标渠道绑定',
+  desc: '这条消息的这个目标走哪些渠道：绑定几行就走几个渠道；一个目标至少要绑一个，否则该目标不会投递',
+  icon: <LinkOutlined />,
+  group: 'definition',
+  fields: [
+    {
+      key: 'messageTargetId',
+      label: '消息目标',
+      kind: 'ref',
+      ref: 'message-target',
+      width: 220,
+      required: true,
+      searchable: true,
+    },
+    { key: 'channelId', label: '渠道', kind: 'ref', ref: 'channel', width: 200, required: true, searchable: true },
+  ],
+};
+
 /** # 目标类别与渠道的绑定 */
 const targetCategoryChannel: EntityConfig = {
   key: 'target-category-channel',
   path: '/msg/target-category-channel',
-  name: '类别渠道绑定',
-  title: '类别渠道绑定',
-  desc: '某类目标可以从哪些渠道收到消息：绑定几行，这个类别就走几个渠道',
+  name: '默认渠道集',
+  title: '默认渠道集',
+  desc: '新建消息目标时的渠道预填模板，不参与投递；投递只认「目标渠道绑定」',
   icon: <LinkOutlined />,
   group: 'definition',
   fields: [
@@ -840,6 +863,7 @@ export const ENTITIES: EntityConfig[] = [
   channel,
   message,
   messageTarget,
+  messageTargetChannel,
   targetCategoryChannel,
   delivery,
   deliveryTarget,

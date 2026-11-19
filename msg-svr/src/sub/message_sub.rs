@@ -966,10 +966,10 @@ where
     let mut tasks = Vec::new();
 
     for target in &task_ctx.msg.targets {
-        if target.target_category.channels.is_empty() {
+        if target.channels.is_empty() {
             error!(
-                "目标类别未绑定渠道，跳过该目标: message={}, category_code={}",
-                task_ctx.msg.event_code, target.target_category.code
+                "目标未配渠道，跳过该目标（请在消息目标上补渠道）: message={}, category_code={}, target_id={}",
+                task_ctx.msg.event_code, target.target_category.code, target.target_id
             );
             continue;
         }
@@ -1002,7 +1002,7 @@ where
             target.target_category.code
         );
 
-        for channel in &target.target_category.channels {
+        for channel in &target.channels {
             let channel_id = next_id().map_err(|e| format!("生成投递渠道ID失败: {e}"))?;
 
             let channel_add = MsgDeliveryChannelAddDto {
@@ -1103,7 +1103,7 @@ async fn backfill_delivery(
     let mut repaired = false;
 
     for target in &task_ctx.msg.targets {
-        if target.target_category.channels.is_empty() {
+        if target.channels.is_empty() {
             continue;
         }
 
@@ -1157,7 +1157,7 @@ async fn backfill_delivery(
         };
 
         let mut added_channel = false;
-        for channel in &target.target_category.channels {
+        for channel in &target.channels {
             if existing_channels
                 .iter()
                 .any(|row| row.channel_id == U64(channel.id))
@@ -1475,7 +1475,7 @@ async fn publish_best_effort(
     };
 
     for target in &msg.targets {
-        for channel in &target.target_category.channels {
+        for channel in &target.channels {
             let task = build_task(&ctx, (None, None, None), target, channel);
             if let Err(e) = wkr::publish_task(&task).await {
                 warn!(

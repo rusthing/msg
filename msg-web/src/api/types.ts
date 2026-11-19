@@ -148,7 +148,14 @@ export interface MsgMessageTargetVo extends AuditFields {
   targetId: string;
 }
 
-/** # 目标类别与渠道的绑定 */
+/** # 消息目标与渠道的绑定：投递渠道的唯一来源 */
+export interface MsgMessageTargetChannelVo extends AuditFields {
+  id: Id;
+  messageTargetId: Id;
+  channelId: Id;
+}
+
+/** # 目标类别与渠道的绑定（默认渠道集，仅预填，不参与投递） */
 export interface MsgTargetCategoryChannelVo extends AuditFields {
   id: Id;
   targetCategoryId: Id;
