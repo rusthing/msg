@@ -15,6 +15,7 @@ use robotech::macros::router;
     ("/msg/dead-letter", get(get_by_query_dto)),
     ("/msg/dead-letter/ex", get(get_ex_by_query_dto)),
     ("/msg/dead-letter/list", get(list_by_query_dto)),
+    ("/msg/dead-letter/count", get(count_by_query_dto)),
     ("/msg/dead-letter/list-ex", get(list_ex_by_query_dto)),
     ("/msg/dead-letter/page", get(page_by_query_dto)),
     ("/msg/dead-letter/page-ex", get(page_ex_by_query_dto)),

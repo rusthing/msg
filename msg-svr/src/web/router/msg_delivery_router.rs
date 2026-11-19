@@ -15,6 +15,7 @@ use robotech::macros::router;
     ("/msg/delivery", get(get_by_query_dto)),
     ("/msg/delivery/ex", get(get_ex_by_query_dto)),
     ("/msg/delivery/list", get(list_by_query_dto)),
+    ("/msg/delivery/count", get(count_by_query_dto)),
     ("/msg/delivery/list-ex", get(list_ex_by_query_dto)),
     ("/msg/delivery/page", get(page_by_query_dto)),
     ("/msg/delivery/page-ex", get(page_ex_by_query_dto)),
