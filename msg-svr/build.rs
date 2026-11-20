@@ -23,6 +23,8 @@ fn main() {
         if src_path.exists() {
             let dest_file = format!("{}.{}", pkg_name, ext);
             let dest = dest_dir_path.join(&dest_file);
+            // 配置文件改动后必须重跑 build.rs，否则 target 里一直是旧副本
+            println!("cargo:rerun-if-changed={config_file}");
             fs::copy(src_path, &dest)
                 .unwrap_or_else(|e| panic!("Failed to copy {} to {:?}: {}", config_file, dest, e));
         }
@@ -33,6 +35,7 @@ fn main() {
     let log_src = Path::new(&log_config);
     if log_src.exists() {
         let log_dest = dest_dir_path.join("log.toml");
+        println!("cargo:rerun-if-changed={log_config}");
         fs::copy(log_src, &log_dest)
             .unwrap_or_else(|e| panic!("Failed to copy {} to {:?}: {}", log_config, log_dest, e));
     }

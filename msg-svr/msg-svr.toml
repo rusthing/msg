@@ -1,16 +1,19 @@
 profile = "dev"
 
-#[db]
-#url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
-#
+[db]
+url = "postgres://msgrs:msgrs@pgsql:5432/msgrs"
+
 [web]
 port = 9002
 
-#[redis]
-#url = "redis://:xxxxxxxx@redis:6379"
+[redis]
+url = "redis://:xxxxxxxx@redis:6379"
 
-#[nats]
-#servers = "nats://nats:4222"
+[nats]
+servers = "nats://nats:4222"
+# 本机 NATS 开了 auth；账号必须写在独立字段，写进 URL 不生效。
+user = "ruser"
+password = "********"
 
 ## MSG 业务配置
 #[msg]
@@ -49,6 +52,11 @@ port = 9002
 ## 合并窗口的最大等待：持续写入时窗口不断顺延，从第一条信号算起最多等
 ## 这么久就强制执行一次，避免缓存长期停在旧快照。
 #max-wait = "15s"
+
+# 注册名与 alarm/dtw 的 `api.msg.svc-name` 对齐；默认取包名 msg-svr 会让这两个
+# 调用方发现 0 个实例（线网上的 Java msg-svr 也用这个名字，必须错开）。
+[micro-svc]
+svc-name = "msgrs-svr"
 
 [micro-svc.consul]
 base-url = "http://consul:8500"
