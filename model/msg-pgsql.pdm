@@ -9811,6 +9811,1807 @@ DAT 1792744490</a:History>
 <o:Key Ref="o340"/>
 </c:PrimaryKey>
 </o:Table>
+<o:Table Id="o9636">
+<a:ObjectID>1E7894E4-666A-4D25-A5DC-3A6E44E4842E</a:ObjectID>
+<a:Name>'用户投影（由同步写入，禁止在 msg 侧修改）</a:Name>
+<a:Code>msg_user</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'用户投影（由同步写入，禁止在 msg 侧修改）
+adm_user 的只读副本，为的是 adm 不可用时 msg 仍能发短信/邮件
+status 不投影：锁定与停用之外的状态不影响投递，可达性只看 enabled + expire_ms'</a:Comment>
+<a:History>ORG {F31D5BE7-064C-49A0-B8F7-94DDFA155BEB}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<a:TotalSavingCurrency/>
+<c:Columns>
+<o:Column Id="o9608">
+<a:ObjectID>7299EFF8-2A87-49B2-8AD4-635196C3CB06</a:ObjectID>
+<a:Name>'ID</a:Name>
+<a:Code>id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'ID
+同 adm_user.id'</a:Comment>
+<a:History>ORG {88096C36-7D34-4824-9382-1F4219BC9D4E}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9610">
+<a:ObjectID>00852A17-1B73-4793-AE31-4B4463E1B10F</a:ObjectID>
+<a:Name>'人员ID</a:Name>
+<a:Code>person_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'人员ID
+关联 msg_person；为空表示纯账号，地址兜底时取不到 person'</a:Comment>
+<a:History>ORG {2AFC971B-E690-44E9-913C-8922818DDD8C}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9612">
+<a:ObjectID>9BE74EBC-A7F0-4168-A8D4-B3DE69441E1D</a:ObjectID>
+<a:Name>'登录名</a:Name>
+<a:Code>name</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'登录名
+称呼兜底链的最末一级'</a:Comment>
+<a:History>ORG {E7F38EB5-2FD2-40EA-800A-803217C395A1}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9614">
+<a:ObjectID>8C331A03-5617-4164-A85F-4A5BAC294A33</a:ObjectID>
+<a:Name>'昵称</a:Name>
+<a:Code>nick_name</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'昵称
+称呼兜底链的第二级'</a:Comment>
+<a:History>ORG {2FE656E7-B607-4290-A45A-A004F50E2ED9}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9616">
+<a:ObjectID>B3550783-BB6D-4321-AEC5-8472F12929DD</a:ObjectID>
+<a:Name>'实名</a:Name>
+<a:Code>real_name</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'实名
+称呼兜底链的第一级'</a:Comment>
+<a:History>ORG {CF5176BB-520A-4EF1-856C-C025DA2E8722}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>200</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9618">
+<a:ObjectID>513355FC-C930-4D9B-BF7E-753AFDA5F632</a:ObjectID>
+<a:Name>'手机号</a:Name>
+<a:Code>mobile</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'手机号
+短信地址首选；为空时降级取 msg_person.mobile'</a:Comment>
+<a:History>ORG {9C3C8FB2-5B84-41CE-9502-BC911C89E7F8}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>20</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9620">
+<a:ObjectID>FFD2D115-4664-4FB1-BFA8-A7DAAC0D9405</a:ObjectID>
+<a:Name>'邮箱</a:Name>
+<a:Code>email</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'邮箱
+邮件地址首选；为空时降级取 msg_person.email'</a:Comment>
+<a:History>ORG {690B0D81-F4FA-432A-9CDD-1064C5E83E0F}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9622">
+<a:ObjectID>B69E187C-921C-4FE2-8C1D-F1E218CD1634</a:ObjectID>
+<a:Name>'过期时间戳</a:Name>
+<a:Code>expire_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'过期时间戳
+为空表示不过期；与 enabled 一起决定可达性
+@unit ms'</a:Comment>
+<a:History>ORG {82D12BAB-94E4-4212-BB8E-28166927F5DE}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9624">
+<a:ObjectID>FDD213A2-C059-4D30-B669-69FDC6CBEF0C</a:ObjectID>
+<a:Name>'是否启用</a:Name>
+<a:Code>enabled</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'是否启用
+adm_user.enabled 的副本；false 仍参与展开，只是不投递'</a:Comment>
+<a:History>ORG {AD4EE30C-B8A5-4E07-863C-E7EABEE167DA}
+DAT 1795141181</a:History>
+<a:DefaultValue>true</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9626">
+<a:ObjectID>DEA44AAC-F794-44CA-A71C-19FD62CB485E</a:ObjectID>
+<a:Name>'创建者ID</a:Name>
+<a:Code>creater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建者ID
+同步自 adm_user.creater_id'</a:Comment>
+<a:History>ORG {968E0A08-19FF-4D49-A797-91F9F9511629}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9628">
+<a:ObjectID>7A68FFF5-0E0D-43B0-B4AE-7B6EAA8837FB</a:ObjectID>
+<a:Name>'创建时间戳</a:Name>
+<a:Code>create_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建时间戳
+同步自 adm_user.create_ms
+@unit ms'</a:Comment>
+<a:History>ORG {CDC41076-40B2-4143-B12B-9FC9F388BF7E}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9630">
+<a:ObjectID>31EDF483-564C-4653-AD78-1B61D2F34773</a:ObjectID>
+<a:Name>'更新者ID</a:Name>
+<a:Code>updater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新者ID
+同步自 adm_user.updater_id'</a:Comment>
+<a:History>ORG {AFF6B696-CC78-4488-BE05-E75515A49D99}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9632">
+<a:ObjectID>D0792A84-9E3F-4F99-88A8-8A12F681C0DD</a:ObjectID>
+<a:Name>'源行更新时间戳</a:Name>
+<a:Code>update_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'源行更新时间戳
+取自 adm_user.update_ms，不是同步时间
+@unit ms'</a:Comment>
+<a:History>ORG {8A708FB0-8551-4DF3-84CE-21BE919ACA91}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+</c:Columns>
+<c:Keys>
+<o:Key Id="o9633">
+<a:ObjectID>1B75C9CB-FDE1-4E7C-9CD9-87020C602E38</a:ObjectID>
+<a:Name>Identifier_1</a:Name>
+<a:Code>Identifier_1</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {3771CB3F-BA55-4D78-8F07-6A439994026A}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9607"/>
+</c:Key.Columns>
+</o:Key>
+</c:Keys>
+<c:Indexes>
+<o:Index Id="o9637">
+<a:ObjectID>2B2C0677-2CC9-492E-9957-FFBDF454DDBE</a:ObjectID>
+<a:Name>msg_user_PK</a:Name>
+<a:Code>msg_user_PK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9633"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9638">
+<a:ObjectID>42BAA706-D7EF-436B-8818-D3416ABAB971</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9607"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9607"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9635">
+<a:ObjectID>9FB2CB07-969E-45C7-BEDB-405974E7B319</a:ObjectID>
+<a:Name>msg_user_person_id</a:Name>
+<a:Code>msg_user_person_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9640">
+<a:ObjectID>F2ECB23B-E4A6-47A6-A14E-E63AAB517A91</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9609"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9609"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+</c:Indexes>
+<c:PrimaryKey>
+<o:Key Ref="o9633"/>
+</c:PrimaryKey>
+</o:Table>
+<o:Table Id="o9659">
+<a:ObjectID>02639387-3EA7-4877-AD08-9BE1EFB572A6</a:ObjectID>
+<a:Name>'人员投影（由同步写入，禁止在 msg 侧修改）</a:Name>
+<a:Code>msg_person</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'人员投影（由同步写入，禁止在 msg 侧修改）
+只为 user 缺地址时兜底；person 的 mobile/email 在 adm 侧不唯一，这里也不开 AK'</a:Comment>
+<a:History>ORG {E3FE1CA2-1711-4E4F-8150-D93A775B802F}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<a:TotalSavingCurrency/>
+<c:Columns>
+<o:Column Id="o9642">
+<a:ObjectID>21BA30A4-7ADF-43BE-B5D7-BADAEB59EF88</a:ObjectID>
+<a:Name>'ID</a:Name>
+<a:Code>id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'ID
+同 adm_person.id'</a:Comment>
+<a:History>ORG {AEC505EF-8A9E-4E9E-A106-716451EBFF90}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9644">
+<a:ObjectID>40AD4E87-EFD7-4A9C-8270-642AF5B11814</a:ObjectID>
+<a:Name>'手机号</a:Name>
+<a:Code>mobile</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'手机号
+user.mobile 为空时的短信兜底地址'</a:Comment>
+<a:History>ORG {234CFAF4-C6A3-4931-B5BF-AB2A7C9AEFFE}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9646">
+<a:ObjectID>26728E2A-3552-4945-9900-96B5CDFF5E95</a:ObjectID>
+<a:Name>'邮箱</a:Name>
+<a:Code>email</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'邮箱
+user.email 为空时的邮件兜底地址'</a:Comment>
+<a:History>ORG {134AEB8C-48C4-423C-88ED-23DD36D2C5FA}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9648">
+<a:ObjectID>A62D28CC-9359-43E3-AFF7-A7DAD07884DA</a:ObjectID>
+<a:Name>'是否启用</a:Name>
+<a:Code>enabled</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'是否启用
+false 不阻断投递：地址照取，只做可观测'</a:Comment>
+<a:History>ORG {322C4119-B772-4541-B150-60879AA349E6}
+DAT 1795141181</a:History>
+<a:DefaultValue>true</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9650">
+<a:ObjectID>34070DEE-75E4-43C1-8230-A104161924F4</a:ObjectID>
+<a:Name>'创建者ID</a:Name>
+<a:Code>creater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建者ID
+同步自 adm_person.creater_id'</a:Comment>
+<a:History>ORG {6094BE08-F306-4E50-A1BB-9D7E500DDD51}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9652">
+<a:ObjectID>E9B70993-DFCC-48ED-B4FE-8FE3CFB283B7</a:ObjectID>
+<a:Name>'创建时间戳</a:Name>
+<a:Code>create_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建时间戳
+同步自 adm_person.create_ms
+@unit ms'</a:Comment>
+<a:History>ORG {169C579C-9D3A-4CF9-9C9C-24E89E169D8E}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9654">
+<a:ObjectID>2CEBD331-AF7A-499A-8918-7C80D502FABE</a:ObjectID>
+<a:Name>'更新者ID</a:Name>
+<a:Code>updater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新者ID
+同步自 adm_person.updater_id'</a:Comment>
+<a:History>ORG {F0A09B29-8722-4737-9469-2F1CC28FDC82}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9656">
+<a:ObjectID>823B125E-E461-437D-8F37-399646E0AE48</a:ObjectID>
+<a:Name>'源行更新时间戳</a:Name>
+<a:Code>update_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'源行更新时间戳
+取自 adm_person.update_ms
+@unit ms'</a:Comment>
+<a:History>ORG {6291A5FE-4FD7-4165-936E-CAB04A27C9C8}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+</c:Columns>
+<c:Keys>
+<o:Key Id="o9657">
+<a:ObjectID>ADCE659B-68F0-44AE-A0B1-D9F7E5881E0D</a:ObjectID>
+<a:Name>Identifier_1</a:Name>
+<a:Code>Identifier_1</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {D9B6F811-CB63-4CCE-9FAD-789B59F7F15D}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9641"/>
+</c:Key.Columns>
+</o:Key>
+</c:Keys>
+<c:Indexes>
+<o:Index Id="o9660">
+<a:ObjectID>B7CC6880-665C-4D1B-8B06-3EBAC09CDEF6</a:ObjectID>
+<a:Name>msg_person_PK</a:Name>
+<a:Code>msg_person_PK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9657"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9661">
+<a:ObjectID>D840FC41-CC0D-4905-9CA5-5FD6D37FDF84</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9641"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9641"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+</c:Indexes>
+<c:PrimaryKey>
+<o:Key Ref="o9657"/>
+</c:PrimaryKey>
+</o:Table>
+<o:Table Id="o9685">
+<a:ObjectID>6E83936A-73F2-49F3-9B16-E7E5E4DC3EF4</a:ObjectID>
+<a:Name>'组织投影（由同步写入，禁止在 msg 侧修改）</a:Name>
+<a:Code>msg_org</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'组织投影（由同步写入，禁止在 msg 侧修改）
+没有 parent_id：父子关系只由 tree_code 表达，每层 3 位、无分隔符（001 → 001002）
+「含下级」= tree_code LIKE ''001002%''，所以 tree_code 上必须是 varchar_pattern_ops 索引'</a:Comment>
+<a:History>ORG {01549663-9C07-4AEC-A24A-29C36117C8DA}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<a:TotalSavingCurrency/>
+<c:Columns>
+<o:Column Id="o9663">
+<a:ObjectID>65D884DE-E27E-4D04-9B3B-48D39FA6FDBB</a:ObjectID>
+<a:Name>'ID</a:Name>
+<a:Code>id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'ID
+同 adm_org.id'</a:Comment>
+<a:History>ORG {0901F70D-E68D-47AA-8154-D20A5570CC31}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9665">
+<a:ObjectID>FA4A592E-C10E-490D-B745-A946B90F37EB</a:ObjectID>
+<a:Name>'组织编码</a:Name>
+<a:Code>code</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'组织编码
+adm 侧全局唯一；投影里不建 AK'</a:Comment>
+<a:History>ORG {4EDF989F-E4CA-4F2F-B143-446870747078}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9667">
+<a:ObjectID>7E0D47DD-74AB-45CE-9D08-0F3EB7D3F0F1</a:ObjectID>
+<a:Name>'树编码</a:Name>
+<a:Code>tree_code</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'树编码
+字典序即树的前序；总长 = 层数 × 3
+@len 3..=30'</a:Comment>
+<a:History>ORG {E230D67E-5895-4126-AF51-6B8C31A21F61}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>30</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9669">
+<a:ObjectID>263B8633-F18B-4E82-A87F-D912A717CA96</a:ObjectID>
+<a:Name>'名称</a:Name>
+<a:Code>name</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'名称
+兄弟同名很常见，不做唯一'</a:Comment>
+<a:History>ORG {3AE6BD04-5231-45D1-893E-378BB9393C26}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9671">
+<a:ObjectID>5703D792-3905-4004-AE88-F1DBF6AD681F</a:ObjectID>
+<a:Name>'全称</a:Name>
+<a:Code>full_name</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'全称
+可为空'</a:Comment>
+<a:History>ORG {67F261EC-A2DB-4C78-A234-0454E2B4F838}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>200</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9673">
+<a:ObjectID>1276D691-D26B-45FC-A5FE-26748E79D080</a:ObjectID>
+<a:Name>'是否启用</a:Name>
+<a:Code>enabled</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'是否启用
+false 时自身及整棵子树都不投递（连带）'</a:Comment>
+<a:History>ORG {84D3109A-65CF-46BC-AD68-6145E3F499B9}
+DAT 1795141181</a:History>
+<a:DefaultValue>true</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9675">
+<a:ObjectID>0DB76E3B-E2DF-4C45-9901-DE366C8D7BCB</a:ObjectID>
+<a:Name>'创建者ID</a:Name>
+<a:Code>creater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建者ID
+同步自 adm_org.creater_id'</a:Comment>
+<a:History>ORG {47F4C997-3496-45D6-83DC-73E0178F2180}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9677">
+<a:ObjectID>486F03F2-C3A0-4EB0-9B57-0475A5208249</a:ObjectID>
+<a:Name>'创建时间戳</a:Name>
+<a:Code>create_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建时间戳
+同步自 adm_org.create_ms
+@unit ms'</a:Comment>
+<a:History>ORG {0F71068D-7D44-4FAE-9DBC-8E676EAF4FF3}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9679">
+<a:ObjectID>3F53BDEB-4274-470F-A86B-2B54024CF564</a:ObjectID>
+<a:Name>'更新者ID</a:Name>
+<a:Code>updater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新者ID
+同步自 adm_org.updater_id'</a:Comment>
+<a:History>ORG {02915BAD-D113-4E0D-85EF-407FB39C210F}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9681">
+<a:ObjectID>ECC9AE2D-4C67-4F52-A7F6-9674E1C6436C</a:ObjectID>
+<a:Name>'源行更新时间戳</a:Name>
+<a:Code>update_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'源行更新时间戳
+取自 adm_org.update_ms
+@unit ms'</a:Comment>
+<a:History>ORG {5DAEB810-A743-4D4E-9AF8-A20F583137FF}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+</c:Columns>
+<c:Keys>
+<o:Key Id="o9682">
+<a:ObjectID>6137502A-8F41-41F9-919F-BF18D5DE0CFE</a:ObjectID>
+<a:Name>Identifier_1</a:Name>
+<a:Code>Identifier_1</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {FA75D483-9D0A-474C-B27B-293A408753D9}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9662"/>
+</c:Key.Columns>
+</o:Key>
+</c:Keys>
+<c:Indexes>
+<o:Index Id="o9686">
+<a:ObjectID>10537F99-1230-4D1F-BF54-1B4E803B64B7</a:ObjectID>
+<a:Name>msg_org_PK</a:Name>
+<a:Code>msg_org_PK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9682"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9687">
+<a:ObjectID>784A4642-FFFC-4DF0-85E1-77C77C71DAEA</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9662"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9662"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9684">
+<a:ObjectID>0A5E1DC6-125D-405C-9B0D-9C6ACA2AF8A2</a:ObjectID>
+<a:Name>msg_org_tree_code</a:Name>
+<a:Code>msg_org_tree_code</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9689">
+<a:ObjectID>39F123FF-058D-416E-ADB5-2CBFA778191A</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9666"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9666"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+</c:Indexes>
+<c:PrimaryKey>
+<o:Key Ref="o9682"/>
+</c:PrimaryKey>
+</o:Table>
+<o:Table Id="o9708">
+<a:ObjectID>A1D93859-0707-405A-AB98-716241EF100E</a:ObjectID>
+<a:Name>'组织用户投影（由同步写入，禁止在 msg 侧修改）</a:Name>
+<a:Code>msg_org_user</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'组织用户投影（由同步写入，禁止在 msg 侧修改）
+多对多，没有「主组织」概念
+调岗在 adm 侧是物理删行，靠 CDC 的 delete 事件同步删除'</a:Comment>
+<a:History>ORG {DDB11B67-4229-4DC7-BA57-390FF91A3E40}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<a:TotalSavingCurrency/>
+<c:Columns>
+<o:Column Id="o9691">
+<a:ObjectID>C4ACF2AE-A1B2-45A1-AB39-6016EDC8B2F8</a:ObjectID>
+<a:Name>'ID</a:Name>
+<a:Code>id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'ID
+同 adm_org_user.id'</a:Comment>
+<a:History>ORG {20E8630F-D737-4C03-83D9-A1461BFFB103}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9693">
+<a:ObjectID>A2BC9295-5E57-4AA4-9F37-2AFBBB00444B</a:ObjectID>
+<a:Name>'组织ID</a:Name>
+<a:Code>org_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'组织ID
+关联 msg_org.id'</a:Comment>
+<a:History>ORG {09113EF5-6378-499D-9AF0-046536994763}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9695">
+<a:ObjectID>86CB0C7A-2849-4046-A864-5773E97391FA</a:ObjectID>
+<a:Name>'用户ID</a:Name>
+<a:Code>user_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'用户ID
+关联 msg_user.id'</a:Comment>
+<a:History>ORG {C8064257-214B-48EC-8FC9-B02900D78398}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9697">
+<a:ObjectID>1ED2AA3A-5BFA-495A-A33F-53DCE3B9865A</a:ObjectID>
+<a:Name>'创建者ID</a:Name>
+<a:Code>creater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建者ID
+同步自 adm_org_user.creater_id'</a:Comment>
+<a:History>ORG {1E2AF164-F7B8-4CBA-80C5-65C928CC3E6B}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9699">
+<a:ObjectID>8F29D21A-9E86-425F-A4CB-44B585D7529F</a:ObjectID>
+<a:Name>'创建时间戳</a:Name>
+<a:Code>create_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建时间戳
+同步自 adm_org_user.create_ms
+@unit ms'</a:Comment>
+<a:History>ORG {48F7BC6C-A96D-4B6A-89D7-A20D48923928}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9701">
+<a:ObjectID>A06465D3-F328-4545-8479-12D691582070</a:ObjectID>
+<a:Name>'更新者ID</a:Name>
+<a:Code>updater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新者ID
+同步自 adm_org_user.updater_id'</a:Comment>
+<a:History>ORG {958E9326-D0A5-43D3-8182-BE3B8094F296}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9703">
+<a:ObjectID>50619737-3DE0-49F8-80CB-6AB65439CF46</a:ObjectID>
+<a:Name>'源行更新时间戳</a:Name>
+<a:Code>update_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'源行更新时间戳
+取自 adm_org_user.update_ms
+@unit ms'</a:Comment>
+<a:History>ORG {5E5B77AD-D552-44B2-8810-0667D21F98E2}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+</c:Columns>
+<c:Keys>
+<o:Key Id="o9704">
+<a:ObjectID>D6636A55-CD66-4558-95D1-CAF5497E6760</a:ObjectID>
+<a:Name>Identifier_1</a:Name>
+<a:Code>Identifier_1</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {CF1F91B2-982A-49AD-B72D-C474B7027FC3}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9690"/>
+</c:Key.Columns>
+</o:Key>
+</c:Keys>
+<c:Indexes>
+<o:Index Id="o9709">
+<a:ObjectID>1241580B-8A4F-47DF-AC83-806C2E81D8F2</a:ObjectID>
+<a:Name>msg_org_user_PK</a:Name>
+<a:Code>msg_org_user_PK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9704"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9710">
+<a:ObjectID>D7DD7C60-2370-4D4D-AF07-FBCED269FB7F</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9690"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9690"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9706">
+<a:ObjectID>179E800C-46D1-422D-9A94-843E727D840D</a:ObjectID>
+<a:Name>msg_org_user_org_id</a:Name>
+<a:Code>msg_org_user_org_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9712">
+<a:ObjectID>B694A066-4200-485E-A3CE-C178EE28E11C</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9692"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9692"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9707">
+<a:ObjectID>43517A38-C524-44E1-A8BB-8B01AB0ABD07</a:ObjectID>
+<a:Name>msg_org_user_user_id</a:Name>
+<a:Code>msg_org_user_user_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9714">
+<a:ObjectID>2B9341C7-146E-4470-962F-490D0786F485</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9694"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9694"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+</c:Indexes>
+<c:PrimaryKey>
+<o:Key Ref="o9704"/>
+</c:PrimaryKey>
+</o:Table>
+<o:Table Id="o9734">
+<a:ObjectID>081A17E3-D182-4FCC-9D04-A86460787177</a:ObjectID>
+<a:Name>'角色投影（由同步写入，禁止在 msg 侧修改）</a:Name>
+<a:Code>msg_role</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'角色投影（由同步写入，禁止在 msg 侧修改）
+adm 侧的 AK 是 (group_id, name)，投影只保留 id 做 PK，不建该 AK'</a:Comment>
+<a:History>ORG {8B596ECC-D7EE-4B8E-9016-B34751AF7A2A}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<a:TotalSavingCurrency/>
+<c:Columns>
+<o:Column Id="o9716">
+<a:ObjectID>ED928598-5A36-4C7A-B9AC-1938477F9358</a:ObjectID>
+<a:Name>'ID</a:Name>
+<a:Code>id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'ID
+同 adm_role.id'</a:Comment>
+<a:History>ORG {D176BCBC-FF60-4F5B-9F15-6ECE2EC6F53A}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9718">
+<a:ObjectID>85085A1B-3F98-476E-BE26-4184558380D3</a:ObjectID>
+<a:Name>'角色分组ID</a:Name>
+<a:Code>group_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'角色分组ID
+只在页面按分组展示时用，不参与投递'</a:Comment>
+<a:History>ORG {9F483205-8D11-4829-99C2-406D4601C727}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9720">
+<a:ObjectID>CD1139EC-DEC9-4A9F-9267-883A0DB1CEA0</a:ObjectID>
+<a:Name>'名称</a:Name>
+<a:Code>name</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'名称
+同一分组内唯一，投影里不建 AK'</a:Comment>
+<a:History>ORG {0D747EB1-3D5C-4689-AEB6-378C749944C5}
+DAT 1795141181</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>50</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9722">
+<a:ObjectID>316EA241-87B5-4389-930C-1721D609B06B</a:ObjectID>
+<a:Name>'是否启用</a:Name>
+<a:Code>enabled</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'是否启用
+false 时不投递该角色'</a:Comment>
+<a:History>ORG {86C299CE-0444-4D79-B480-2B53DD6C73E8}
+DAT 1795141181</a:History>
+<a:DefaultValue>true</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9724">
+<a:ObjectID>C54D21BA-7D06-4B18-AEA9-3E03E25909B9</a:ObjectID>
+<a:Name>'创建者ID</a:Name>
+<a:Code>creater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建者ID
+同步自 adm_role.creater_id'</a:Comment>
+<a:History>ORG {EC5E5411-1C9C-4B79-9DB0-BCE096818B52}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9726">
+<a:ObjectID>3496EE00-F30F-4E4C-ADDD-61C0A3CD4167</a:ObjectID>
+<a:Name>'创建时间戳</a:Name>
+<a:Code>create_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建时间戳
+同步自 adm_role.create_ms
+@unit ms'</a:Comment>
+<a:History>ORG {4D3E5D3F-CA71-4E6F-B109-FD1D0785F429}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9728">
+<a:ObjectID>B93B7219-45B7-42D3-871D-27598BDD8E13</a:ObjectID>
+<a:Name>'更新者ID</a:Name>
+<a:Code>updater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新者ID
+同步自 adm_role.updater_id'</a:Comment>
+<a:History>ORG {5C5D687E-FB7B-480F-868F-8FA81F9F272C}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9730">
+<a:ObjectID>F4670BB9-1774-4F92-BA6C-71AC460F4D1C</a:ObjectID>
+<a:Name>'源行更新时间戳</a:Name>
+<a:Code>update_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'源行更新时间戳
+取自 adm_role.update_ms
+@unit ms'</a:Comment>
+<a:History>ORG {AF31E3B3-5B61-4754-B4BE-3721F8F6D584}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+</c:Columns>
+<c:Keys>
+<o:Key Id="o9731">
+<a:ObjectID>6DCCC50E-F3A8-4A91-92AA-08A027BE0CF3</a:ObjectID>
+<a:Name>Identifier_1</a:Name>
+<a:Code>Identifier_1</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {DA4A80D8-C4A7-4092-BEB8-6526EC4D7736}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9715"/>
+</c:Key.Columns>
+</o:Key>
+</c:Keys>
+<c:Indexes>
+<o:Index Id="o9735">
+<a:ObjectID>7B45A160-B69E-496E-AA13-9C9CE839F5E9</a:ObjectID>
+<a:Name>msg_role_PK</a:Name>
+<a:Code>msg_role_PK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9731"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9736">
+<a:ObjectID>AB4BCD7F-7B2E-4097-B3E1-F559547AD827</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9715"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9715"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9733">
+<a:ObjectID>A34780E2-D12B-4C3D-B053-604234540676</a:ObjectID>
+<a:Name>msg_role_group_id</a:Name>
+<a:Code>msg_role_group_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9738">
+<a:ObjectID>CDB06E83-F7CA-4324-AD05-624B78BB54B6</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9717"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9717"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+</c:Indexes>
+<c:PrimaryKey>
+<o:Key Ref="o9731"/>
+</c:PrimaryKey>
+</o:Table>
+<o:Table Id="o9757">
+<a:ObjectID>E346CC34-319E-44FB-8F28-995C3F06F2E1</a:ObjectID>
+<a:Name>'角色用户投影（由同步写入，禁止在 msg 侧修改）</a:Name>
+<a:Code>msg_role_user</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'角色用户投影（由同步写入，禁止在 msg 侧修改）
+「按角色投递」展开的唯一依据
+移出角色在 adm 侧是物理删行，靠 CDC 的 delete 事件同步删除'</a:Comment>
+<a:History>ORG {F9A395D8-7731-4E85-8578-8ECCE0800F1E}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<a:TotalSavingCurrency/>
+<c:Columns>
+<o:Column Id="o9740">
+<a:ObjectID>9302220D-0F2C-4DD5-8470-EE0E15009057</a:ObjectID>
+<a:Name>'ID</a:Name>
+<a:Code>id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'ID
+同 adm_role_user.id'</a:Comment>
+<a:History>ORG {1917FA30-9B0B-4501-A5F9-F0B88DAB9F6E}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9742">
+<a:ObjectID>8DB3E93F-C052-4D20-B2BD-AB270DD53E23</a:ObjectID>
+<a:Name>'角色ID</a:Name>
+<a:Code>role_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'角色ID
+关联 msg_role.id'</a:Comment>
+<a:History>ORG {9448B383-1D24-406C-BDF0-0CC554FB2BFC}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9744">
+<a:ObjectID>F3A5C630-C4EF-4704-BD55-5952065650FF</a:ObjectID>
+<a:Name>'用户ID</a:Name>
+<a:Code>user_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'用户ID
+关联 msg_user.id'</a:Comment>
+<a:History>ORG {1CC85235-BDC3-443C-9D0B-03F686CBD1AE}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9746">
+<a:ObjectID>C5551AB9-9F21-45BB-908F-79F6DF69D1C6</a:ObjectID>
+<a:Name>'创建者ID</a:Name>
+<a:Code>creater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建者ID
+同步自 adm_role_user.creater_id'</a:Comment>
+<a:History>ORG {B432501C-1C1A-4F14-A895-364521AFABA4}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9748">
+<a:ObjectID>267B2689-9F10-488C-8FC9-763FC211B2A7</a:ObjectID>
+<a:Name>'创建时间戳</a:Name>
+<a:Code>create_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建时间戳
+同步自 adm_role_user.create_ms
+@unit ms'</a:Comment>
+<a:History>ORG {B1D593B7-9BBC-4A44-B679-AF13A1329E16}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9750">
+<a:ObjectID>A4DEBB8E-0353-42AE-8BE6-58DA45D18989</a:ObjectID>
+<a:Name>'更新者ID</a:Name>
+<a:Code>updater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新者ID
+同步自 adm_role_user.updater_id'</a:Comment>
+<a:History>ORG {16F7EF1B-375F-4E28-9F44-EAC10DCD486D}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9752">
+<a:ObjectID>5E57E9B9-652F-4185-8200-33D83B262F8B</a:ObjectID>
+<a:Name>'源行更新时间戳</a:Name>
+<a:Code>update_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'源行更新时间戳
+取自 adm_role_user.update_ms
+@unit ms'</a:Comment>
+<a:History>ORG {4CB5C853-5627-47A6-8347-36867DC5C56D}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+</c:Columns>
+<c:Keys>
+<o:Key Id="o9753">
+<a:ObjectID>7378E350-7AE5-419B-B809-7CA4F926EB19</a:ObjectID>
+<a:Name>Identifier_1</a:Name>
+<a:Code>Identifier_1</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {A388CCCA-0F65-465F-AE8B-C46B574D77EE}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9739"/>
+</c:Key.Columns>
+</o:Key>
+</c:Keys>
+<c:Indexes>
+<o:Index Id="o9758">
+<a:ObjectID>E9797179-D7F5-4639-A747-21DE6E7CBBB1</a:ObjectID>
+<a:Name>msg_role_user_PK</a:Name>
+<a:Code>msg_role_user_PK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9753"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9759">
+<a:ObjectID>AEA6D66C-898E-48C8-A19C-9F498100E7AB</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9739"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9739"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9755">
+<a:ObjectID>C49DFA61-0FA3-419A-9CB6-83A6154DA60D</a:ObjectID>
+<a:Name>msg_role_user_role_id</a:Name>
+<a:Code>msg_role_user_role_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9761">
+<a:ObjectID>D62CA3B8-1EEA-48F6-9AA5-968F502FEBD9</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9741"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9741"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9756">
+<a:ObjectID>95E7A99C-AC0C-4889-8EE2-FC83647612AE</a:ObjectID>
+<a:Name>msg_role_user_user_id</a:Name>
+<a:Code>msg_role_user_user_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9763">
+<a:ObjectID>46BCDBEA-C74B-4DB3-981C-3C334FC7B183</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9743"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9743"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+</c:Indexes>
+<c:PrimaryKey>
+<o:Key Ref="o9753"/>
+</c:PrimaryKey>
+</o:Table>
+<o:Table Id="o9784">
+<a:ObjectID>812D53C0-DF79-40BE-AF64-1AF478F95405</a:ObjectID>
+<a:Name>'消息目标渠道</a:Name>
+<a:Code>msg_message_target_channel</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'消息目标渠道
+投递渠道的唯一来源：一条消息的某个目标走哪些渠道，只认这张表
+目标至少要有一条渠道；为零时该目标不产生投递任务，投递侧报错跳过、缓存刷新时报错'</a:Comment>
+<a:History>ORG {EF825500-DAEA-48FF-A74E-8F953981458E}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<a:TotalSavingCurrency/>
+<c:Columns>
+<o:Column Id="o9765">
+<a:ObjectID>E80196D3-1507-4986-8BA8-BF213A9F5675</a:ObjectID>
+<a:Name>'ID'</a:Name>
+<a:Code>id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'ID'</a:Comment>
+<a:History>ORG {BCCE4526-F1E1-4333-96FC-8DE6B6DBE6CF}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9767">
+<a:ObjectID>4EDE4B73-3083-4B46-89BF-F5A2B3A5282F</a:ObjectID>
+<a:Name>'消息目标ID</a:Name>
+<a:Code>message_target_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'消息目标ID
+关联 msg_message_target；与 channel_id 组成 AK，同一目标不会重复挂同一渠道'</a:Comment>
+<a:History>ORG {18419F1F-9E2D-463A-AF8E-6179A27DE527}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9769">
+<a:ObjectID>5DA41F7A-8B4C-49A5-B953-515C24D1C81C</a:ObjectID>
+<a:Name>'渠道ID</a:Name>
+<a:Code>channel_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'渠道ID
+关联 msg_channel；渠道 enabled=false 时等价于没配'</a:Comment>
+<a:History>ORG {AAC62B43-19E7-44E5-825E-27C4F6654C5D}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9771">
+<a:ObjectID>7889CDB4-F8BE-4889-8F0C-A37F9480A686</a:ObjectID>
+<a:Name>'创建者ID'</a:Name>
+<a:Code>creater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建者ID'</a:Comment>
+<a:History>ORG {79FEBD94-9530-4B4F-B878-5A494EE06CEF}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9773">
+<a:ObjectID>9D323E61-DABC-49DE-91EF-338C752DECF4</a:ObjectID>
+<a:Name>'创建时间戳'</a:Name>
+<a:Code>create_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'创建时间戳'</a:Comment>
+<a:History>ORG {2C04F3B8-9636-4149-9D4F-7F9BD38BA31D}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9775">
+<a:ObjectID>DF3090E3-09EF-4784-8FFA-7656146E34C8</a:ObjectID>
+<a:Name>'更新者ID'</a:Name>
+<a:Code>updater_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新者ID'</a:Comment>
+<a:History>ORG {7EE3673C-A7D4-4B4E-AB04-0A547DD15929}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9777">
+<a:ObjectID>F231CEAC-C825-4D4C-8634-2828D7CEB86C</a:ObjectID>
+<a:Name>'更新时间戳'</a:Name>
+<a:Code>update_ms</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>'更新时间戳'</a:Comment>
+<a:History>ORG {D8ED2E93-5F59-4E75-9596-AA4D7EA9469E}
+DAT 1795141181</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+</c:Columns>
+<c:Keys>
+<o:Key Id="o9778">
+<a:ObjectID>5CC22744-3AD7-4FC9-B7F0-DD5F36570C52</a:ObjectID>
+<a:Name>Identifier_1</a:Name>
+<a:Code>Identifier_1</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {1A4B151E-E03C-4A72-BF85-F622D836D96E}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9764"/>
+</c:Key.Columns>
+</o:Key>
+<o:Key Id="o9779">
+<a:ObjectID>6842849E-0090-48E3-B6FE-E80B79ED2C03</a:ObjectID>
+<a:Name>'消息目标ID与'渠道ID</a:Name>
+<a:Code>message_target_id_and_channel_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {9783A8E3-A30B-4AD1-BE83-CCD7F9D763F7}
+DAT 1795141181</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o9766"/>
+<o:Column Ref="o9768"/>
+</c:Key.Columns>
+</o:Key>
+</c:Keys>
+<c:Indexes>
+<o:Index Id="o9785">
+<a:ObjectID>9FCA7DD2-4B14-40BB-B87D-452E26D9CA0A</a:ObjectID>
+<a:Name>msg_message_target_channel_PK</a:Name>
+<a:Code>msg_message_target_channel_PK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9778"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9786">
+<a:ObjectID>F6EDC20D-6CCE-4777-A807-197166CD7AB0</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9764"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9764"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9787">
+<a:ObjectID>16B03F8B-5A9E-4C0A-8A93-A68FD67BFB51</a:ObjectID>
+<a:Name>msg_message_target_channel_AK</a:Name>
+<a:Code>msg_message_target_channel_AK</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9779"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9788">
+<a:ObjectID>FF090B11-EC11-4F65-9528-A120F06262B5</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9766"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9766"/>
+</c:Elements>
+</o:IndexColumn>
+<o:IndexColumn Id="o9789">
+<a:ObjectID>960C0C87-E1A4-4C22-B2CD-A5914F9171F5</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9768"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9768"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9782">
+<a:ObjectID>8663D44E-66A3-486D-92EF-FDFF1D763AAC</a:ObjectID>
+<a:Name>msg_message_target_channel_message_target_id</a:Name>
+<a:Code>msg_message_target_channel_message_target_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9791">
+<a:ObjectID>FD6B076D-1D39-4499-B005-7541521E4BEE</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9766"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9766"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9783">
+<a:ObjectID>6EC944C8-8536-4AF4-A4AC-F34850EC30B2</a:ObjectID>
+<a:Name>msg_message_target_channel_channel_id</a:Name>
+<a:Code>msg_message_target_channel_channel_id</a:Code>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:IndexColumns>
+<o:IndexColumn Id="o9793">
+<a:ObjectID>18B5D1E5-A5F6-4712-9461-AAF37382BB48</a:ObjectID>
+<a:CreationDate>1795141181</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795141181</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9768"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9768"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+</c:Indexes>
+<c:PrimaryKey>
+<o:Key Ref="o9778"/>
+</c:PrimaryKey>
+</o:Table>
 </c:Tables>
 <c:References>
 <o:Reference Id="o9">
