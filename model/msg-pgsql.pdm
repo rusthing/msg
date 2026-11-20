@@ -7786,7 +7786,8 @@ DAT 1795156565</a:History>
   0=Delivering  投递中
   1=Success     投递成功
   2=Failed      投递失败
-  3=Read        目标已读</a:Comment>
+  3=Read        目标已读
+  4=Skipped     未展开到可投目标（0 人或全部无地址）</a:Comment>
 <a:History>ORG {48601467-771E-4F6D-9048-608FDB032A5D}
 DAT 1790046262</a:History>
 <a:DefaultValue>0</a:DefaultValue>

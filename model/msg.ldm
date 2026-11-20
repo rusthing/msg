@@ -3741,7 +3741,8 @@ DAT 1795156565</a:History>
   0=Delivering  投递中
   1=Success     投递成功
   2=Failed      投递失败
-  3=Read        目标已读</a:Comment>
+  3=Read        目标已读
+  4=Skipped     未展开到可投目标（0 人或全部无地址）</a:Comment>
 <a:DefaultValue>0</a:DefaultValue>
 <a:DataType>BT</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>

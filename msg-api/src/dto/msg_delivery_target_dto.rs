@@ -13,6 +13,11 @@ pub struct MsgDeliveryTargetDto {
     /// 没有具体目标可记。
     /// @len 0..=100
     pub target_id: String,
+    /// 命中的原始目标
+    ///
+    /// 展开前`msg_message_target` 里的配置，多条用英文逗号分隔（`user:2,role:2,org:1001`）。
+    /// 大屏 / 定位卡目标为空：它们不参与展开。
+    pub origin: Option<String>,
     /// 投递状态（0-投递中、1-投递成功、2-投递失败、3-目标已读）
     #[db_default]
     pub deliver_target_status: DeliverTargetStatus,

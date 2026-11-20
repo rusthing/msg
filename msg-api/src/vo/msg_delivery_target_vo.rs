@@ -11,7 +11,9 @@ pub struct MsgDeliveryTargetVo {
     pub target_category_id: u64,
     /// 目标标识（用户 / 角色 / 分组 / 大屏的业务标识），空串表示该类别下的全部目标
     pub target_id: String,
-    /// 投递状态（0-投递中、1-投递成功、2-投递失败、3-目标已读）
+    /// 命中的原始目标（`user:2,role:2,org:1001`；大屏 / 定位卡为空）
+    pub origin: Option<String>,
+    /// 投递状态（0-投递中、1-投递成功、2-投递失败、3-目标已读、4-未展开到可投目标）
     pub deliver_target_status: DeliverTargetStatus,
     /// 创建者ID
     pub creater_id: u64,

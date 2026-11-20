@@ -21,7 +21,8 @@
 //!
 //! 注意：消息模板缓存（`build_message_cache`）不会触发队列重新订阅。
 
-use crate::cache::{ChannelCache, MessageCache, TargetCache, get_message_cache};
+use super::target_expand::{ExpandOutcome, ExpandedChannel, ExpandedTarget, expand_targets};
+use crate::cache::{MessageCache, get_message_cache};
 use crate::config::get_msg_config;
 use crate::dto::MsgMessageQueueQueryDto;
 use crate::svc::{MsgDeliveryChannelSvc, MsgDeliverySvc, MsgDeliveryTargetSvc, MsgMessageQueueSvc};
@@ -602,10 +603,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         .as_deref()
         .unwrap_or(&message_msg.event_code);
     let msg: &MessageCache = cache.get(template_code).ok_or_else(|| {
-        NatsError::Handle(format!(
-            "未找到事件编码对应的消息模板: {}",
-            template_code
-        ))
+        NatsError::Handle(format!("未找到事件编码对应的消息模板: {}", template_code))
     })?;
 
     // ── 2.5 模拟通知门控 ──
@@ -704,7 +702,20 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     //   失败只打日志。这类消息的语义就是 at-most-once。
 
     if !msg.persisted {
-        publish_best_effort(msg, &message_msg, &title, &content, ext.as_deref(), now_ms).await;
+        let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
+        let expanded = expand_targets(db.as_ref(), msg)
+            .await
+            .map_err(|e| NatsError::Handle(format!("展开投递目标失败: {e}")))?;
+        publish_best_effort(
+            msg,
+            &message_msg,
+            &title,
+            &content,
+            ext.as_deref(),
+            now_ms,
+            &expanded,
+        )
+        .await;
         info!(
             "{trace} cost_ms={} result=best_effort",
             started.elapsed().as_millis()
@@ -745,6 +756,19 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
     };
 
     let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
+
+    // 抽象目标 → 人 + 地址：只读查询放事务外，摊到事务里只会拉长持锁时间。
+    // 查询失败按「可重投」处理：这不是配置问题，重投有意义。
+    let expanded = expand_targets(db.as_ref(), msg)
+        .await
+        .map_err(|e| NatsError::Handle(format!("展开投递目标失败: {e}")))?;
+    info!(
+        "投递目标展开完成: event_code={}, targets={}, skipped={}, 地址重复抑制={}",
+        msg.event_code,
+        expanded.targets.len(),
+        expanded.skipped.len(),
+        expanded.suppressed
+    );
 
     // ── 5+6. 创建投递记录（唯一键即幂等判据） ──
     //
@@ -827,7 +851,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             // 失败的事务在 PG 里已经 aborted，先回滚再查。历史实现可能只落了
             // 投递记录、没来得及建目标/渠道，这里按当前配置补建并补发。
             let _ = tx.rollback().await;
-            if backfill_delivery(&task_ctx, business_id, business_trigger_ms).await? {
+            if backfill_delivery(&task_ctx, business_id, business_trigger_ms, &expanded).await? {
                 info!(
                     "{trace} cost_ms={} result=idempotent_backfilled",
                     started.elapsed().as_millis()
@@ -858,7 +882,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     // ── 7+8. 创建投递目标与渠道记录（同一事务），并把投递任务收起来 ──
 
-    let tasks = match create_targets_and_channels(&tx, delivery_id, &task_ctx).await {
+    let tasks = match create_targets_and_channels(&tx, delivery_id, &task_ctx, &expanded).await {
         Ok(tasks) => tasks,
         Err(e) => {
             // tx 在这里 drop，事务随之回滚：不会留下没有目标/渠道的投递记录
@@ -959,23 +983,62 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 /// 直接返回错误（回滚重投），不再像旧实现那样跳过——跳过会在目标下留下缺
 /// 渠道的半截数据，那条目标永远等不到结果回写。
 ///
-/// 只创建「至少绑定了一个渠道」的目标：没有渠道的目标不会有任务，也不会有
-/// 结果回写，会永远停在「投递中」并拖住整条投递的收口。
+/// 入参是 [`ExpandOutcome`]：抽象目标（用户 / 角色 / 组织）已经展开成人 + 地址，
+/// 这里只负责把结果落库。两类情况都落 `msg_delivery_target`：
+///
+/// - 能投的：状态 `Delivering`，渠道行带地址；
+/// - 展不开的（0 人 / 全部无地址 / 用户已停用）：状态 `Skipped`，不建渠道行。
+///   落这一行是为了让「这次投过这个类别、但没人可投」在库里可见，而不是静默消失。
+///
+/// 只跳过「渠道配置为空」的目标：没有渠道的目标不会有任务，也不会有结果回写，
+/// 会永远停在「投递中」并拖住整条投递的收口。
 async fn create_targets_and_channels<C>(
     db: &C,
     delivery_id: u64,
     task_ctx: &TaskContext<'_>,
+    expanded: &ExpandOutcome,
 ) -> Result<Vec<DeliveryMsg>, String>
 where
     C: ConnectionTrait,
 {
     let mut tasks = Vec::new();
 
-    for target in &task_ctx.msg.targets {
+    // ── 1. 展不开的目标：落 Skipped，原因进日志 ──
+    for skip in &expanded.skipped {
+        let target_id = next_id().map_err(|e| format!("生成投递目标ID失败: {e}"))?;
+
+        let target_add = MsgDeliveryTargetAddDto {
+            id: Some(U64(target_id)),
+            delivery_id: Some(delivery_id.into()),
+            target_category_id: Some(skip.category_id.into()),
+            target_id: Some(skip.target_id.clone()),
+            origin: Some(skip.origin.clone()),
+            deliver_target_status: Some(DeliverTargetStatus::Skipped),
+            _current_ms: Some(U64(server_now_ms())),
+            _current_user_id: U64(0),
+        };
+
+        MsgDeliveryTargetSvc::add(target_add, Some(db))
+            .await
+            .map_err(|e| {
+                format!(
+                    "创建 Skipped 投递目标失败 (category_code={}, target_id={}): {e}",
+                    skip.category_code, skip.target_id
+                )
+            })?;
+
+        warn!(
+            "投递目标未展开出可投目标，已记 Skipped: delivery_id={delivery_id}, target_id={target_id}, category_code={}, target_id_raw={}, 原因={}",
+            skip.category_code, skip.target_id, skip.reason
+        );
+    }
+
+    // ── 2. 可投目标：落目标行 + 渠道行，组装任务 ──
+    for target in &expanded.targets {
         if target.channels.is_empty() {
             error!(
                 "目标未配渠道，跳过该目标（请在消息目标上补渠道）: message={}, category_code={}, target_id={}",
-                task_ctx.msg.event_code, target.target_category.code, target.target_id
+                task_ctx.msg.event_code, target.category_code, target.target_id
             );
             continue;
         }
@@ -985,10 +1048,10 @@ where
         let target_add = MsgDeliveryTargetAddDto {
             id: Some(U64(target_id)),
             delivery_id: Some(delivery_id.into()),
-            target_category_id: Some(target.target_category.id.into()),
-            // 广播目标（target_id 为空串）也要落一行：投递记录得说明「这次覆盖了
-            // 哪个类别」，否则渠道记录挂不到目标上，状态也没法逐级汇总
+            target_category_id: Some(target.category_id.into()),
+            // 展开后 target_id 就是最终目标：人=用户ID，大屏=大屏标识，定位卡=卡号
             target_id: Some(target.target_id.clone()),
+            origin: Some(target.origin.clone()),
             deliver_target_status: Some(DeliverTargetStatus::Delivering),
             _current_ms: Some(U64(server_now_ms())),
             _current_user_id: U64(0),
@@ -998,25 +1061,26 @@ where
             .await
             .map_err(|e| {
                 format!(
-                    "创建投递目标失败 (category_code={}): {e}",
-                    target.target_category.code
+                    "创建投递目标失败 (category_code={}, target_id={}): {e}",
+                    target.category_code, target.target_id
                 )
             })?;
 
         info!(
-            "投递目标已创建: target_id={target_id}, category_code={}, delivery_id={delivery_id}",
-            target.target_category.code
+            "投递目标已创建: target_id={target_id}, category_code={}, target_key={}, origin={:?}, delivery_id={delivery_id}",
+            target.category_code, target.target_id, target.origin
         );
 
-        for channel in &target.channels {
+        for route in &target.channels {
             let channel_id = next_id().map_err(|e| format!("生成投递渠道ID失败: {e}"))?;
 
             let channel_add = MsgDeliveryChannelAddDto {
                 id: Some(U64(channel_id)),
                 deliver_target_id: Some(U64(target_id)),
-                channel_id: Some(channel.id.into()),
+                channel_id: Some(route.channel.id.into()),
                 deliver_channel_status: Some(DeliverChannelStatus::Delivering),
-                address: None,
+                // 展开时已取好地址（用户手机号优先、人员兜底），发送器直接用
+                address: Some(route.address.clone()),
                 _current_ms: Some(U64(server_now_ms())),
                 _current_user_id: U64(0),
             };
@@ -1026,20 +1090,20 @@ where
                 .map_err(|e| {
                     format!(
                         "创建投递渠道失败 (target_id={target_id}, channel_id={}): {e}",
-                        channel.id
+                        route.channel.id
                     )
                 })?;
 
             info!(
-                "投递渠道已创建: target_id={target_id}, channel_id={}, channel_name={}",
-                channel.id, channel.name
+                "投递渠道已创建: target_id={target_id}, channel_id={}, channel_name={}, address={:?}",
+                route.channel.id, route.channel.name, route.address
             );
 
             tasks.push(build_task(
                 task_ctx,
                 (Some(delivery_id), Some(target_id), Some(channel_id)),
                 target,
-                channel,
+                route,
             ));
         }
     }
@@ -1059,6 +1123,7 @@ async fn backfill_delivery(
     task_ctx: &TaskContext<'_>,
     business_id: u64,
     business_trigger_ms: u64,
+    expanded: &ExpandOutcome,
 ) -> Result<bool, NatsError> {
     let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
     let tx = db
@@ -1108,14 +1173,14 @@ async fn backfill_delivery(
     let mut tasks = Vec::new();
     let mut repaired = false;
 
-    for target in &task_ctx.msg.targets {
+    for target in &expanded.targets {
         if target.channels.is_empty() {
             continue;
         }
 
+        // 目标标识已经是展开后的最终目标（人=用户ID），按它比对既有行
         let existing_target = targets.iter().find(|row| {
-            row.target_category_id == U64(target.target_category.id)
-                && row.target_id == target.target_id
+            row.target_category_id == U64(target.category_id) && row.target_id == target.target_id
         });
 
         let target_id = match existing_target {
@@ -1126,8 +1191,9 @@ async fn backfill_delivery(
                 let target_add = MsgDeliveryTargetAddDto {
                     id: Some(U64(target_id)),
                     delivery_id: Some(delivery.id),
-                    target_category_id: Some(target.target_category.id.into()),
+                    target_category_id: Some(target.category_id.into()),
                     target_id: Some(target.target_id.clone()),
+                    origin: Some(target.origin.clone()),
                     deliver_target_status: Some(DeliverTargetStatus::Delivering),
                     _current_ms: Some(U64(server_now_ms())),
                     _current_user_id: U64(0),
@@ -1137,7 +1203,7 @@ async fn backfill_delivery(
                     .map_err(|e| {
                         NatsError::Handle(format!(
                             "补建投递目标失败 (category_code={}): {e}",
-                            target.target_category.code
+                            target.category_code
                         ))
                     })?;
                 repaired = true;
@@ -1163,10 +1229,10 @@ async fn backfill_delivery(
         };
 
         let mut added_channel = false;
-        for channel in &target.channels {
+        for route in &target.channels {
             if existing_channels
                 .iter()
-                .any(|row| row.channel_id == U64(channel.id))
+                .any(|row| row.channel_id == U64(route.channel.id))
             {
                 continue;
             }
@@ -1176,9 +1242,9 @@ async fn backfill_delivery(
             let channel_add = MsgDeliveryChannelAddDto {
                 id: Some(U64(channel_id)),
                 deliver_target_id: Some(U64(target_id)),
-                channel_id: Some(channel.id.into()),
+                channel_id: Some(route.channel.id.into()),
                 deliver_channel_status: Some(DeliverChannelStatus::Delivering),
-                address: None,
+                address: Some(route.address.clone()),
                 _current_ms: Some(U64(server_now_ms())),
                 _current_user_id: U64(0),
             };
@@ -1187,7 +1253,7 @@ async fn backfill_delivery(
                 .map_err(|e| {
                     NatsError::Handle(format!(
                         "补建投递渠道失败 (target_id={target_id}, channel_id={}): {e}",
-                        channel.id
+                        route.channel.id
                     ))
                 })?;
 
@@ -1195,7 +1261,7 @@ async fn backfill_delivery(
                 &backfill_ctx,
                 (Some(delivery.id.0), Some(target_id), Some(channel_id)),
                 target,
-                channel,
+                route,
             ));
             added_channel = true;
             repaired = true;
@@ -1415,8 +1481,8 @@ fn pick(
 fn build_task(
     ctx: &TaskContext<'_>,
     ids: (Option<u64>, Option<u64>, Option<u64>),
-    target: &TargetCache,
-    channel: &ChannelCache,
+    target: &ExpandedTarget,
+    route: &ExpandedChannel,
 ) -> DeliveryMsg {
     DeliveryMsg {
         persisted: ctx.msg.persisted,
@@ -1444,18 +1510,23 @@ fn build_task(
         simulated: is_simulated(ctx.message_msg),
         // 首次投递，不是手工重投
         redeliver: false,
-        target_category_code: target.target_category.code.clone(),
-        target_category_id: target.target_category.id,
+        target_category_code: target.category_code.clone(),
+        target_category_id: target.category_id,
         target_id: target.target_id.clone(),
-        channel_id: channel.id,
-        channel_code: channel.code.clone(),
+        channel_id: route.channel.id,
+        channel_code: route.channel.code.clone(),
+        // 短信 / 邮件要的号码或邮箱，展开时已解析好；大屏、定位卡为 None
+        address: route.address.clone(),
     }
 }
 
 /// # 非持久化消息的投递
 ///
-/// 不写任何表、不做幂等、不回写状态：按缓存里的目标×渠道直接发，
+/// 不写任何表、不做幂等、不回写状态：按展开后的目标 × 渠道直接发，
 /// 发不出去只打日志。这类消息语义就是 at-most-once。
+///
+/// 展不开的目标（0 人 / 全部无地址）在这里没有表可落，只打一条 warn：
+/// 非持久化消息本来就「发不出去就是丢了」，但要让人知道丢在哪一步。
 async fn publish_best_effort(
     msg: &MessageCache,
     message_msg: &MessageMsg,
@@ -1463,11 +1534,26 @@ async fn publish_best_effort(
     content: &str,
     ext: Option<&str>,
     create_ms: u64,
+    expanded: &ExpandOutcome,
 ) {
-    // 非持久化消息没有投递记录可以收口，但「零任务」同样是配置问题，不能静默
     if msg.targets.is_empty() {
         error!(
             "消息 {} 没有登记任何投递目标，本条消息丢弃: business_id={:?}",
+            msg.event_code, message_msg.business_id
+        );
+        return;
+    }
+
+    for skip in &expanded.skipped {
+        warn!(
+            "非持久化消息有目标展不开，已丢弃: event_code={}, category_code={}, target_raw={}, 原因={}",
+            msg.event_code, skip.category_code, skip.target_id, skip.reason
+        );
+    }
+
+    if expanded.targets.is_empty() {
+        error!(
+            "消息 {} 没有可投目标，本条消息丢弃: business_id={:?}",
             msg.event_code, message_msg.business_id
         );
         return;
@@ -1482,9 +1568,9 @@ async fn publish_best_effort(
         create_ms,
     };
 
-    for target in &msg.targets {
-        for channel in &target.channels {
-            let task = build_task(&ctx, (None, None, None), target, channel);
+    for target in &expanded.targets {
+        for route in &target.channels {
+            let task = build_task(&ctx, (None, None, None), target, route);
             if let Err(e) = wkr::publish_task(&task).await {
                 warn!(
                     "发布非持久化投递任务失败，已丢弃: channel={}, target_id={}, error={e}",

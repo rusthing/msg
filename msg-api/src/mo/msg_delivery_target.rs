@@ -15,6 +15,8 @@ pub struct Model {
     pub target_category_id: i64,
     #[sea_orm(unique_key = "ak_delivery_and_target_msg_delivery_target")]
     pub target_id: String,
+    /// 命中的原始目标（`user:2,role:2,org:1001`；大屏 / 定位卡为空）
+    pub origin: Option<String>,
     pub deliver_target_status: i16,
     pub creater_id: i64,
     pub create_ms: i64,

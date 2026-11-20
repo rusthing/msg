@@ -161,4 +161,14 @@ pub struct DeliveryMsg {
     /// 投递侧按它查 `msg_delivery_queue` 决定主题与是否持久化，消费方按它认领
     /// 任务（选择对应的渠道发送器）。
     pub channel_code: String,
+
+    /// 收件地址（`msg_delivery_channel.address`）
+    ///
+    /// 短信 / 邮件这类渠道实际要打的号码或邮箱；展开时已按渠道语义取好（用户
+    /// 手机号优先、人员档案兜底），发送器直接用，不再回查用户表。
+    ///
+    /// 大屏、定位卡这类不走地址的渠道为 `None`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[builder(default)]
+    pub address: Option<String>,
 }

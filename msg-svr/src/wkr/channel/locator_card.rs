@@ -134,6 +134,7 @@ mod tests {
             target_id: String::new(),
             channel_id: 2,
             channel_code: "locator".to_string(),
+            address: None,
         }
     }
 

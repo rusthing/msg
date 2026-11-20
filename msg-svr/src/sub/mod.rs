@@ -16,6 +16,7 @@
 
 mod dead_letter;
 mod message_sub;
+mod target_expand;
 
 pub use dead_letter::*;
 pub use message_sub::*;

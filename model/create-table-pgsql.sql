@@ -581,7 +581,8 @@ comment on column msg_delivery_target.deliver_target_status is
   0=Delivering  投递中
   1=Success     投递成功
   2=Failed      投递失败
-  3=Read        目标已读';
+  3=Read        目标已读
+  4=Skipped     未展开到可投目标（0 人或全部无地址）';
 
 comment on column msg_delivery_target.creater_id is
 '创建者ID';

@@ -72,6 +72,8 @@ struct RedeliverTask {
     channel_id: u64,
     /// `msg_channel.code`（投递主题末段，消费方按它认领）
     channel_code: String,
+    /// `msg_delivery_channel.address`（重投沿用原行上的地址）
+    address: Option<String>,
 }
 
 // `SvcError` 由框架定义且体积较大，而服务方法的返回类型必须与宏约定一致，
@@ -302,6 +304,9 @@ async fn plan_tasks(
                 delivery_channel_id: channel.id.0,
                 channel_id: channel.channel_id.0,
                 channel_code: channel_vo.code.clone(),
+                // 重投不再回查用户表：地址就用首次投递落库的那一份，
+                // 用户后来改了号也不影响「把这条消息再发一遍」的语义
+                address: channel.address.clone(),
             });
         }
     }
@@ -387,6 +392,7 @@ fn build_task(delivery: &MsgDeliveryVo, item: &RedeliverTask) -> DeliveryMsg {
         target_id: item.target_id.clone(),
         channel_id: item.channel_id,
         channel_code: item.channel_code.clone(),
+        address: item.address.clone(),
     }
 }
 
