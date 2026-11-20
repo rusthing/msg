@@ -11,9 +11,10 @@
 import { DashboardOutlined, MenuOutlined } from '@ant-design/icons';
 import { Button, Drawer, Layout, Menu, Typography } from 'antd';
 import type { MenuProps } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { ENTITIES, GROUP_LABELS, type EntityGroup } from '../entities';
+import { reportView } from '../lib/embed-bridge';
 
 const { Sider, Header, Content } = Layout;
 
@@ -41,6 +42,10 @@ export default function AppLayout() {
    */
   const pathname = location.pathname.replace(/\/+$/, '') || '/';
   const current = ENTITIES.find((entity) => pathname === `/${entity.key}`);
+
+  useEffect(() => {
+    reportView(current?.title ?? OVERVIEW.title, pathname);
+  }, [current?.title, pathname]);
 
   const menuItems: MenuProps['items'] = [
     {

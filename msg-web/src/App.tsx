@@ -7,6 +7,7 @@
 
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthGate } from './auth/AuthGate';
+import { EmbedNavigation } from './lib/embed-bridge';
 import { ENTITIES } from './entities';
 import AppLayout from './layouts/AppLayout';
 import Dashboard from './pages/Dashboard';
@@ -15,7 +16,9 @@ import LoginPage from './pages/login';
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <EmbedNavigation />
+      <Routes>
       <Route path="login" element={<LoginPage />} />
       <Route element={<AuthGate><AppLayout /></AuthGate>}>
         <Route index element={<Dashboard />} />
@@ -34,6 +37,7 @@ export default function App() {
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-    </Routes>
+      </Routes>
+    </>
   );
 }

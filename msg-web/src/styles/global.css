@@ -510,3 +510,13 @@ input[type='color']:not(:disabled) {
     white-space: normal;
   }
 }
+
+/* uiam 嵌入态：窗口标题栏已经是品牌，子应用不再重复一遍 */
+html[data-embed='1'] .msg-brand,
+html[data-embed='1'] .msg-header-note {
+  display: none;
+}
+
+html[data-embed='1'] .msg-header {
+  padding-inline: 16px;
+}

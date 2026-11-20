@@ -2,13 +2,14 @@
  * # 应用入口
  */
 
-import { App as AntdApp, ConfigProvider } from 'antd';
+import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
 import 'dayjs/locale/zh-cn';
 import App from './App';
+import { initEmbed, useEmbedTheme } from './lib/embed-bridge';
 import './styles/global.css';
 
 const container = document.getElementById('root');
@@ -40,33 +41,44 @@ const BASENAME = USE_HASH ? '' : import.meta.env.BASE_URL.replace(/\/+$/, '') ||
 
 const Router = USE_HASH ? HashRouter : BrowserRouter;
 
-ReactDOM.createRoot(container).render(
-  <React.StrictMode>
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        token: {
-          colorPrimary: '#1677ff',
-          borderRadius: 6,
-          fontSize: 14,
-        },
-        components: {
-          Layout: {
-            headerBg: '#ffffff',
-            bodyBg: '#f4f6fa',
-            siderBg: '#ffffff',
+/** 嵌入态由宿主下发主题；独立访问时保持原有视觉 */
+function Root() {
+  const embeddedTheme = useEmbedTheme();
+  const dark = embeddedTheme === 'dark';
+  return (
+    <React.StrictMode>
+      <ConfigProvider
+        locale={zhCN}
+        theme={{
+          algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+          token: {
+            colorPrimary: '#1677ff',
+            borderRadius: 6,
+            fontSize: 14,
           },
-          Table: {
-            headerBg: '#fafbfd',
+          components: {
+            Layout: {
+              headerBg: dark ? '#1f1f1f' : '#ffffff',
+              bodyBg: dark ? '#141414' : '#f4f6fa',
+              siderBg: dark ? '#1f1f1f' : '#ffffff',
+            },
+            Table: {
+              headerBg: dark ? '#262626' : '#fafbfd',
+            },
           },
-        },
-      }}
-    >
-      <AntdApp>
-        <Router basename={BASENAME}>
-          <App />
-        </Router>
-      </AntdApp>
-    </ConfigProvider>
-  </React.StrictMode>,
-);
+        }}
+      >
+        <AntdApp>
+          <Router basename={BASENAME}>
+            <App />
+          </Router>
+        </AntdApp>
+      </ConfigProvider>
+    </React.StrictMode>
+  );
+}
+
+// 必须在 createRoot 之前装桥接监听，否则宿主的 init 消息会错过
+initEmbed('msg');
+
+ReactDOM.createRoot(container).render(<Root />);
