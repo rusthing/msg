@@ -539,8 +539,7 @@ create unique index msg_delivery_queue_PK on msg_delivery_queue (
 create table msg_delivery_target (
                                      id                   INT8                 not null,
                                      delivery_id          INT8                 not null,
-                                     user_id              INT8                 null,
-                                     target_category_id   INT8                 not null,
+                                                                       target_category_id   INT8                 not null,
                                      target_id            VARCHAR(100)         not null,
                                      origin               VARCHAR(200)         null,
                                      deliver_target_status INT2                 not null default 0,
@@ -549,8 +548,7 @@ create table msg_delivery_target (
                                      updater_id           INT8                 not null,
                                      update_ms            INT8                 not null,
                                      constraint PK_MSG_DELIVERY_TARGET primary key (id),
-                                     constraint AK_DELIVERY_ID_AND_USER_ID_MSG_DELIVERY_TARGET unique (delivery_id, user_id),
-                                     constraint AK_DELIVERY_ID_AND_TARGET_CATEGORY_ID_AND_TARGET_ID_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
+                                                                       constraint AK_DELIVERY_ID_AND_TARGET_CATEGORY_ID_AND_TARGET_ID_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
 );
 
 comment on table msg_delivery_target is
@@ -559,9 +557,6 @@ comment on table msg_delivery_target is
 comment on column msg_delivery_target.id is
 'ID';
 
-comment on column msg_delivery_target.user_id is
-'展开后的用户ID
-大屏 / 定位卡目标为空';
 
 comment on column msg_delivery_target.origin is
 '命中的原始目标
@@ -574,8 +569,10 @@ comment on column msg_delivery_target.target_category_id is
 '目标类别ID';
 
 comment on column msg_delivery_target.target_id is
-'目标标识
-空串表示该类别下的全部目标（大屏动态接入，不逐个登记）
+'展开后的最终目标ID
+用户：用户ID（user/role/org 目标均已展开为用户ID）
+大屏：大屏标识，空串为该类别全部
+定位卡：卡号，空串为全部卡片
 @len 0..=100';
 
 comment on column msg_delivery_target.deliver_target_status is
@@ -621,13 +618,6 @@ create  index Relationship_12_FK on msg_delivery_target (
 
 /*==============================================================*/
 
-/*==============================================================*/
-/* Index: msg_delivery_target_AK2                               */
-/*==============================================================*/
-create unique index msg_delivery_target_AK2 on msg_delivery_target (
-delivery_id,
-user_id
-);
 /* Table: msg_event_source                                      */
 /*==============================================================*/
 create table msg_event_source (
@@ -1329,7 +1319,7 @@ create table msg_person (
 
 comment on table msg_person is
 '人员投影（由同步写入，禁止在 msg 侧修改）
-只为 user 缺地址时兜底；person 的 mobile/email 在 adm 侧不唯一，这里也不开 AK';
+只为 user 缺地址时兜底；adm_person 的 mobile/email 均有唯一约束（AK），这里不开 AK 以免增量同步短暂冲突';
 
 comment on column msg_person.id is
 'ID
