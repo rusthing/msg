@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { federation } from '@module-federation/vite';
 
 /**
  * # 规范化 base
@@ -29,11 +30,36 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_PROXY_TARGET || 'http://127.0.0.1:9002';
   const base = normalizeBase(env.VITE_PUBLIC_BASE);
 
+  // React 必须与 uiam / syn 单例共享，否则联邦窗口里会出现两套 hooks dispatcher。
+  // 注意：这里**不能**再用 manualChunks 把 react 拆成独立 chunk —— 那样远程会带上
+  // 自己的 react 副本，singleton 直接失效。federation 插件接管依赖共享。
+  const sharedReact = { singleton: true, allowNodeModulesSuffixMatch: true } as const;
+
   return {
     base,
-    plugins: [react()],
+    plugins: [
+      // 只暴露一个页面级模块给 uiam 桌面；独立站仍照常 createRoot，两者共用 AppRoutes。
+      federation({
+        name: 'msg-web',
+        filename: 'remoteEntry.js',
+        exposes: { './msg-app': './src/federation/MsgFederatedApp.tsx' },
+        shared: {
+          react: sharedReact,
+          'react/jsx-runtime': sharedReact,
+          'react-dom': sharedReact,
+          'react-dom/client': sharedReact,
+        },
+        // antd 的样式（含 ConfigProvider 主题变量）必须随暴露模块一起出，
+        // 否则宿主只拿到组件、没有令牌。
+        bundleAllCSS: true,
+        manifest: true,
+      }),
+      react(),
+    ],
     server: {
       port: 5175,
+      // dev 下联邦 runtime 要用绝对地址取 remoteEntry.js，否则 uiam 会从自己的端口找。
+      origin: env.VITE_DEV_ORIGIN?.trim() || 'http://localhost:5175',
       proxy: {
         '/msg': {
           target: proxyTarget,
@@ -44,17 +70,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
-      // antd 本身接近 1MB（gzip 后约 330KB），拆包后仍会超过默认 500KB 阈值
       chunkSizeWarningLimit: 1250,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            react: ['react', 'react-dom', 'react-router-dom'],
-            antd: ['antd'],
-            icons: ['@ant-design/icons'],
-          },
-        },
-      },
     },
   };
 });

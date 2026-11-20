@@ -14,11 +14,13 @@ import Dashboard from './pages/Dashboard';
 import EntityPage from './pages/EntityPage';
 import LoginPage from './pages/login';
 
-export default function App() {
+/**
+ * 页面路由表：独立访问（BrowserRouter/HashRouter）与联邦入口（MemoryRouter）共用这一份，
+ * 避免出现「独立站能开、桌面里少一页」的两套路由定义。
+ */
+export function AppRoutes() {
   return (
-    <>
-      <EmbedNavigation />
-      <Routes>
+    <Routes>
       <Route path="login" element={<LoginPage />} />
       <Route element={<AuthGate><AppLayout /></AuthGate>}>
         <Route index element={<Dashboard />} />
@@ -37,7 +39,15 @@ export default function App() {
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-      </Routes>
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <EmbedNavigation />
+      <AppRoutes />
     </>
   );
 }

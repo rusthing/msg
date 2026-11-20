@@ -1,15 +1,17 @@
 /**
- * # 应用入口
+ * # 应用入口（独立访问）
+ *
+ * 联邦入口在 src/federation/MsgFederatedApp.tsx，两者共用 AppRoutes 与主题配置。
  */
 
-import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
+import { App as AntdApp, ConfigProvider } from 'antd';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
 import 'dayjs/locale/zh-cn';
 import App from './App';
 import { initEmbed, useEmbedTheme } from './lib/embed-bridge';
+import { antdConfig } from './lib/theme-config';
 import './styles/global.css';
 
 const container = document.getElementById('root');
@@ -32,7 +34,6 @@ const USE_HASH = import.meta.env.VITE_ROUTER === 'hash';
  *
  * 直接取 Vite 的 `BASE_URL`（就是 `vite.config.ts` 里的 `base`，形如 `/msg-web/`），
  * 去掉末尾斜杠给 `BrowserRouter`；根路径部署时为空串，按 `/` 处理。
- * 这样「页面挂在哪个子路径」只需要改一处 `VITE_PUBLIC_BASE`。
  *
  * hash 模式例外：react-router 会拿 basename 去匹配 hash 里的路径，而 hash 里只有
  * `/message` 没有 `/msg-web`，带上去就整页空白，所以这里必须留空。
@@ -44,30 +45,10 @@ const Router = USE_HASH ? HashRouter : BrowserRouter;
 /** 嵌入态由宿主下发主题；独立访问时保持原有视觉 */
 function Root() {
   const embeddedTheme = useEmbedTheme();
-  const dark = embeddedTheme === 'dark';
+  const config = antdConfig({ dark: embeddedTheme === 'dark' });
   return (
     <React.StrictMode>
-      <ConfigProvider
-        locale={zhCN}
-        theme={{
-          algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-          token: {
-            colorPrimary: '#1677ff',
-            borderRadius: 6,
-            fontSize: 14,
-          },
-          components: {
-            Layout: {
-              headerBg: dark ? '#1f1f1f' : '#ffffff',
-              bodyBg: dark ? '#141414' : '#f4f6fa',
-              siderBg: dark ? '#1f1f1f' : '#ffffff',
-            },
-            Table: {
-              headerBg: dark ? '#262626' : '#fafbfd',
-            },
-          },
-        }}
-      >
+      <ConfigProvider {...config}>
         <AntdApp>
           <Router basename={BASENAME}>
             <App />

@@ -21,7 +21,7 @@ export default function JsonText({ value }: JsonTextProps) {
     <Popover
       trigger={['hover', 'click']}
       mouseEnterDelay={0.25}
-      styles={{ body: { maxWidth: 520, maxHeight: 360, overflow: 'auto', padding: 0 } }}
+      styles={{ content: { maxWidth: 520, maxHeight: 360, overflow: 'auto', padding: 0 } }}
       content={<pre className="msg-json-view">{prettyJson(text)}</pre>}
     >
       <Typography.Text className="msg-mono" style={{ fontSize: 12 }}>
