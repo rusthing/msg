@@ -3653,6 +3653,22 @@ websocket 渠道要求渲染结果是合法 JSON，不是就告警并回退默�
 <o:EntityAttribute Ref="o145"/>
 </c:Identifier.Attributes>
 </o:Identifier>
+<o:Identifier Id="o9743">
+<a:ObjectID>ACC39FCB-E4C9-4D9A-9510-F8D0B8F35F99</a:ObjectID>
+<a:Name>投递与用户</a:Name>
+<a:Code>delivery_id_and_user_id</a:Code>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {DD1E7F54-F5C3-4230-B23A-C4D2EE095BF4}
+DAT 1795156565</a:History>
+<a:GlobalObjectID/>
+<c:Identifier.Attributes>
+<o:EntityAttribute Ref="o143"/>
+<o:EntityAttribute Ref="o9741"/>
+</c:Identifier.Attributes>
+</o:Identifier>
 </c:Identifiers>
 <c:PrimaryIdentifier>
 <o:Identifier Ref="o140"/>
@@ -3683,6 +3699,22 @@ websocket 渠道要求渲染结果是合法 JSON，不是就告警并回退默�
 <a:GlobalObjectID/>
 <a:AutoMigrated>1</a:AutoMigrated>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o9741">
+<a:ObjectID>5FB506C4-E779-480C-9B53-C26E6F3D21FA</a:ObjectID>
+<a:Name>用户ID</a:Name>
+<a:Code>user_id</a:Code>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>展开后的用户ID
+大屏 / 定位卡目标为空</a:Comment>
+<a:History>ORG {43F1B2AE-E1E8-40E2-BFD5-90DB08032AC6}
+DAT 1795156565</a:History>
+<a:DataType>LI</a:DataType>
+<a:Length>8</a:Length>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 <o:EntityAttribute Id="o144">
 <a:ObjectID>9C7E77D3-AD04-433A-AE4F-8A3F75EF339F</a:ObjectID>
 <a:Name>目标类别ID</a:Name>
@@ -3710,6 +3742,22 @@ websocket 渠道要求渲染结果是合法 JSON，不是就告警并回退默�
 <a:DataType>VA100</a:DataType>
 <a:Length>100</a:Length>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o9742">
+<a:ObjectID>444E5D34-5602-4B6C-85C8-9133F9B0841F</a:ObjectID>
+<a:Name>命中来源</a:Name>
+<a:Code>origin</a:Code>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>命中的原始目标
+user:2,role:2,org:1001；多来源英文逗号分隔</a:Comment>
+<a:History>ORG {5CC02028-C0A8-4720-98B5-1775FFDD2187}
+DAT 1795156565</a:History>
+<a:DataType>VA200</a:DataType>
+<a:Length>200</a:Length>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
 <o:EntityAttribute Id="o146">

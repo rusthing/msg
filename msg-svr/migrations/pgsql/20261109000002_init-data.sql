@@ -42,7 +42,7 @@ INSERT INTO public.msg_message (id, event_source_id, category_id, name, event_co
 -- msg_target_category
 INSERT INTO public.msg_target_category (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (1, 'user', '用户', '按用户投递：目标ID是用户ID', 0, 1793976041657, 0, 1793976041657);
 INSERT INTO public.msg_target_category (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (2, 'role', '角色', '按角色投递：目标ID是用户ID，角色下的用户都全部投递', 0, 1793976041657, 0, 1793976041657);
-INSERT INTO public.msg_target_category (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (3, 'group', '分组', '按分组投递：目标ID是用户ID，分组内的用户都收', 0, 1793976041657, 0, 1793976041657);
+INSERT INTO public.msg_target_category (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (3, 'org', '组织', '按组织投递：目标ID是组织ID，含下级（tree_code 前缀匹配）', 0, 1793976041657, 0, 1793976041657);
 INSERT INTO public.msg_target_category (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (4, 'screen', '大屏', '自定义目标：大屏长连接', 0, 1793976041665, 0, 1793976041665);
 INSERT INTO public.msg_target_category (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (5, 'locator', '定位卡', '定位卡目标：target_id 为卡号，空串广播全部卡片', 0, 1793976042405, 0, 1794136800000);
 

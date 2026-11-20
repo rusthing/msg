@@ -7723,6 +7723,22 @@ DAT 1790046262</a:History>
 <a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
+<o:Column Id="o9794">
+<a:ObjectID>5A47AEC2-F6AA-4C57-A797-74DE1AFECE82</a:ObjectID>
+<a:Name>用户ID</a:Name>
+<a:Code>user_id</a:Code>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>展开后的用户ID
+大屏 / 定位卡目标为空</a:Comment>
+<a:History>ORG {96CE207A-5373-4006-81B8-7DA55E74D52A}
+DAT 1795156565</a:History>
+<a:DataType>INT8</a:DataType>
+<a:Length>8</a:Length>
+<a:GlobalObjectID/>
+</o:Column>
 <o:Column Id="o209">
 <a:ObjectID>0A701BF5-70DD-4C30-B75D-9288270C005F</a:ObjectID>
 <a:Name>目标类别ID</a:Name>
@@ -7754,6 +7770,22 @@ DAT 1790046262</a:History>
 <a:DataType>VARCHAR(100)</a:DataType>
 <a:Length>100</a:Length>
 <a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9795">
+<a:ObjectID>F7D45065-D20A-4FC4-9F50-6372B342E3F1</a:ObjectID>
+<a:Name>命中来源</a:Name>
+<a:Code>origin</a:Code>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>命中的原始目标
+user:2,role:2,org:1001；多来源英文逗号分隔</a:Comment>
+<a:History>ORG {83202AFA-5833-4004-8E4A-E683A4750E33}
+DAT 1795156565</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>200</a:Length>
 <a:GlobalObjectID/>
 </o:Column>
 <o:Column Id="o211">
@@ -7873,6 +7905,22 @@ INS COLNCOL {63A0DB2D-3EDA-4863-81BB-88A52566925E}</a:History>
 <o:Column Ref="o208"/>
 <o:Column Ref="o209"/>
 <o:Column Ref="o210"/>
+</c:Key.Columns>
+</o:Key>
+<o:Key Id="o9796">
+<a:ObjectID>0A7902B7-30A7-4474-8991-C9D17A85A59B</a:ObjectID>
+<a:Name>投递与用户</a:Name>
+<a:Code>delivery_id_and_user_id</a:Code>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {7DB195B0-C95F-4FC6-9F7C-88D987729B93}
+DAT 1795156565</a:History>
+<a:GlobalObjectID/>
+<c:Key.Columns>
+<o:Column Ref="o208"/>
+<o:Column Ref="o9794"/>
 </c:Key.Columns>
 </o:Key>
 </c:Keys>
@@ -8019,6 +8067,50 @@ INS COLNCOL {63A0DB2D-3EDA-4863-81BB-88A52566925E}</a:History>
 </c:Column>
 <c:Elements>
 <o:Column Ref="o210"/>
+</c:Elements>
+</o:IndexColumn>
+</c:IndexColumns>
+</o:Index>
+<o:Index Id="o9797">
+<a:ObjectID>620074B6-E642-44DF-8C07-6AF841E04926</a:ObjectID>
+<a:Name>msg_delivery_target_AK2</a:Name>
+<a:Code>msg_delivery_target_AK2</a:Code>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<a:Unique>1</a:Unique>
+<c:LinkedObject>
+<o:Key Ref="o9796"/>
+</c:LinkedObject>
+<c:IndexColumns>
+<o:IndexColumn Id="o9798">
+<a:ObjectID>67AE3A17-C17C-40B1-9F0F-13F15BD26321</a:ObjectID>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o208"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o208"/>
+</c:Elements>
+</o:IndexColumn>
+<o:IndexColumn Id="o9798">
+<a:ObjectID>9C01D5C3-6992-48F8-99FB-AE47AFCE8969</a:ObjectID>
+<a:CreationDate>1795156565</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795156565</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:GlobalObjectID/>
+<c:Column>
+<o:Column Ref="o9794"/>
+</c:Column>
+<c:Elements>
+<o:Column Ref="o9794"/>
 </c:Elements>
 </o:IndexColumn>
 </c:IndexColumns>

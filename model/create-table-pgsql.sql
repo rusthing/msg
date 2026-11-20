@@ -539,14 +539,17 @@ id
 create table msg_delivery_target (
    id                   INT8                 not null,
    delivery_id          INT8                 not null,
+   user_id              INT8                 null,
    target_category_id   INT8                 not null,
    target_id            VARCHAR(100)         not null,
+   origin               VARCHAR(200)         null,
    deliver_target_status INT2                 not null default 0,
    creater_id           INT8                 not null,
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_DELIVERY_TARGET primary key (id),
+   constraint AK_DELIVERY_ID_AND_USER_ID_MSG_DELIVERY_TARGET unique (delivery_id, user_id),
    constraint AK_DELIVERY_ID_AND_TARGET_CATEGORY_ID_AND_TARGET_ID_MSG_DELIVERY_TARGET unique (delivery_id, target_category_id, target_id)
 );
 
@@ -555,6 +558,14 @@ comment on table msg_delivery_target is
 
 comment on column msg_delivery_target.id is
 'ID';
+
+comment on column msg_delivery_target.user_id is
+'展开后的用户ID
+大屏 / 定位卡目标为空';
+
+comment on column msg_delivery_target.origin is
+'命中的原始目标
+user:2,role:2,org:1001；多来源英文逗号分隔';
 
 comment on column msg_delivery_target.delivery_id is
 '投递ID';
@@ -609,6 +620,14 @@ target_category_id
 );
 
 /*==============================================================*/
+
+/*==============================================================*/
+/* Index: msg_delivery_target_AK2                               */
+/*==============================================================*/
+create unique index msg_delivery_target_AK2 on msg_delivery_target (
+delivery_id,
+user_id
+);
 /* Table: msg_event_source                                      */
 /*==============================================================*/
 create table msg_event_source (
