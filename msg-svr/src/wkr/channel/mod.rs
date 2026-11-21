@@ -16,6 +16,7 @@
 //! 发到对应主题。
 
 pub mod locator_card;
+pub mod sms;
 pub mod websocket;
 
 use async_trait::async_trait;
@@ -75,6 +76,7 @@ pub fn init_senders() {
     let _ = SENDERS.set(vec![
         Arc::new(websocket::WebSocketSender),
         Arc::new(locator_card::LocatorCardSender),
+        Arc::new(sms::SmsSender),
     ]);
 }
 

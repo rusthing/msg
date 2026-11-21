@@ -3,6 +3,23 @@ INSERT INTO public.msg_channel (id, code, name, options, payload_template, remar
 {"eventCode":{{eventCode:json}},"data":{{ext:json}}}', 'WebSocket长连接', true, 0, 1793976041647, 0, 1793976041647);
 INSERT INTO public.msg_channel (id, code, name, options, payload_template, remark, enabled, creater_id, create_ms, updater_id, update_ms) VALUES (3, 'locator', '定位卡渠道', NULL, NULL, '定位卡下行：NATS 转 dtw.card.callback', true, 0, 1793976042413, 0, 1794136800000);
 
+-- 短信渠道：网关参数存 options（运营改渠道表即可换网关，不用重启）
+--   gatewayUrl  网关下发地址（POST JSON）
+--   appId       网关分配的账号
+--   appKey      网关分配的密钥
+--   sign        短信签名，拼在正文前
+--   templateId  模板短信的模板编号，空串表示按正文直发
+-- payload_template 留空：短信正文直接用消息 content（content 为空的消息在入队前就被拒收）
+INSERT INTO public.msg_channel (id, code, name, options, payload_template, remark, enabled, creater_id, create_ms, updater_id, update_ms) VALUES (4, 'sms', '短信渠道', '{"gatewayUrl":"","appId":"","appKey":"","sign":"","templateId":""}', NULL, '短信网关逐条下发，按手机号发送', true, 0, 1794136800000, 0, 1794136800000);
+
+-- 邮件渠道：SMTP 参数同样存 options
+--   smtpHost/smtpPort  服务器与端口（465 走隐式 TLS，587 走 STARTTLS）
+--   username/password  认证账号
+--   fromAddress        发信人，留空时取 username
+--   ssl                true 走 TLS
+-- 主题取消息 title，正文取 content
+INSERT INTO public.msg_channel (id, code, name, options, payload_template, remark, enabled, creater_id, create_ms, updater_id, update_ms) VALUES (5, 'email', '邮件渠道', '{"smtpHost":"","smtpPort":465,"username":"","password":"","fromAddress":"","ssl":true}', NULL, 'SMTP 直发，按邮箱地址发送', true, 0, 1794136800000, 0, 1794136800000);
+
 -- msg_event_source
 INSERT INTO public.msg_event_source (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (2, 'alarm', '报警中心', '报警事件来源：事件策略与存续期状态', 0, 1793976041825, 0, 1793976041825);
 INSERT INTO public.msg_event_source (id, code, name, remark, creater_id, create_ms, updater_id, update_ms) VALUES (1060348598531227660, 'dtw', '人员定位', 'dtw 定位与定位卡数据', 0, 1793976042901, 0, 1793976042901);
@@ -49,6 +66,8 @@ INSERT INTO public.msg_target_category (id, code, name, remark, creater_id, crea
 -- msg_delivery_queue
 INSERT INTO public.msg_delivery_queue (id, code, name, persisted, remark, creater_id, create_ms, updater_id, update_ms) VALUES (1, 'msg.delivery.websocket', 'websocket 投递队列', false, 'WebSocket长连接广播，所有实例都收', 0, 1793976041685, 0, 1793976041685);
 INSERT INTO public.msg_delivery_queue (id, code, name, persisted, remark, creater_id, create_ms, updater_id, update_ms) VALUES (2, 'msg.delivery.locator', '定位卡投递队列', true, '定位卡下行：JetStream 队列组负载均衡，单实例转发到 dtw.card.callback', 0, 1793976042442, 0, 1794136800000);
+INSERT INTO public.msg_delivery_queue (id, code, name, persisted, remark, creater_id, create_ms, updater_id, update_ms) VALUES (3, 'msg.delivery.sms', '短信投递队列', true, '短信不能丢：JetStream 队列组负载均衡，单实例调网关，失败可重投', 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_delivery_queue (id, code, name, persisted, remark, creater_id, create_ms, updater_id, update_ms) VALUES (4, 'msg.delivery.email', '邮件投递队列', true, '邮件不能丢：JetStream 队列组负载均衡，单实例走 SMTP，失败可重投', 0, 1794136800000, 0, 1794136800000);
 
 -- msg_message_queue
 INSERT INTO public.msg_message_queue (id, code, name, persisted, remark, creater_id, create_ms, updater_id, update_ms) VALUES (2, 'msg.publish.screen', '大屏状态消息队列', false, '报警存续期状态直推大屏', 0, 1793976041836, 0, 1793976041836);
@@ -90,6 +109,10 @@ INSERT INTO public.msg_message_target (id, message_id, target_category_id, targe
 -- 等 S4 接入短信/邮件后，这三类再绑 sms / email。
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (1, 4, 2, 0, 1793976041672, 0, 1793976041672);
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (2, 5, 3, 0, 1793976042425, 0, 1793976042425);
+-- user / role / org 走短信：这三类都是有手机号的具体人，websocket 投不到（见 S2 点火结论）
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (3, 1, 4, 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (4, 2, 4, 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (5, 3, 4, 0, 1794136800000, 0, 1794136800000);
 
 -- msg_message_target_channel
 -- 投递只认这张表：上面的 msg_target_category_channel 只是「默认渠道集」，
