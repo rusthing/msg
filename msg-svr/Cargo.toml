@@ -48,7 +48,10 @@ futures = { workspace = true }
 # reqwest 只给短信/邮件网关用：关掉默认特性（默认 TLS 是 native-tls + 平台证书校验，
 # musl 静态交叉编译下要 vendored openssl / cmake，代价远大于收益）。内网网关走 http，
 # 真要接 https 时再按需加 rustls-no-provider 并自行装 crypto provider。
-reqwest = { workspace = true, default-features = false }
+# 不写 workspace = true：workspace 里 reqwest 开了默认特性，子 crate 无法用
+# default-features = false 覆盖；这里按版本直接声明，`cargo build -p msg-svr`
+# 的构建单元里不含 msg-api-client，不会发生特性统一。
+reqwest = { version = "0.13.5", default-features = false }
 
 [build-dependencies]
 openssl = { version = "0.10.81", features = ["vendored"] }
