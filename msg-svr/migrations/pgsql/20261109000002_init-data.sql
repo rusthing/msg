@@ -81,18 +81,23 @@ INSERT INTO public.msg_message_target (id, message_id, target_category_id, targe
 INSERT INTO public.msg_message_target (id, message_id, target_category_id, target_id, creater_id, create_ms, updater_id, update_ms) VALUES (16, 2, 2, '2', 0, 1793976041860, 0, 1793976041860);
 
 -- msg_target_category_channel
+-- 只登记「这个渠道对这个类别真的能投」的组合，UI 新建目标时按它预填：
+--   类别 4（大屏）→ 渠道 2（websocket）：大屏长连接上报的类别编码就是 screen
+--   类别 5（定位卡）→ 渠道 3（locator）：走卡片直连
+-- user / role / org 暂时没有可用渠道：websocket 发送器按「目标类别编码」找本实例
+-- 连接，用户、角色、组织这三类没有任何客户端会连上来，绑 websocket 只会让每个
+-- 具体目标都落 Failed（2026-11-21 生产验证：org 目标展开 524 人全部 Failed）。
+-- 等 S4 接入短信/邮件后，这三类再绑 sms / email。
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (1, 4, 2, 0, 1793976041672, 0, 1793976041672);
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (2, 5, 3, 0, 1793976042425, 0, 1793976042425);
-INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (3, 1, 2, 0, 1793976041672, 0, 1793976041672);
-INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (4, 2, 2, 0, 1793976041672, 0, 1793976041672);
-INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (5, 3, 2, 0, 1793976041672, 0, 1793976041672);
 
 -- msg_message_target_channel
 -- 投递只认这张表：上面的 msg_target_category_channel 只是「默认渠道集」，
 -- 新建消息目标时由 UI 预填，不参与投递。
--- 按「目标类别 → 渠道」的映射逐条展开到每个目标：
---   类别 4（大屏）/ 类别 2（角色）→ 渠道 2（websocket）
---   类别 5（定位卡）→ 渠道 3（locator）
+-- 大屏目标（类别 4）→ websocket；定位卡目标（类别 5）→ locator。
+-- 下面 id=1 那条是「报警状态」消息上的系统管理员角色目标（类别 2），历史上绑过
+-- websocket——角色里的人不会连大屏，这一路投不到，S4 接入短信后要换成 sms，
+-- 在那之前它会一直以「目标未连接」失败，别把它当成链路故障。
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (1, 2, 2, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (2, 5, 2, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (3, 6, 2, 0, 1794136800000, 0, 1794136800000);
