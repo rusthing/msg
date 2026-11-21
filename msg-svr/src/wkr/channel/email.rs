@@ -244,7 +244,7 @@ fn build_message(options: &EmailOptions, task: &DeliveryMsg, to: &str) -> String
     headers.push_str(&format!(
         "Subject: {}\r\n",
         encoded_word(if subject.trim().is_empty() {
-            &task.event_code
+            task.event_code.as_str()
         } else {
             subject.as_str()
         })
@@ -471,7 +471,8 @@ impl Session {
         Ok(reply.text)
     }
 
-    /// 读一条（可能多行的）应答    async fn read_reply(&mut self) -> Result<Reply, String> {
+    /// 读一条（可能多行的）应答
+    async fn read_reply(&mut self) -> Result<Reply, String> {
         let mut text = String::new();
         loop {
             let mut line = String::new();
