@@ -15,6 +15,7 @@
 //! 投递侧（`msg-svr` 发任务的地方）不需要任何改动——它按渠道的投递队列配置
 //! 发到对应主题。
 
+pub mod email;
 pub mod locator_card;
 pub mod sms;
 pub mod websocket;
@@ -77,6 +78,7 @@ pub fn init_senders() {
         Arc::new(websocket::WebSocketSender),
         Arc::new(locator_card::LocatorCardSender),
         Arc::new(sms::SmsSender),
+        Arc::new(email::EmailSender),
     ]);
 }
 
