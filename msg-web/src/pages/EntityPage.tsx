@@ -55,6 +55,7 @@ import OptionButtons from '../components/OptionButtons';
 import StatusTag from '../components/StatusTag';
 import TemplateEditor from '../components/TemplateEditor';
 import { EntitySelect, type EntitySelectOption } from '../components/EntitySelect';
+import { ManagedPicker } from '../components/ManagedPicker';
 import type { EntityConfig, FieldConfig, RowActionContext } from '../entities';
 import { dicOptions } from '../dic';
 import { usePagedQuery } from '../hooks/usePagedQuery';
@@ -747,20 +748,18 @@ export default function EntityPage({ config }: EntityPageProps) {
         );
       }
       // 筛选区先选目标类别，再按类别从目录里选具体目标
-      const options: EntitySelectOption[] = [...filterDirectory.options];
-      const current = value === undefined || value === null ? '' : String(value);
-      if (current && !options.some((option) => option.value === current)) {
-        options.unshift({ value: current, label: `#${current}（未在列表中找到）` });
-      }
       return (
-        <EntitySelect
+        <ManagedPicker
           className="msg-filter-control"
-          allowClear
+          bundle={filterDirectory.bundle}
+          kind={filterSubjectSource}
           loading={filterDirectory.loading}
+          title={`筛选${field.label}`}
           placeholder={field.label}
-          value={value as string | undefined}
-          options={options}
-          onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+          value={value === undefined || value === null ? '' : String(value)}
+          onChange={(next) =>
+            setDraft((prev) => ({ ...prev, [field.key]: next || undefined }))
+          }
         />
       );
     }
@@ -876,21 +875,17 @@ export default function EntityPage({ config }: EntityPageProps) {
             />
           );
         }
-        // 编辑历史数据时目标可能已删除：把当前值补成一条选项，避免被下拉吞掉
-        const current = form.getFieldValue(field.key);
-        const currentText = current === undefined || current === null ? '' : String(current);
-        const options: EntitySelectOption[] = [
-          { value: '', label: field.emptyLabel ?? '请选择' },
-          ...directory.options,
-        ];
-        if (
-          !directory.loading &&
-          currentText &&
-          !directory.options.some((option) => option.value === currentText)
-        ) {
-          options.push({ value: currentText, label: `#${currentText}（未在列表中找到）` });
-        }
-        return <EntitySelect allowClear={false} loading={directory.loading} options={options} />;
+        // 目录里选：左组织/分组树 + 右表搜索分页，与用户管理页同形态
+        return (
+          <ManagedPicker
+            bundle={directory.bundle}
+            kind={subjectSource}
+            loading={directory.loading}
+            title={`选择${field.label}`}
+            placeholder={field.emptyLabel ?? `请选择${field.label}`}
+            emptyText="目录里还没有可选目标"
+          />
+        );
       }
       default:
         return (
