@@ -20,7 +20,10 @@ interface ManagedPickerProps {
   value?: string | null;
   onChange?: (value: string) => void;
   bundle: DirectoryBundle;
-  kind: DirectoryKind;
+  /** 目录种类；业务外键（消息/渠道/投递）没有固定种类时不传。 */
+  kind?: DirectoryKind;
+  /** 右表第一列表头，默认按 kind 推导。 */
+  nameLabel?: string;
   loading?: boolean;
   disabled?: boolean;
   allowClear?: boolean;
@@ -58,6 +61,7 @@ export function ManagedPicker({
   onChange,
   bundle,
   kind,
+  nameLabel,
   loading = false,
   disabled = false,
   allowClear = true,
@@ -74,20 +78,28 @@ export function ManagedPicker({
   const [treeQuery, setTreeQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [treeSelected, setTreeSelected] = useState<string | null>(null);
+  const [activeRealm, setActiveRealm] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [rect, setRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   const current = value === undefined || value === null ? '' : String(value);
   const selected = useMemo(() => bundle.entries.find((entry) => entry.id === current), [bundle.entries, current]);
 
+  /** 领域 tab 收窄后的左树；未选领域时保持全量。 */
+  const realmTree = useMemo(() => {
+    if (!activeRealm || !bundle.realmsByTree) return bundle.tree;
+    return bundle.tree.filter((node) => bundle.realmsByTree?.get(node.id)?.includes(activeRealm));
+  }, [activeRealm, bundle.realmsByTree, bundle.tree]);
+
   const allowedGroups = useMemo(() => {
     if (!treeSelected) return null;
-    return new Set(subtreeIds(bundle.tree, treeSelected));
-  }, [bundle.tree, treeSelected]);
+    return new Set(subtreeIds(realmTree, treeSelected));
+  }, [realmTree, treeSelected]);
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return bundle.entries.filter((entry) => {
+      if (activeRealm && !bundle.realmsByEntry?.get(entry.id)?.includes(activeRealm)) return false;
       if (allowedGroups) {
         const groups = bundle.groupsByEntry.get(entry.id) ?? [];
         if (!groups.some((id) => allowedGroups.has(id))) return false;
@@ -97,7 +109,7 @@ export function ManagedPicker({
         .filter(Boolean)
         .some((text) => String(text).toLowerCase().includes(keyword));
     });
-  }, [allowedGroups, bundle, query]);
+  }, [activeRealm, allowedGroups, bundle, query]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -133,6 +145,8 @@ export function ManagedPicker({
     if (focusTrigger) triggerRef.current?.focus();
   };
   const choose = (entry: DirectoryEntry) => {
+    // 停用项可见但不可选，避免把消息目标指向已停用的账号/组织。
+    if (entry.enabled === false) return;
     onChange?.(entry.id);
     closePanel(true);
   };
@@ -172,31 +186,31 @@ export function ManagedPicker({
   /** 有子节点的编码集合：用于显示折叠箭头。 */
   const parentCodes = useMemo(() => {
     const codes = new Set<string>();
-    for (const node of bundle.tree) {
+    for (const node of realmTree) {
       const code = node.treeCode;
       if (!code) continue;
       for (let length = code.length - 3; length >= 3; length -= 3) codes.add(code.slice(0, length));
     }
     return codes;
-  }, [bundle.tree]);
+  }, [realmTree]);
 
   const treeVisible = useMemo(() => {
     const keyword = treeQuery.trim().toLowerCase();
-    if (!keyword) return bundle.tree;
+    if (!keyword) return realmTree;
     const keep = new Set<string>();
-    for (const node of bundle.tree) {
+    for (const node of realmTree) {
       if (!node.label.toLowerCase().includes(keyword)) continue;
       keep.add(node.id);
       const code = node.treeCode;
       if (!code) continue;
       for (let length = code.length - 3; length >= 3; length -= 3) {
         const prefix = code.slice(0, length);
-        const parent = bundle.tree.find((candidate) => candidate.treeCode === prefix);
+        const parent = realmTree.find((candidate) => candidate.treeCode === prefix);
         if (parent) keep.add(parent.id);
       }
     }
-    return bundle.tree.filter((node) => keep.has(node.id));
-  }, [bundle.tree, treeQuery]);
+    return realmTree.filter((node) => keep.has(node.id));
+  }, [realmTree, treeQuery]);
 
   const isHidden = (treeCode?: string) => {
     if (!treeCode || treeQuery.trim()) return false;
@@ -223,6 +237,8 @@ export function ManagedPicker({
         <span className="msgp-cell-sub">{entry.groupLabel}</span>
       ) : kind === 'org' && entry.treeCode ? (
         <span className="msgp-cell-sub">{entry.treeCode}</span>
+      ) : kind === undefined && entry.detail ? (
+        <span className="msgp-cell-sub">{entry.detail}</span>
       ) : null}
     </div>
   );
@@ -278,6 +294,34 @@ export function ManagedPicker({
                   {loading ? '加载中…' : `${filtered.length} / ${bundle.entries.length}`}
                 </span>
               </div>
+
+              {bundle.realms && bundle.realms.length > 1 ? (
+                <div className="msgp-tabs">
+                  <button
+                    type="button"
+                    className={`msgp-tab${activeRealm === null ? ' is-active' : ''}`}
+                    onClick={() => {
+                      setActiveRealm(null);
+                      setTreeSelected(null);
+                    }}
+                  >
+                    全部领域
+                  </button>
+                  {bundle.realms.map((realm) => (
+                    <button
+                      key={realm.id}
+                      type="button"
+                      className={`msgp-tab${activeRealm === realm.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        setActiveRealm(realm.id);
+                        setTreeSelected(null);
+                      }}
+                    >
+                      {realm.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="msgp-body">
                 {bundle.tree.length > 0 ? (
@@ -354,7 +398,9 @@ export function ManagedPicker({
                     <table className="msgp-table">
                       <thead>
                         <tr>
-                          <th>{kind === 'org' ? '组织' : kind === 'role' ? '角色' : '用户'}</th>
+                          <th>
+                            {nameLabel ?? (kind === 'org' ? '组织' : kind === 'role' ? '角色' : kind === 'user' ? '用户' : '名称')}
+                          </th>
                           <th className="msgp-col-id">{kind === 'org' ? '编码' : '标识'}</th>
                           <th className="msgp-col-status">状态</th>
                           <th className="msgp-col-check" />

@@ -36,11 +36,37 @@ export interface DirectoryTreeNode {
   disabled?: boolean;
 }
 
+/** 领域 tab：与 adm 用户管理页同一套数据域切换 */
+export interface DirectoryRealm {
+  id: string;
+  label: string;
+}
+
+/** 领域 ↔ 用户绑定 */
+export interface RealmUserBinding {
+  id: string;
+  realmId: string;
+  userId: string;
+}
+
+/** 领域 ↔ 组织绑定（绑定的是子树根） */
+export interface RealmOrgBinding {
+  id: string;
+  realmId: string;
+  orgId: string;
+}
+
 /** 一份目录：条目 + 左树 + 条目归属的分组 id 集合 */
 export interface DirectoryBundle {
   entries: DirectoryEntry[];
   tree: DirectoryTreeNode[];
   groupsByEntry: Map<string, string[]>;
+  /** 领域 tab（用户目录才有） */
+  realms?: DirectoryRealm[];
+  /** 条目所属领域 id 集合 */
+  realmsByEntry?: Map<string, string[]>;
+  /** 左树节点所属领域 id 集合 */
+  realmsByTree?: Map<string, string[]>;
 }
 
 /** adm 角色分组 */
@@ -181,6 +207,58 @@ export async function loadOrgUsers(): Promise<OrgUserBinding[]> {
     .filter((item): item is OrgUserBinding => item !== undefined);
 }
 
+/** 拉取 adm 领域（只保留启用领域，与用户管理页 tab 一致）。 */
+export async function loadRealms(): Promise<DirectoryRealm[]> {
+  const rows = await requestList<{ id?: unknown; name?: unknown; enabled?: unknown }>(
+    '/realm/list',
+    'sort_order:asc',
+  );
+  return rows
+    .map((row): DirectoryRealm | undefined => {
+      const id = row.id === undefined || row.id === null ? '' : String(row.id);
+      if (!id || row.enabled === false) return undefined;
+      return { id, label: asText(row.name) ?? id };
+    })
+    .filter((item): item is DirectoryRealm => item !== undefined);
+}
+
+/** 拉取 adm 领域 ↔ 用户绑定。 */
+export async function loadRealmUsers(): Promise<RealmUserBinding[]> {
+  const rows = await requestList<{ id?: unknown; realmId?: unknown; userId?: unknown }>('/realm-user/list');
+  return rows
+    .map((row): RealmUserBinding | undefined => {
+      const id = row.id === undefined || row.id === null ? '' : String(row.id);
+      const realmId = row.realmId === undefined || row.realmId === null ? '' : String(row.realmId);
+      const userId = row.userId === undefined || row.userId === null ? '' : String(row.userId);
+      if (!realmId || !userId) return undefined;
+      return { id: id || `${realmId}:${userId}`, realmId, userId };
+    })
+    .filter((item): item is RealmUserBinding => item !== undefined);
+}
+
+/** 拉取 adm 领域 ↔ 组织绑定。 */
+export async function loadRealmOrgs(): Promise<RealmOrgBinding[]> {
+  const rows = await requestList<{ id?: unknown; realmId?: unknown; orgId?: unknown }>('/realm-org/list');
+  return rows
+    .map((row): RealmOrgBinding | undefined => {
+      const id = row.id === undefined || row.id === null ? '' : String(row.id);
+      const realmId = row.realmId === undefined || row.realmId === null ? '' : String(row.realmId);
+      const orgId = row.orgId === undefined || row.orgId === null ? '' : String(row.orgId);
+      if (!realmId || !orgId) return undefined;
+      return { id: id || `${realmId}:${orgId}`, realmId, orgId };
+    })
+    .filter((item): item is RealmOrgBinding => item !== undefined);
+}
+
+/** 辅助数据（左树、领域关系）失败不拖垮主表：返回成功标记与空数组兜底。 */
+async function settle<T>(promise: Promise<T[]>): Promise<{ data: T[]; ok: boolean }> {
+  try {
+    return { data: await promise, ok: true };
+  } catch {
+    return { data: [], ok: false };
+  }
+}
+
 /** 组织条目 → 左树节点。 */
 function orgTreeOf(entries: DirectoryEntry[]): DirectoryTreeNode[] {
   return entries.map((entry) => ({
@@ -194,11 +272,34 @@ function orgTreeOf(entries: DirectoryEntry[]): DirectoryTreeNode[] {
 /** 拉齐一份目录需要的条目、左树与分组关系。 */
 export async function loadBundle(kind: DirectoryKind): Promise<DirectoryBundle> {
   if (kind === 'org') {
-    const entries = await loadDirectory('org');
+    // 领域关系是辅助信息，拿不到也要让右侧组织表可用。
+    const [entries, realmRes, realmOrgRes] = await Promise.all([
+      loadDirectory('org'),
+      settle(loadRealms()),
+      settle(loadRealmOrgs()),
+    ]);
+    const realmsByEntry = new Map<string, string[]>();
+    const orgById = new Map(entries.map((entry) => [entry.id, entry]));
+    for (const binding of realmOrgRes.data) {
+      const root = orgById.get(binding.orgId);
+      if (!root?.treeCode) continue;
+      for (const org of entries) {
+        const code = org.treeCode ?? '';
+        const extra = code.length - root.treeCode.length;
+        if (extra < 0 || extra % 3 !== 0 || !code.startsWith(root.treeCode)) continue;
+        const list = realmsByEntry.get(org.id) ?? [];
+        list.push(binding.realmId);
+        realmsByEntry.set(org.id, list);
+      }
+    }
     return {
       entries,
       tree: orgTreeOf(entries),
       groupsByEntry: new Map(entries.map((entry) => [entry.id, [entry.id]])),
+      // 两张表齐了才暴露 tab，否则切过去组织会被全部筛掉。
+      realms: realmRes.ok && realmOrgRes.ok ? realmRes.data : [],
+      realmsByEntry,
+      realmsByTree: realmsByEntry,
     };
   }
 
@@ -219,17 +320,52 @@ export async function loadBundle(kind: DirectoryKind): Promise<DirectoryBundle> 
     };
   }
 
-  // 组织树与组织关系是辅助信息，拿不到也要让右侧用户表可用。
-  const [entries, orgs, bindings] = await Promise.all([
+  // 组织树与领域关系是辅助信息，拿不到也要让右侧用户表可用。
+  const [entries, orgs, bindings, realmRes, realmUserRes, realmOrgRes] = await Promise.all([
     loadDirectory('user'),
-    loadDirectory('org').catch(() => [] as DirectoryEntry[]),
-    loadOrgUsers().catch(() => [] as OrgUserBinding[]),
+    settle(loadDirectory('org')),
+    settle(loadOrgUsers()),
+    settle(loadRealms()),
+    settle(loadRealmUsers()),
+    settle(loadRealmOrgs()),
   ]);
+
   const groupsByEntry = new Map<string, string[]>();
-  for (const binding of bindings) {
+  for (const binding of bindings.data) {
     const list = groupsByEntry.get(binding.userId) ?? [];
     list.push(binding.orgId);
     groupsByEntry.set(binding.userId, list);
   }
-  return { entries, tree: orgTreeOf(orgs), groupsByEntry };
+
+  // 三张领域关系表齐了才暴露 tab，否则切过去人员会被全部筛掉。
+  const realms = realmRes.ok && realmUserRes.ok && realmOrgRes.ok ? realmRes.data : [];
+  const realmsByEntry = new Map<string, string[]>();
+  for (const binding of realmUserRes.data) {
+    const list = realmsByEntry.get(binding.userId) ?? [];
+    list.push(binding.realmId);
+    realmsByEntry.set(binding.userId, list);
+  }
+  const orgById = new Map(orgs.data.map((org) => [org.id, org]));
+  const realmsByTree = new Map<string, string[]>();
+  for (const binding of realmOrgRes.data) {
+    const root = orgById.get(binding.orgId);
+    if (!root?.treeCode) continue;
+    for (const org of orgs.data) {
+      const code = org.treeCode ?? '';
+      const extra = code.length - root.treeCode.length;
+      if (extra < 0 || extra % 3 !== 0 || !code.startsWith(root.treeCode)) continue;
+      const list = realmsByTree.get(org.id) ?? [];
+      list.push(binding.realmId);
+      realmsByTree.set(org.id, list);
+    }
+  }
+
+  return {
+    entries,
+    tree: orgTreeOf(orgs.data),
+    groupsByEntry,
+    realms,
+    realmsByEntry,
+    realmsByTree,
+  };
 }

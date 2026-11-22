@@ -54,7 +54,8 @@ import JsonText from '../components/JsonText';
 import OptionButtons from '../components/OptionButtons';
 import StatusTag from '../components/StatusTag';
 import TemplateEditor from '../components/TemplateEditor';
-import { EntitySelect, type EntitySelectOption } from '../components/EntitySelect';
+import type { DirectoryBundle } from '../api/directory';
+import type { EntitySelectOption } from '../components/EntitySelect';
 import { ManagedPicker } from '../components/ManagedPicker';
 import type { EntityConfig, FieldConfig, RowActionContext } from '../entities';
 import { dicOptions } from '../dic';
@@ -338,6 +339,20 @@ function renderDetailValue(
     );
   }
   return renderCell(field, record, refOptions);
+}
+
+/** 把外键选项折成选择面板需要的目录结构：无左树、无分组，只有可搜索的表格行。 */
+function refBundle(options: EntitySelectOption[]): DirectoryBundle {
+  const entries = options
+    .filter((option) => option.value !== '')
+    .map((option) => ({
+      id: option.value,
+      name: option.label,
+      label: option.label,
+      detail: option.detail ?? `#${option.value}`,
+      enabled: !option.disabled,
+    }));
+  return { entries, tree: [], groupsByEntry: new Map() };
 }
 
 interface EntityPageProps {
@@ -711,16 +726,17 @@ export default function EntityPage({ config }: EntityPageProps) {
     if (field.kind === 'ref') {
       const ref = field.ref ? refOptions[field.ref] : undefined;
       return (
-        <EntitySelect
+        <ManagedPicker
           className="msg-filter-control"
-          allowClear
+          bundle={refBundle((ref?.options ?? []) as EntitySelectOption[])}
           loading={ref?.loading}
+          title={`筛选${field.label}`}
           placeholder={field.label}
-          value={value as string | undefined}
-          options={(ref?.options ?? []) as EntitySelectOption[]}
+          nameLabel={field.label}
+          value={value === undefined || value === null ? '' : String(value)}
           onChange={(next) =>
             setDraft((prev) => {
-              const patch: FilterDraft = { [field.key]: next };
+              const patch: FilterDraft = { [field.key]: next || undefined };
               // 目标类别变了，旧的「目标标识」筛选条件不再适用
               if (subjectField?.subjectBy === field.key) {
                 patch[subjectField.key] = undefined;
@@ -846,10 +862,13 @@ export default function EntityPage({ config }: EntityPageProps) {
       case 'ref': {
         const ref = field.ref ? refOptions[field.ref] : undefined;
         return (
-          <EntitySelect
+          <ManagedPicker
+            bundle={refBundle((ref?.options ?? []) as EntitySelectOption[])}
             loading={ref?.loading}
+            title={`选择${field.label}`}
             placeholder={`请选择${field.label}`}
-            options={(ref?.options ?? []) as EntitySelectOption[]}
+            nameLabel={field.label}
+            emptyText="还没有可选记录"
           />
         );
       }
