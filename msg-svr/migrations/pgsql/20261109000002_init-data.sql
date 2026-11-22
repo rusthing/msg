@@ -109,18 +109,22 @@ INSERT INTO public.msg_message_target (id, message_id, target_category_id, targe
 -- 等 S4 接入短信/邮件后，这三类再绑 sms / email。
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (1, 4, 2, 0, 1793976041672, 0, 1793976041672);
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (2, 5, 3, 0, 1793976042425, 0, 1793976042425);
--- user / role / org 走短信：这三类都是有手机号的具体人，websocket 投不到（见 S2 点火结论）
+-- user / role / org 走短信 + 邮件：这三类都是有手机号/邮箱的具体人，websocket 投不到（见 S2 点火结论）
+-- 同一类别绑多个渠道时，展开阶段按渠道各自取地址：取不到的那一路跳过，全都没有才落 Skipped
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (3, 1, 4, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (4, 2, 4, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (5, 3, 4, 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (6, 1, 5, 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (7, 2, 5, 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_target_category_channel (id, target_category_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (8, 3, 5, 0, 1794136800000, 0, 1794136800000);
 
 -- msg_message_target_channel
 -- 投递只认这张表：上面的 msg_target_category_channel 只是「默认渠道集」，
 -- 新建消息目标时由 UI 预填，不参与投递。
 -- 大屏目标（类别 4）→ websocket；定位卡目标（类别 5）→ locator。
--- 下面 id=1 那条是「报警状态」消息上的系统管理员角色目标（类别 2），历史上绑过
--- websocket——角色里的人不会连大屏，这一路投不到，S4 接入短信后要换成 sms，
--- 在那之前它会一直以「目标未连接」失败，别把它当成链路故障。
+-- 下面 id=16 / id=17 那两行是「报警状态」消息上的系统管理员角色目标（类别 2）：同一目标绑
+-- 短信（4）+ 邮件（5）。角色里的人不会连大屏，历史上绑过 websocket 那一路永远投不到，
+-- 换成这两个需要地址的渠道后，没手机号/没邮箱的成员各自那一路跳过，不拖累其他成员。
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (1, 2, 2, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (2, 5, 2, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (3, 6, 2, 0, 1794136800000, 0, 1794136800000);
@@ -136,4 +140,5 @@ INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (13, 1060348598600695829, 2, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (14, 1060348598600695830, 2, 0, 1794136800000, 0, 1794136800000);
 INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (15, 1060348598600695831, 2, 0, 1794136800000, 0, 1794136800000);
-INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (16, 16, 2, 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (16, 16, 4, 0, 1794136800000, 0, 1794136800000);
+INSERT INTO public.msg_message_target_channel (id, message_target_id, channel_id, creater_id, create_ms, updater_id, update_ms) VALUES (17, 16, 5, 0, 1794136800000, 0, 1794136800000);
