@@ -23,15 +23,17 @@ import { entityOf } from '../entities';
 /** # 一个实体的下拉选项集合 */
 export interface RefOptions {
   /** antd Select 选项 */
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; detail?: string }[];
   /** id → 记录，用于表格里把 ID 翻成名称 */
   byId: Map<string, Row>;
+  /** id → 可读名称，表格里直接取，避免再按 name/code 猜 */
+  labels: Map<string, string>;
   /** 是否还在拉取 */
   loading: boolean;
 }
 
 /** 空集合，请求未返回或实体不存在时用 */
-const EMPTY: RefOptions = { options: [], byId: new Map(), loading: false };
+const EMPTY: RefOptions = { options: [], byId: new Map(), labels: new Map(), loading: false };
 
 /** 批量拉取的单页上限；超过就继续翻页，最多 10 页 */
 const PAGE_SIZE = 500;
@@ -48,6 +50,12 @@ function labelOf(row: Row): string {
     return code;
   }
   return String(row.id);
+}
+
+/** 实体自定义了 `displayLabel` 就用它，否则按 name / code / 主键兜底 */
+function readableLabel(key: string, row: Row): string {
+  const custom = entityOf(key)?.displayLabel?.(row);
+  return custom || labelOf(row);
 }
 
 /** # 批量拉取一个实体的全部记录 */
@@ -156,14 +164,19 @@ export function useRefOptions(
           return [key, EMPTY];
         }
         const records = await fetchRows(config.path);
+        const entries = records.map((row) => {
+          const id = String(row.id);
+          return { id, row, label: readableLabel(key, row) };
+        });
         return [
           key,
           {
-            options: records
-              .map((row) => ({ value: String(row.id), label: labelOf(row) }))
+            options: entries
+              .map(({ id, label }) => ({ value: id, label, detail: `#${id}` }))
               .sort((left, right) => left.label.localeCompare(right.label)),
             // 统一按字符串建索引，线上 ID 是数字形态时也能查中名称
-            byId: new Map(records.map((row) => [String(row.id), row])),
+            byId: new Map(entries.map(({ id, row }) => [id, row])),
+            labels: new Map(entries.map(({ id, label }) => [id, label])),
             loading: false,
           },
         ];
@@ -236,6 +249,7 @@ export function useRefOptions(
       const base = state[key] ?? EMPTY;
       const path = entityOf(key)?.path;
       const byId = new Map(base.byId);
+      const labels = new Map(base.labels);
       if (path) {
         for (const [token, row] of lazyCache) {
           if (!token.startsWith(`${path}:`)) {
@@ -244,14 +258,15 @@ export function useRefOptions(
           const id = token.slice(path.length + 1);
           if (!byId.has(id)) {
             byId.set(id, row);
+            labels.set(id, readableLabel(key, row));
           }
         }
       }
       // 批量选项为空时，用补查到的记录兜底，编辑表单至少能显示/选中当前值
       const options = base.options.length
         ? base.options
-        : [...byId.values()].map((row) => ({ value: String(row.id), label: labelOf(row) }));
-      result[key] = { ...base, byId, options };
+        : [...labels].map(([value, label]) => ({ value, label, detail: `#${value}` }));
+      result[key] = { ...base, byId, labels, options };
     }
     return result;
     // bump 只用于在单条补查落缓存后重算合并结果

@@ -520,3 +520,26 @@ html[data-embed='1'] .msg-header-note {
 html[data-embed='1'] .msg-header {
   padding-inline: 16px;
 }
+
+/* 外键/主体下拉：两行候选项，名称在上、工号/ID/路径在下 */
+.msg-entity-option {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  padding-block: 2px;
+}
+
+.msg-entity-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-entity-option-detail {
+  overflow: hidden;
+  color: rgba(0, 0, 0, 0.45);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

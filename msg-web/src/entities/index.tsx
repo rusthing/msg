@@ -222,6 +222,13 @@ export interface EntityConfig {
   readOnly?: boolean;
   /** 新增/编辑弹窗宽度 */
   modalWidth?: number;
+  /**
+   * 下拉/表格里的可读名称。
+   *
+   * 默认取 `name` / `code` / 主键；投递链路这类没有 name 的表需要自己拼一行
+   * （如「标题 · 事件编码」「目标 · 类别」），否则下拉里只剩一串雪花 ID。
+   */
+  displayLabel?: (row: Row) => string;
   /** 额外列（放计算出来的耗时之类，不能直接对应某个字段） */
   extraColumns?: ColumnsType<Row>;
   /**
@@ -501,6 +508,8 @@ const delivery: EntityConfig = {
   group: 'delivery',
   readOnly: true,
   modalWidth: 860,
+  displayLabel: (row) =>
+    [row.title, row.eventCode].filter((part) => typeof part === 'string' && part).join(' · ') || String(row.id),
   // 投递记录只增不减，默认按更新时间倒序：刷新后最上面一条就是刚动过的那条
   defaultOrderBy: 'update_ms:desc',
   fields: [
@@ -635,8 +644,9 @@ const deliveryTarget: EntityConfig = {
   icon: <AimOutlined />,
   group: 'delivery',
   readOnly: true,
+  displayLabel: (row) => `${row.targetId ? String(row.targetId) : '全部目标'} · #${row.id}`,
   fields: [
-    { key: 'deliveryId', label: '投递ID', kind: 'u64', width: 190, required: true, searchable: true },
+    { key: 'deliveryId', label: '投递ID', kind: 'ref', ref: 'delivery', width: 190, required: true, searchable: true },
     {
       key: 'targetCategoryId',
       label: '目标类别',
@@ -649,7 +659,9 @@ const deliveryTarget: EntityConfig = {
     {
       key: 'targetId',
       label: '目标标识',
-      kind: 'text',
+      kind: 'subject',
+      subjectBy: 'targetCategoryId',
+      subjectSources: { user: 'user', role: 'role', org: 'org' },
       width: 200,
       maxLength: 100,
       searchable: true,
@@ -680,8 +692,9 @@ const deliveryChannel: EntityConfig = {
   icon: <ApiOutlined />,
   group: 'delivery',
   readOnly: true,
+  displayLabel: (row) => `渠道 #${String(row.channelId)} · ${String(row.address ?? '')}`.trim(),
   fields: [
-    { key: 'deliverTargetId', label: '投递目标ID', kind: 'u64', width: 190, required: true, searchable: true },
+    { key: 'deliverTargetId', label: '投递目标ID', kind: 'ref', ref: 'delivery-target', width: 190, required: true, searchable: true },
     { key: 'channelId', label: '渠道', kind: 'ref', ref: 'channel', width: 160, required: true, searchable: true },
     {
       key: 'deliverChannelStatus',
@@ -709,7 +722,7 @@ const deliveryChannelLog: EntityConfig = {
   readOnly: true,
   modalWidth: 820,
   fields: [
-    { key: 'deliveryChannelId', label: '投递渠道ID', kind: 'u64', width: 190, required: true, searchable: true },
+    { key: 'deliveryChannelId', label: '投递渠道ID', kind: 'ref', ref: 'delivery-channel', width: 190, required: true, searchable: true },
     {
       key: 'deliverChannelStatus',
       label: '状态',

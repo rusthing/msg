@@ -15,6 +15,8 @@ export type DirectoryKind = 'user' | 'role' | 'org';
 export interface DirectoryOption {
   value: string;
   label: string;
+  /** 次要信息：完整 ID，供下拉第二行展示 */
+  detail?: string;
 }
 
 /** adm 列表返回的最小字段集合 */
@@ -44,14 +46,13 @@ const ORDERS: Record<DirectoryKind, string> = {
   org: 'tree_code:asc',
 };
 
-/** 列表项的展示文案：重名时靠 ID 区分 */
+/** 列表项的展示文案：名称一行，ID 一行；重名时靠 ID 区分 */
 function labelOf(kind: DirectoryKind, row: DirectoryRow, id: string): string {
   const name = typeof row.name === 'string' && row.name ? row.name : id;
   if (kind === 'org') {
-    const fullName = typeof row.fullName === 'string' && row.fullName ? row.fullName : name;
-    return `${fullName} · #${id}`;
+    return typeof row.fullName === 'string' && row.fullName ? row.fullName : name;
   }
-  return `${name} · #${id}`;
+  return name;
 }
 
 /** 拉取某类目录的全量选项 */
@@ -84,9 +85,9 @@ export async function loadDirectory(kind: DirectoryKind): Promise<DirectoryOptio
   }
 
   return (payload.extra ?? [])
-    .map((row) => {
+    .map((row): DirectoryOption | undefined => {
       const id = row.id === undefined || row.id === null ? '' : String(row.id);
-      return id ? { value: id, label: labelOf(kind, row, id) } : undefined;
+      return id ? { value: id, label: labelOf(kind, row, id), detail: `#${id}` } : undefined;
     })
     .filter((item): item is DirectoryOption => item !== undefined);
 }

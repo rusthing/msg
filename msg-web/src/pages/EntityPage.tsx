@@ -54,6 +54,7 @@ import JsonText from '../components/JsonText';
 import OptionButtons from '../components/OptionButtons';
 import StatusTag from '../components/StatusTag';
 import TemplateEditor from '../components/TemplateEditor';
+import { EntitySelect, type EntitySelectOption } from '../components/EntitySelect';
 import type { EntityConfig, FieldConfig, RowActionContext } from '../entities';
 import { dicOptions } from '../dic';
 import { usePagedQuery } from '../hooks/usePagedQuery';
@@ -246,6 +247,10 @@ function LongText({ value }: { value: string }) {
 /** # 外键 ID → 名称（查不到就退回短 ID，完整 ID 放 tooltip） */
 function refLabel(ref: RefOptions | undefined, value: unknown) {
   const id = value === undefined || value === null ? '' : String(value);
+  const label = ref?.labels.get(id);
+  if (label) {
+    return <Tooltip title={`${label}（${id}）`}>{label}</Tooltip>;
+  }
   const row = ref?.byId.get(id);
   const name = row?.name;
   if (typeof name === 'string' && name) {
@@ -391,6 +396,18 @@ export default function EntityPage({ config }: EntityPageProps) {
     ? subjectField?.subjectSources?.[subjectCategoryCode]
     : undefined;
   const directory = useDirectoryOptions(subjectSource, formOpen);
+
+  /** 筛选区同样按「目标类别」切换目录，让筛选里的目标标识也能选 */
+  const filterSubjectByValue = subjectByField ? draft[subjectByField.key] : undefined;
+  const filterCategoryRow =
+    subjectByField?.ref && filterSubjectByValue !== undefined && filterSubjectByValue !== null
+      ? refOptions[subjectByField.ref]?.byId.get(String(filterSubjectByValue))
+      : undefined;
+  const filterCategoryCode = filterCategoryRow ? String(filterCategoryRow.code ?? '') : '';
+  const filterSubjectSource = filterCategoryCode
+    ? subjectField?.subjectSources?.[filterCategoryCode]
+    : undefined;
+  const filterDirectory = useDirectoryOptions(filterSubjectSource, true);
 
   const searchFields = useMemo(
     () => config.fields.filter((field) => field.searchable),
@@ -693,13 +710,56 @@ export default function EntityPage({ config }: EntityPageProps) {
     if (field.kind === 'ref') {
       const ref = field.ref ? refOptions[field.ref] : undefined;
       return (
-        <Select
-          {...common}
-          showSearch
-          optionFilterProp="label"
+        <EntitySelect
+          className="msg-filter-control"
+          allowClear
           loading={ref?.loading}
+          placeholder={field.label}
           value={value as string | undefined}
-          options={ref?.options ?? []}
+          options={(ref?.options ?? []) as EntitySelectOption[]}
+          onChange={(next) =>
+            setDraft((prev) => {
+              const patch: FilterDraft = { [field.key]: next };
+              // 目标类别变了，旧的「目标标识」筛选条件不再适用
+              if (subjectField?.subjectBy === field.key) {
+                patch[subjectField.key] = undefined;
+              }
+              return { ...prev, ...patch };
+            })
+          }
+        />
+      );
+    }
+    if (field.kind === 'subject') {
+      // 类别没选时先选类别；大屏 / 定位卡这类动态目标仍按业务标识手填
+      if (!filterSubjectByValue) {
+        return <Select disabled className="msg-filter-control" placeholder="请先选择目标类别" />;
+      }
+      if (!filterSubjectSource) {
+        return (
+          <Input
+            allowClear
+            className="msg-filter-control"
+            placeholder={field.label}
+            value={value as string | undefined}
+            onChange={(event) => setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))}
+          />
+        );
+      }
+      // 筛选区先选目标类别，再按类别从目录里选具体目标
+      const options: EntitySelectOption[] = [...filterDirectory.options];
+      const current = value === undefined || value === null ? '' : String(value);
+      if (current && !options.some((option) => option.value === current)) {
+        options.unshift({ value: current, label: `#${current}（未在列表中找到）` });
+      }
+      return (
+        <EntitySelect
+          className="msg-filter-control"
+          allowClear
+          loading={filterDirectory.loading}
+          placeholder={field.label}
+          value={value as string | undefined}
+          options={options}
           onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
         />
       );
@@ -787,12 +847,10 @@ export default function EntityPage({ config }: EntityPageProps) {
       case 'ref': {
         const ref = field.ref ? refOptions[field.ref] : undefined;
         return (
-          <Select
-            showSearch
-            optionFilterProp="label"
+          <EntitySelect
             loading={ref?.loading}
-            options={ref?.options ?? []}
             placeholder={`请选择${field.label}`}
+            options={(ref?.options ?? []) as EntitySelectOption[]}
           />
         );
       }
@@ -821,7 +879,7 @@ export default function EntityPage({ config }: EntityPageProps) {
         // 编辑历史数据时目标可能已删除：把当前值补成一条选项，避免被下拉吞掉
         const current = form.getFieldValue(field.key);
         const currentText = current === undefined || current === null ? '' : String(current);
-        const options = [
+        const options: EntitySelectOption[] = [
           { value: '', label: field.emptyLabel ?? '请选择' },
           ...directory.options,
         ];
@@ -830,16 +888,9 @@ export default function EntityPage({ config }: EntityPageProps) {
           currentText &&
           !directory.options.some((option) => option.value === currentText)
         ) {
-          options.push({ value: currentText, label: `${currentText}（未在列表中找到）` });
+          options.push({ value: currentText, label: `#${currentText}（未在列表中找到）` });
         }
-        return (
-          <Select
-            showSearch
-            optionFilterProp="label"
-            loading={directory.loading}
-            options={options}
-          />
-        );
+        return <EntitySelect allowClear={false} loading={directory.loading} options={options} />;
       }
       default:
         return (
