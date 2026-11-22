@@ -57,6 +57,7 @@ import TemplateEditor from '../components/TemplateEditor';
 import type { EntityConfig, FieldConfig, RowActionContext } from '../entities';
 import { dicOptions } from '../dic';
 import { usePagedQuery } from '../hooks/usePagedQuery';
+import { useDirectoryOptions } from '../hooks/useDirectoryOptions';
 import { useRefOptions, type RefOptions } from '../hooks/useRefOptions';
 import {
   EMPTY,
@@ -92,6 +93,7 @@ function isTextLike(field: FieldConfig): boolean {
     field.kind === 'template' ||
     field.kind === 'jsonTemplate' ||
     field.kind === 'json' ||
+    field.kind === 'subject' ||
     field.kind === 'u64'
   );
 }
@@ -366,6 +368,29 @@ export default function EntityPage({ config }: EntityPageProps) {
   // 当前页记录一并交给选项层：批量映射没覆盖到的外键 ID 会按主键补查，
   // 避免生产环境「消息类别」这类列退化成一串短 ID
   const refOptions = useRefOptions(refKeys, data.list, config.fields);
+
+  /**
+   * 目标主体字段的目录来源：由同表单的类别字段（如消息目标的「目标类别」）
+   * 取出类别编码，再映射到用户 / 角色 / 组织目录。
+   */
+  const subjectField = useMemo(
+    () => config.fields.find((field) => field.kind === 'subject'),
+    [config.fields],
+  );
+  const subjectByField = useMemo(
+    () => config.fields.find((field) => field.key === subjectField?.subjectBy),
+    [config.fields, subjectField],
+  );
+  const subjectByValue = Form.useWatch(subjectField?.subjectBy ?? '__subject_by_none__', form);
+  const subjectCategoryRow =
+    subjectByField?.ref && subjectByValue !== undefined && subjectByValue !== null
+      ? refOptions[subjectByField.ref]?.byId.get(String(subjectByValue))
+      : undefined;
+  const subjectCategoryCode = subjectCategoryRow ? String(subjectCategoryRow.code ?? '') : '';
+  const subjectSource = subjectCategoryCode
+    ? subjectField?.subjectSources?.[subjectCategoryCode]
+    : undefined;
+  const directory = useDirectoryOptions(subjectSource, formOpen);
 
   const searchFields = useMemo(
     () => config.fields.filter((field) => field.searchable),
@@ -771,6 +796,51 @@ export default function EntityPage({ config }: EntityPageProps) {
           />
         );
       }
+      case 'subject': {
+        // 类别未选、或类别是 screen / locator 这类动态目标时，仍按文本填写业务标识
+        if (!subjectSource) {
+          const needCategory = subjectField?.subjectBy !== undefined && !subjectByValue;
+          return (
+            <Input
+              maxLength={field.maxLength}
+              autoComplete="off"
+              placeholder={needCategory ? '请先选择目标类别' : `请输入${field.label}`}
+            />
+          );
+        }
+        // 目录读不到时退回手填，不阻塞消息目标维护
+        if (directory.error) {
+          return (
+            <Input
+              maxLength={field.maxLength}
+              autoComplete="off"
+              placeholder={`${field.label}目录加载失败，请手动填写 ID`}
+            />
+          );
+        }
+        // 编辑历史数据时目标可能已删除：把当前值补成一条选项，避免被下拉吞掉
+        const current = form.getFieldValue(field.key);
+        const currentText = current === undefined || current === null ? '' : String(current);
+        const options = [
+          { value: '', label: field.emptyLabel ?? '请选择' },
+          ...directory.options,
+        ];
+        if (
+          !directory.loading &&
+          currentText &&
+          !directory.options.some((option) => option.value === currentText)
+        ) {
+          options.push({ value: currentText, label: `${currentText}（未在列表中找到）` });
+        }
+        return (
+          <Select
+            showSearch
+            optionFilterProp="label"
+            loading={directory.loading}
+            options={options}
+          />
+        );
+      }
       default:
         return (
           <Input
@@ -956,7 +1026,17 @@ export default function EntityPage({ config }: EntityPageProps) {
           setEditing(null);
         }}
       >
-        <Form form={form} layout="vertical" className="msg-form">
+        <Form
+          form={form}
+          layout="vertical"
+          className="msg-form"
+          onValuesChange={(changed) => {
+            // 目标类别变了，旧的目标标识不再适用，清空让用户重新选
+            if (subjectField?.subjectBy && Object.prototype.hasOwnProperty.call(changed, subjectField.subjectBy)) {
+              form.setFieldValue(subjectField.key, '');
+            }
+          }}
+        >
           <AntRow gutter={[16, 0]}>
             {normalFields.map((field) => (
               <Col xs={24} sm={isWideField(field) ? 24 : 12} key={field.key}>

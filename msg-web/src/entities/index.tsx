@@ -64,7 +64,9 @@ export type FieldKind =
   /** 字典枚举（`#[dic]`，线上是整数） */
   | 'dic'
   /** 外键，`ref` 指向另一个实体 */
-  | 'ref';
+  | 'ref'
+  /** 目标主体：按同表单另一字段的类别编码，从用户/角色/组织目录里选择 */
+  | 'subject';
 
 /** # 一个字段的展示与编辑方式 */
 export interface FieldConfig {
@@ -105,6 +107,10 @@ export interface FieldConfig {
   dic?: DicItem[];
   /** 被引用实体的 `key`，`kind = 'ref'` 时必填 */
   ref?: string;
+  /** 类别字段名，`kind = 'subject'` 时必填；该字段指向的实体编码决定目录来源 */
+  subjectBy?: string;
+  /** 类别编码 → 目录来源（用户/角色/组织）；未命中的类别仍按文本输入 */
+  subjectSources?: Record<string, 'user' | 'role' | 'org'>;
   /** 表单最大长度（与 DTO 的 `@len` 对齐） */
   maxLength?: number;
   /** 多行文本的行数 */
@@ -424,13 +430,16 @@ const messageTarget: EntityConfig = {
     {
       key: 'targetId',
       label: '目标标识',
-      kind: 'text',
+      kind: 'subject',
+      // 目标类别编码 → 目录来源；大屏 / 定位卡这类动态目标仍按文本输入
+      subjectBy: 'targetCategoryId',
+      subjectSources: { user: 'user', role: 'role', org: 'org' },
       width: 200,
       maxLength: 100,
       searchable: true,
       allowEmptySubmit: true,
       emptyLabel: '全部目标',
-      tip: '用户 / 角色 / 分组 / 大屏的业务标识；空串表示该类别下的全部目标（大屏这类动态接入的目标只能这么声明）',
+      tip: '用户 / 角色 / 组织从平台目录里选择；大屏、定位卡等动态目标仍按业务标识填写；留空表示该类别下的全部目标',
     },
   ],
 };

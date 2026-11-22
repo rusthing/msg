@@ -65,6 +65,11 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
         },
+        // 目标标识的目录选择要读 adm 的用户/角色/组织列表；开发期同源代理到 adm-svr
+        '/adm': {
+          target: env.VITE_ADM_TARGET?.trim() || 'http://127.0.0.1:9007',
+          changeOrigin: true,
+        },
       },
     },
     build: {
