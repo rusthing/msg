@@ -185,6 +185,9 @@ input[type='color']:not(:disabled) {
 .msg-content {
   padding: 20px 24px 32px;
   overflow-y: auto;
+  max-width: 1680px;
+  margin-inline: auto;
+  width: 100%;
 }
 
 /* 表格工具栏：条件与「查询 / 重置 / 刷新 / 新增」排在一行，动作贴右。
