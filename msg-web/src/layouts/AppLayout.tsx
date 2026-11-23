@@ -75,7 +75,9 @@ export default function AppLayout() {
   );
 
   return (
-    <Layout style={{ height: '100vh' }}>
+    /* 用容器高度而不是 100vh：联邦窗口比视口矮时，100vh 会让侧栏伸出窗口、
+       随内容一起滚。高度跟着 .msg-federated（或独立站 #root）走，内容区自己滚。 */
+    <Layout style={{ height: '100%' }}>
       <Sider width={234} theme="light" className="msg-sider">
         <div className="msg-brand">
           <div className="msg-brand-logo">msg</div>
