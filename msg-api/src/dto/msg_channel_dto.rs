@@ -14,11 +14,12 @@ pub struct MsgChannelDto {
     /// 配置（JSON，结构由 channel_type 决定；各类型的字段见发送器里的 Options 结构）
     /// @len 0..
     pub options: Option<String>,
-    /// 载荷模板：决定这个渠道的报文正文长什么样，为空时用发送器内置的默认结构
+    /// 载荷模板：决定这个渠道的报文正文长什么样，为空时用发送器的通用帧
     ///
-    /// 变量只有服务端给的这几个：`{{eventCode}}` `{{title}}` `{{content}}` `{{ext}}`
-    /// `{{firstReceiveMs}}` `{{businessTriggerMs}}`（NATS 渠道另有 `{{deviceId}}` `{{code}}`
-    /// `{{message}}`，且 `message` 本身可用 `{{title}}` `{{content}}` 拼），语法与消息模板一致
+    /// 通用变量：`{{targetId}}` `{{eventCode}}` `{{title}}` `{{content}}` `{{ext}}`
+    /// `{{firstReceiveMs}}` `{{businessTriggerMs}}`；业务协议（如定位卡的
+    /// `deviceId` / `code` / `message`）由注册渠道的一方在模板里写死。
+    /// 语法与消息模板一致
     /// （`{{变量:过滤器}}`，字符串要写成 `{{title:json}}`）；`${变量}` 是等价别名。
     /// 改这里不用重启：渠道写操作会触发消息缓存全量重建。
     /// @len 0..

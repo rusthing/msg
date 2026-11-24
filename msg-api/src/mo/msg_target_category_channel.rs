@@ -13,6 +13,8 @@ pub struct Model {
     pub target_category_id: i64,
     #[sea_orm(unique_key = "ak_channel_and_target_category_msg_target_category_channel")]
     pub channel_id: i64,
+    /// 是否默认渠道
+    pub is_default: bool,
     pub creater_id: i64,
     pub create_ms: i64,
     pub updater_id: i64,

@@ -21,7 +21,7 @@ use std::fmt;
 pub enum ChannelCode {
     /// WebSocket 长连接（大屏）
     Websocket,
-    /// Core NATS 主题（默认发定位卡下行 `dtw.card.callback`）
+    /// Core NATS 主题（主题与报文帧由注册渠道的一方写在 options / 载荷模板里）
     Nats,
     /// 短信网关
     Sms,

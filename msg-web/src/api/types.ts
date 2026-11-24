@@ -155,7 +155,7 @@ export interface MsgMessageTargetChannelVo extends AuditFields {
   channelId: Id;
 }
 
-/** # 目标类别与渠道的绑定（默认渠道集，仅预填，不参与投递） */
+/** # 目标类别与渠道的绑定（默认渠道集：新建目标时预填，消息目标没显式渠道时兜底投递） */
 export interface MsgTargetCategoryChannelVo extends AuditFields {
   id: Id;
   targetCategoryId: Id;

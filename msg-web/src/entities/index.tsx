@@ -288,11 +288,29 @@ const targetCategory: EntityConfig = {
   path: '/msg/target-category',
   name: '目标类别',
   title: '目标类别',
-  desc: '收消息的对象类型（用户 / 角色 / 分组 / 大屏），与渠道的绑定决定最终从哪发出去',
+  desc: '收消息的对象类型（用户 / 角色 / 分组 / 大屏 / 定位卡）；是否允许广播、目标标识从哪取由类别声明，渠道绑定决定最终从哪发出去',
   icon: <TeamOutlined />,
   group: 'definition',
   hideUpdateTime: true,
-  fields: codeNameRemarkFields(),
+  fields: [
+    ...codeNameRemarkFields(),
+    {
+      key: 'allowBroadcast',
+      label: '允许广播',
+      kind: 'bool',
+      width: 96,
+      defaultValue: true,
+      tip: 'false 表示该类别必须给具体目标标识，空目标在投递时直接跳过并记原因；由类别 owner（如 dtw）注册时声明，消息中心不做特例代码',
+    },
+    {
+      key: 'targetKeys',
+      label: '目标标识键',
+      kind: 'text',
+      width: 220,
+      maxLength: 100,
+      tip: '从发布方事件标签取目标标识的键，逗号分隔按序取第一个有值者，值内逗号分隔多个目标；空表示只用配置的目标标识',
+    },
+  ],
 };
 
 /** # 渠道 */
@@ -332,7 +350,7 @@ const channel: EntityConfig = {
       width: 260,
       rows: 8,
       ellipsis: true,
-      tip: '报文模板，保存前校验 JSON 与占位符。websocket 用 {{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；NATS 另有 {{deviceId}} {{code}} {{message}}。字符串变量写 {{var:json}}（自带引号）；过滤器链示例 {{title:trim|truncate(20)}}；${var} 等价',
+      tip: '报文模板，保存前校验 JSON 与占位符。通用变量：{{targetId}} {{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；业务协议（如定位卡的 deviceId/code/message）由注册渠道的一方在模板里写死。字符串变量写 {{var:json}}（自带引号）；过滤器链示例 {{title:trim|truncate(20)}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', width: 200, maxLength: 50, ellipsis: true },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true, inForm: false },
@@ -445,7 +463,7 @@ const messageTarget: EntityConfig = {
       key: 'targetId',
       label: '目标标识',
       kind: 'subject',
-      // 目标类别编码 → 目录来源；大屏 / 定位卡这类动态目标仍按文本输入
+      // 目标类别编码 → 目录来源；大屏 / 定位卡这类动态目标仍按文本输入或由标签决定
       subjectBy: 'targetCategoryId',
       subjectSources: { user: 'user', role: 'role', org: 'org' },
       width: 200,
@@ -453,7 +471,7 @@ const messageTarget: EntityConfig = {
       searchable: true,
       allowEmptySubmit: true,
       emptyLabel: '全部目标',
-      tip: '用户 / 角色 / 组织从平台目录里选择；大屏等动态目标仍按业务标识填写；定位卡的卡号由报警事件的 locatorCode / locatorCodes / cardCodes 决定，此字段不生效；留空表示该类别下的全部目标',
+      tip: '用户 / 角色 / 组织从平台目录里选择；大屏等动态目标按业务标识填写；类别配了「目标标识键」时标识由事件标签决定、此字段不生效；留空表示该类别下的全部目标（类别禁用广播时会被跳过）',
     },
   ],
 };
@@ -464,7 +482,7 @@ const messageTargetChannel: EntityConfig = {
   path: '/msg/message-target-channel',
   name: '目标渠道绑定',
   title: '目标渠道绑定',
-  desc: '这条消息的这个目标走哪些渠道：绑定几行就走几个渠道；一个目标至少要绑一个，否则该目标不会投递',
+  desc: '这条消息的这个目标单独指定走的渠道：绑几行走几个；一行都不绑就走目标类别的默认渠道。不想让这条消息发这个类别，删的是上一页的「消息目标」，不是这里',
   icon: <LinkOutlined />,
   group: 'definition',
   fields: [
@@ -487,7 +505,7 @@ const targetCategoryChannel: EntityConfig = {
   path: '/msg/target-category-channel',
   name: '默认渠道集',
   title: '默认渠道集',
-  desc: '新建消息目标时的渠道预填模板，不参与投递；投递只认「目标渠道绑定」',
+  desc: '新建消息目标时的渠道预填模板；消息目标没有显式绑渠道时，按这里的默认渠道兜底投递',
   icon: <LinkOutlined />,
   group: 'definition',
   fields: [
@@ -501,6 +519,14 @@ const targetCategoryChannel: EntityConfig = {
       searchable: true,
     },
     { key: 'channelId', label: '渠道', kind: 'ref', ref: 'channel', width: 200, required: true, searchable: true },
+    {
+      key: 'isDefault',
+      label: '默认渠道',
+      kind: 'bool',
+      width: 96,
+      defaultValue: false,
+      tip: '同一目标类别下最多一条：新建消息目标时优先预填；消息目标没有显式渠道行时按它投递',
+    },
   ],
 };
 

@@ -1,15 +1,14 @@
 //! # 投递目标展开与去重
 //!
-//! `msg_message_target` 里配的是**抽象目标**（用户 / 角色 / 组织 / 大屏 / 定位卡），
-//! 这里把它展开成「一个人 + 一个地址」：
+//! `msg_message_target` 里配的是**抽象目标**（用户 / 角色 / 组织 / 大屏 / 定位卡
+//! 这类非人员类别），这里把它展开成「一个人 + 一个地址」：
 //!
 //! ```text
 //! user  目标  → 用户ID
 //! role  目标  → 角色下的全部用户
 //! org   目标  → 组织（含下级，tree_code 前缀）下的全部用户
-//! locator 目标 → 卡号取自消息 labels（locatorCode / locatorCodes / cardCodes），
-//!                配置里的 target_id 不参与；一张卡一条投递目标
-//! screen（以及未知类别）→ 不展开，原样作为最终目标
+//! 其它类别   → 按类别上注册的规则展开：target_keys 从消息 labels 取目标标识
+//!              （值内逗号分隔多个），allow_broadcast=false 时禁止空目标
 //! ```
 //!
 //! 两条去重规则：
@@ -39,7 +38,7 @@ use crate::mo::msg_person::{Column as PersonCol, Entity as PersonEntity};
 use crate::mo::msg_role::{Column as RoleCol, Entity as RoleEntity};
 use crate::mo::msg_role_user::{Column as RoleUserCol, Entity as RoleUserEntity};
 use crate::mo::msg_user::{Column as UserCol, Entity as UserEntity};
-use msg_api::cst::{ChannelCode, TARGET_ID_ALL};
+use msg_api::cst::ChannelCode;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 use tracing::warn;
@@ -48,12 +47,8 @@ use tracing::warn;
 const TC_USER: &str = "user";
 const TC_ROLE: &str = "role";
 const TC_ORG: &str = "org";
-/// 定位卡类别：卡号只认消息 labels，配置的 `target_id` 已废弃
-const TC_LOCATOR: &str = "locator";
-/// 定位卡卡号在 labels 中的键，按此顺序取第一个有值的
-const LOCATOR_CARD_KEYS: [&str; 3] = ["cardCodes", "locatorCodes", "locatorCode"];
-/// 单条消息最多展开多少张卡，与 dtw 报警标签的清单上限（32）对齐
-const LOCATOR_MAX_CARDS: usize = 32;
+/// 一条非人员目标按类别配置最多展开多少个落地目标
+const MAX_TARGET_IDS: usize = 32;
 /// `user` 类别的固定 ID（种子 id=1）
 ///
 /// 消息只配了 `role` / `org` 目标时，缓存里没有 `user` 类别的行可借 ID，展开
@@ -66,8 +61,8 @@ const ORIGIN_MAX_CHARS: usize = 200;
 
 /// # 渠道要的地址种类
 ///
-/// 只有真正「打给某个人」的渠道需要地址；大屏、定位卡这类按连接 / 卡号路由的
-/// 渠道不参与地址解析，展开时地址留空。
+/// 只有真正「打给某个人」的渠道需要地址；大屏、定位卡这类按连接 / 目标标识
+/// 路由的渠道不参与地址解析，展开时地址留空。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AddressKind {
     /// 手机号：用户 `mobile` 优先，人员档案 `mobile` 兜底
@@ -96,13 +91,13 @@ impl AddressKind {
 /// # 展开后的一个落地目标
 #[derive(Debug, Clone)]
 pub(crate) struct ExpandedTarget {
-    /// 目标类别 ID（人一律 `user`；大屏 / 定位卡沿用原类别）
+    /// 目标类别 ID（人一律 `user`；非人员类别沿用原类别）
     pub category_id: u64,
     /// 目标类别编码（任务下发用）
     pub category_code: String,
-    /// 最终目标标识：用户 ID / 大屏标识 / 卡号
+    /// 最终目标标识：用户 ID / 大屏标识 / 卡号等
     pub target_id: String,
-    /// 命中的原始目标（`user:2,role:2,org:1001`），大屏 / 定位卡为空
+    /// 命中的原始目标（`user:2,role:2,org:1001`），非人员类别为空
     pub origin: Option<String>,
     /// 该目标可投的渠道（地址已解析好）
     pub channels: Vec<ExpandedChannel>,
@@ -149,40 +144,13 @@ struct Hit<'a> {
     origins: Vec<String>,
 }
 
-/// # 从消息 labels 里取定位卡卡号
-///
-/// 取值优先级 `cardCodes` → `locatorCodes` → `locatorCode`：区域级报警同时带
-/// 单卡与全量清单时，以全量清单为准；只有一个键就按单卡。逗号分隔，去空白、
-/// 去重保序，最多 [`LOCATOR_MAX_CARDS`] 张（第二个返回值表示是否发生截断）。
-fn locator_cards(labels: &HashMap<String, String>) -> (Vec<String>, bool) {
-    let raw = LOCATOR_CARD_KEYS
-        .iter()
-        .find_map(|key| labels.get(*key).filter(|value| !value.trim().is_empty()))
-        .map(String::as_str)
-        .unwrap_or_default();
-
-    let mut cards = Vec::new();
-    let mut seen = HashSet::new();
-    for card in raw.split(',') {
-        let card = card.trim();
-        if card.is_empty() || !seen.insert(card) {
-            continue;
-        }
-        if cards.len() >= LOCATOR_MAX_CARDS {
-            return (cards, true);
-        }
-        cards.push(card.to_string());
-    }
-    (cards, false)
-}
-
 /// # 展开消息的全部目标
 ///
 /// 只读：全部查询都在调用方给的事务 / 连接上跑，不写库。失败返回 `Err`，
 /// 调用方按「可重投」处理（查询失败不是配置问题，重投有意义）。
 ///
-/// `labels` 是发布方随消息上报的结构化标签：定位卡目标的卡号只从这里取，
-/// 与模板渲染用的是同一份数据。
+/// `labels` 是发布方随消息上报的结构化标签：类别上配了 `target_keys` 时，
+/// 目标标识从这里取，与模板渲染用的是同一份数据。
 pub(crate) async fn expand_targets<C>(
     db: &C,
     msg: &MessageCache,
@@ -447,90 +415,24 @@ where
         }
     }
 
-    // ── 4. 定位卡：卡号取自消息 labels，配置的 target_id 不参与 ──
+    // ── 4. 非人员类别（大屏、定位卡、自定义类别）：按类别上声明的规则展开 ──
     //
-    //   历史上 target_id 用来表示「全部卡（空串）/ 固定卡」，广播禁用后这个
-    //   配置已经没有意义：一条区域报警要通知哪些卡，只有发布方的 labels 知道。
-    //   这里忽略配置值，按 labels 展开成逐卡目标；多条 locator 目标只合并渠道。
-    let locator_targets: Vec<&TargetCache> = msg
+    //   类别配了 `target_keys`：目标标识从消息 labels 按序取（值内逗号分隔多个），
+    //   一条配置拆成多条落地目标；没配就用配置的 `target_id`。
+    //   `allow_broadcast=false` 的类别不接受空 target_id，直接记 Skipped——
+    //   「哪类目标不能广播」由类别 owner 注册时声明，这里不做任何特例判断。
+    let mut non_person_seen: HashMap<(u64, String), usize> = HashMap::new();
+    for target in msg
         .targets
         .iter()
-        .filter(|t| t.target_category.code == TC_LOCATOR)
-        .collect();
-    if let Some(first) = locator_targets.first() {
-        // 渠道按 ID 去重合并：多条 locator 目标只是历史配置残留
-        let mut seen_channels = HashSet::new();
-        let mut channels = Vec::new();
-        for target in &locator_targets {
-            for channel in &target.channels {
-                if !seen_channels.insert(channel.id) {
-                    continue;
-                }
-                channels.push(ExpandedChannel {
-                    channel: channel.clone(),
-                    address: None,
-                });
-            }
-        }
-
-        if channels
-            .iter()
-            .any(|c| AddressKind::of_channel(&c.channel.channel_type).is_some())
-        {
-            // 定位卡不该配短信 / 邮件渠道：没有地址可取，落 Skipped 而不是静默跳过
-            outcome.skipped.push(SkippedTarget {
-                category_id: first.target_category.id,
-                category_code: first.target_category.code.clone(),
-                target_id: TARGET_ID_ALL.to_string(),
-                origin: None,
-                reason: format!(
-                    "目标类别 {} 配了需要地址的渠道，但该类目标没有地址",
-                    first.target_category.code
-                ),
-            });
-        } else {
-            let (cards, truncated) = locator_cards(labels);
-            if truncated {
-                warn!(
-                    "定位卡卡号超过 {} 张，只投前 {} 张: event_code={}",
-                    LOCATOR_MAX_CARDS, LOCATOR_MAX_CARDS, msg.event_code
-                );
-            }
-            if cards.is_empty() {
-                outcome.skipped.push(SkippedTarget {
-                    category_id: first.target_category.id,
-                    category_code: first.target_category.code.clone(),
-                    target_id: TARGET_ID_ALL.to_string(),
-                    origin: None,
-                    reason: "定位卡目标按事件标签投递，但消息 labels 中没有 \
-                             locatorCode / locatorCodes / cardCodes"
-                        .to_string(),
-                });
-            } else {
-                for card in cards {
-                    outcome.targets.push(ExpandedTarget {
-                        category_id: first.target_category.id,
-                        category_code: first.target_category.code.clone(),
-                        target_id: card,
-                        origin: None,
-                        channels: channels.clone(),
-                    });
-                }
-            }
-        }
-    }
-
-    // ── 4.1 屏幕等其它不展开的类别：原样作为落地目标 ──
-    for target in msg.targets.iter().filter(|t| {
-        !matches!(t.target_category.code.as_str(), TC_USER | TC_ROLE | TC_ORG)
-            && t.target_category.code != TC_LOCATOR
-    }) {
+        .filter(|t| !matches!(t.target_category.code.as_str(), TC_USER | TC_ROLE | TC_ORG))
+    {
         let needs_address = target
             .channels
             .iter()
             .any(|c| AddressKind::of_channel(&c.channel_type).is_some());
         if needs_address {
-            // 大屏 / 定位卡不该配短信 / 邮件渠道：没有地址可取，落 Skipped 而不是静默跳过
+            // 这类目标没有地址可取，配了短信 / 邮件只会落 Skipped
             outcome.skipped.push(SkippedTarget {
                 category_id: target.target_category.id,
                 category_code: target.target_category.code.clone(),
@@ -543,20 +445,57 @@ where
             });
             continue;
         }
-        outcome.targets.push(ExpandedTarget {
-            category_id: target.target_category.id,
-            category_code: target.target_category.code.clone(),
-            target_id: target.target_id.clone(),
-            origin: None,
-            channels: target
-                .channels
-                .iter()
-                .map(|c| ExpandedChannel {
-                    channel: c.clone(),
-                    address: None,
-                })
-                .collect(),
-        });
+
+        let (ids, truncated) = target_ids_of(&target.target_id, &target.target_category, labels);
+        if truncated {
+            warn!(
+                "目标标识超过 {} 个，只投前 {} 个: category={}, event_code={}",
+                MAX_TARGET_IDS, MAX_TARGET_IDS, target.target_category.code, msg.event_code
+            );
+        }
+        if ids.is_empty() {
+            outcome.skipped.push(SkippedTarget {
+                category_id: target.target_category.id,
+                category_code: target.target_category.code.clone(),
+                target_id: target.target_id.clone(),
+                origin: None,
+                reason: empty_target_reason(target),
+            });
+            continue;
+        }
+
+        for id in ids {
+            // 同一类别的多条配置可能展开出同一个标识：合并渠道，只落一行
+            let key = (target.target_category.id, id.clone());
+            if let Some(&idx) = non_person_seen.get(&key) {
+                let existing = &mut outcome.targets[idx];
+                for channel in &target.channels {
+                    if existing.channels.iter().any(|c| c.channel.id == channel.id) {
+                        continue;
+                    }
+                    existing.channels.push(ExpandedChannel {
+                        channel: channel.clone(),
+                        address: None,
+                    });
+                }
+                continue;
+            }
+            non_person_seen.insert(key, outcome.targets.len());
+            outcome.targets.push(ExpandedTarget {
+                category_id: target.target_category.id,
+                category_code: target.target_category.code.clone(),
+                target_id: id,
+                origin: None,
+                channels: target
+                    .channels
+                    .iter()
+                    .map(|c| ExpandedChannel {
+                        channel: c.clone(),
+                        address: None,
+                    })
+                    .collect(),
+            });
+        }
     }
 
     // ── 5. 解析用户地址，生成落地目标 ──
@@ -698,6 +637,82 @@ where
     Ok(outcome)
 }
 
+/// # 非人员类别的目标标识
+///
+/// 三级规则，从具体到泛化：
+///
+/// 1. 目标行写了具体 `target_id`：就是它——一条配置指定一个目标，最具体；
+/// 2. `target_id` 为空（按类别广播）且类别配了 `target_keys`：按顺序在消息
+///    labels 里找第一个有值的键，值内用逗号分隔多个目标；一个键都没值返回空
+///    列表（调用方记 Skipped）；
+/// 3. `target_id` 为空且没配 `target_keys`：空串在允许广播的类别里仍是一条落地
+///    目标（沿用历史广播语义），不允许广播的类别直接没有标识。
+fn target_ids_of(
+    target_id: &str,
+    category: &crate::cache::TargetCategoryCache,
+    labels: &HashMap<String, String>,
+) -> (Vec<String>, bool) {
+    let explicit = target_id.trim();
+    if !explicit.is_empty() {
+        return (vec![explicit.to_string()], false);
+    }
+    let keys = category
+        .target_keys
+        .as_deref()
+        .map(str::trim)
+        .filter(|keys| !keys.is_empty());
+
+    let Some(keys) = keys else {
+        // 没配 keys：走到这里 target_id 一定是空串，「类别全部目标」是一条落地目标
+        if !category.allow_broadcast {
+            return (Vec::new(), false);
+        }
+        return (vec![String::new()], false);
+    };
+
+    let raw = keys
+        .split(',')
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .find_map(|key| labels.get(key).map(|v| v.trim()).filter(|v| !v.is_empty()));
+    let Some(raw) = raw else {
+        return (Vec::new(), false);
+    };
+
+    // 去重保序：同一个标识重复出现只发一次
+    let mut ids = Vec::new();
+    let mut seen = HashSet::new();
+    for id in raw.split(',').map(str::trim).filter(|id| !id.is_empty()) {
+        if seen.insert(id) {
+            ids.push(id.to_string());
+        }
+    }
+    let truncated = ids.len() > MAX_TARGET_IDS;
+    ids.truncate(MAX_TARGET_IDS);
+    (ids, truncated)
+}
+
+/// 空目标的跳过原因：区分「类别禁止广播」与「标签里没有目标标识」
+fn empty_target_reason(target: &TargetCache) -> String {
+    match target
+        .target_category
+        .target_keys
+        .as_deref()
+        .map(str::trim)
+        .filter(|keys| !keys.is_empty())
+    {
+        Some(keys) => format!(
+            "目标类别 {} 从消息 labels 取目标标识，但 labels 中没有配置的键（{keys}）",
+            target.target_category.code
+        ),
+        None if !target.target_category.allow_broadcast => format!(
+            "目标类别 {} 不允许广播，但 target_id 为空",
+            target.target_category.code
+        ),
+        None => String::new(),
+    }
+}
+
 /// # 祖先链上（含自身）有没有停用的组织
 ///
 /// 组织停用是连带的：上级关了，整棵子树都不投。只判断目标组织自己的 `enabled`
@@ -822,62 +837,108 @@ mod tests {
             .collect()
     }
 
-    /// 卡号优先级：cardCodes 全量清单优先，其次 locatorCodes，最后单卡 locatorCode
+    fn category(
+        allow_broadcast: bool,
+        target_keys: Option<&str>,
+    ) -> crate::cache::TargetCategoryCache {
+        crate::cache::TargetCategoryCache {
+            id: 5,
+            code: "locator".to_string(),
+            name: "定位卡".to_string(),
+            allow_broadcast,
+            target_keys: target_keys.map(str::to_string),
+        }
+    }
+
+    /// 标识键优先级：cardCodes 全量清单优先，其次 locatorCodes，最后单卡 locatorCode
     #[test]
-    fn locator_cards_prefer_full_lists() {
+    fn target_ids_prefer_configured_keys_in_order() {
+        let cat = category(false, Some("cardCodes,locatorCodes,locatorCode"));
         let all = labels(&[
             ("locatorCode", "C001"),
             ("locatorCodes", "C001,C002"),
             ("cardCodes", "C009,C010"),
         ]);
-        let (cards, truncated) = locator_cards(&all);
-        assert_eq!(cards, vec!["C009".to_string(), "C010".to_string()]);
+        let (ids, truncated) = target_ids_of("", &cat, &all);
+        assert_eq!(ids, vec!["C009".to_string(), "C010".to_string()]);
         assert!(!truncated);
 
         let without_card_codes = labels(&[("locatorCode", "C001"), ("locatorCodes", "C001,C002")]);
-        let (cards, _) = locator_cards(&without_card_codes);
-        assert_eq!(cards, vec!["C001".to_string(), "C002".to_string()]);
+        let (ids, _) = target_ids_of("", &cat, &without_card_codes);
+        assert_eq!(ids, vec!["C001".to_string(), "C002".to_string()]);
 
         let single = labels(&[("locatorCode", "C001")]);
-        let (cards, _) = locator_cards(&single);
-        assert_eq!(cards, vec!["C001".to_string()]);
+        let (ids, _) = target_ids_of("", &cat, &single);
+        assert_eq!(ids, vec!["C001".to_string()]);
     }
 
-    /// 逗号分隔、空白与重复剔除、保序；空 labels / 空串不产生卡号
+    /// 目标行写了具体 target_id 时不再看 labels：定向一条就只发一条
     #[test]
-    fn locator_cards_split_trim_and_dedupe() {
+    fn explicit_target_id_wins_over_keys() {
+        let all = labels(&[("cardCodes", "C001,C002")]);
+        let (ids, _) = target_ids_of("C009", &category(false, Some("cardCodes")), &all);
+        assert_eq!(ids, vec!["C009".to_string()]);
+        // 允许广播的类别也一样：写了具体目标就不是广播
+        let (ids, _) = target_ids_of("C009", &category(true, Some("cardCodes")), &all);
+        assert_eq!(ids, vec!["C009".to_string()]);
+    }
+
+    /// 逗号分隔、空白与重复剔除、保序；空 labels / 空串不产生标识
+    #[test]
+    fn target_ids_split_trim_and_dedupe() {
+        let cat = category(false, Some("cardCodes"));
         let value = labels(&[("cardCodes", " C1 ,, C2,C1,  ,C3 ")]);
-        let (cards, truncated) = locator_cards(&value);
+        let (ids, truncated) = target_ids_of("", &cat, &value);
         assert_eq!(
-            cards,
+            ids,
             vec!["C1".to_string(), "C2".to_string(), "C3".to_string()]
         );
         assert!(!truncated);
 
-        assert!(locator_cards(&labels(&[])).0.is_empty());
-        assert!(locator_cards(&labels(&[("cardCodes", "   ")])).0.is_empty());
+        assert!(target_ids_of("", &cat, &labels(&[])).0.is_empty());
+        assert!(
+            target_ids_of("", &cat, &labels(&[("cardCodes", "   ")]))
+                .0
+                .is_empty()
+        );
     }
 
-    /// 超过 32 张截断，并标记 truncated
+    /// 超过 32 个截断，并标记 truncated
     #[test]
-    fn locator_cards_cap_at_limit() {
+    fn target_ids_cap_at_limit() {
+        let cat = category(false, Some("cardCodes"));
         let raw = (0..40)
             .map(|i| format!("C{i:02}"))
             .collect::<Vec<_>>()
             .join(",");
-        let (cards, truncated) = locator_cards(&labels(&[("cardCodes", raw.as_str())]));
-        assert_eq!(cards.len(), LOCATOR_MAX_CARDS);
+        let (ids, truncated) = target_ids_of("", &cat, &labels(&[("cardCodes", raw.as_str())]));
+        assert_eq!(ids.len(), MAX_TARGET_IDS);
         assert!(truncated);
-        assert_eq!(cards.first().map(String::as_str), Some("C00"));
-        assert_eq!(cards.last().map(String::as_str), Some("C31"));
+        assert_eq!(ids.first().map(String::as_str), Some("C00"));
+        assert_eq!(ids.last().map(String::as_str), Some("C31"));
 
-        // 刚好 32 张不算截断
         let raw = (0..32)
             .map(|i| format!("C{i:02}"))
             .collect::<Vec<_>>()
             .join(",");
-        let (cards, truncated) = locator_cards(&labels(&[("cardCodes", raw.as_str())]));
-        assert_eq!(cards.len(), LOCATOR_MAX_CARDS);
+        let (ids, truncated) = target_ids_of("", &cat, &labels(&[("cardCodes", raw.as_str())]));
+        assert_eq!(ids.len(), MAX_TARGET_IDS);
         assert!(!truncated);
+    }
+
+    /// 没配标识键：用配置的 target_id；空目标按 allow_broadcast 决定
+    #[test]
+    fn target_ids_without_keys_follow_broadcast_flag() {
+        let cat = category(true, None);
+        assert_eq!(
+            target_ids_of("S01", &cat, &labels(&[])).0,
+            vec!["S01".to_string()]
+        );
+        // 允许广播：空目标仍是一条落地目标，沿用历史语义
+        assert_eq!(target_ids_of("", &cat, &labels(&[])).0, vec![String::new()]);
+
+        // 禁止广播：空目标没有落地标识，交给调用方记 Skipped
+        let strict = category(false, None);
+        assert!(target_ids_of("", &strict, &labels(&[])).0.is_empty());
     }
 }

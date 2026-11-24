@@ -14,6 +14,10 @@ pub struct Model {
     #[sea_orm(unique)]
     pub name: String,
     pub remark: Option<String>,
+    /// 是否允许广播
+    pub allow_broadcast: bool,
+    /// 目标标识键
+    pub target_keys: Option<String>,
     pub creater_id: i64,
     pub create_ms: i64,
     pub updater_id: i64,

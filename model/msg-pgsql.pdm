@@ -5711,6 +5711,21 @@ DAT 1790254901</a:History>
 <a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
+<o:Column Id="o9800">
+<a:ObjectID>EAFD7383-0325-47C5-8E99-24CF0DD95CD1</a:ObjectID>
+<a:Name>是否默认渠道</a:Name>
+<a:Code>is_default</a:Code>
+<a:CreationDate>1795556298</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795556298</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {EAFD7383-0325-47C5-8E99-24CF0DD95CD1}
+DAT 1795556298</a:History>
+<a:DefaultValue>false</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
 </c:Columns>
 <c:Keys>
 <o:Key Id="o94">
@@ -8841,6 +8856,35 @@ DAT 1790046262</a:History>
 <a:DataType>INT8</a:DataType>
 <a:Length>8</a:Length>
 <a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9801">
+<a:ObjectID>17C00863-1B19-4B46-B4D1-A032AAB056C5</a:ObjectID>
+<a:Name>是否允许广播</a:Name>
+<a:Code>allow_broadcast</a:Code>
+<a:CreationDate>1795556298</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795556298</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {17C00863-1B19-4B46-B4D1-A032AAB056C5}
+DAT 1795556298</a:History>
+<a:DefaultValue>true</a:DefaultValue>
+<a:DataType>BOOL</a:DataType>
+<a:Column.Mandatory>1</a:Column.Mandatory>
+<a:GlobalObjectID/>
+</o:Column>
+<o:Column Id="o9802">
+<a:ObjectID>AA88CB56-151F-42C5-B3C6-B1F93F8EB3F5</a:ObjectID>
+<a:Name>目标标识键</a:Name>
+<a:Code>target_keys</a:Code>
+<a:CreationDate>1795556298</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795556298</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:History>ORG {AA88CB56-151F-42C5-B3C6-B1F93F8EB3F5}
+DAT 1795556298</a:History>
+<a:DataType>VARCHAR</a:DataType>
+<a:Length>100</a:Length>
 <a:GlobalObjectID/>
 </o:Column>
 </c:Columns>

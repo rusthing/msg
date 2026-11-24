@@ -1043,6 +1043,8 @@ create table msg_target_category (
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
+   allow_broadcast      BOOL                 not null default true,
+   target_keys          VARCHAR(100)         null,
    constraint PK_MSG_TARGET_CATEGORY primary key (id),
    constraint AK_CODE_MSG_TARGET_CATEGORY unique (code),
    constraint AK_NAME_MSG_TARGET_CATEGORY unique (name)
@@ -1079,6 +1081,12 @@ comment on column msg_target_category.updater_id is
 comment on column msg_target_category.update_ms is
 '更新时间戳';
 
+comment on column msg_target_category.allow_broadcast is
+'是否允许广播：false 表示必须给出具体 target_id，空目标直接跳过并记原因';
+
+comment on column msg_target_category.target_keys is
+'目标标识键：从消息 labels 取目标标识的键，逗号分隔按序取第一个有值者，值内逗号分隔多个目标；空表示只用 target_id';
+
 /*==============================================================*/
 /* Index: msg_target_category_PK                                */
 /*==============================================================*/
@@ -1097,14 +1105,16 @@ create table msg_target_category_channel (
    create_ms            INT8                 not null,
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
+   is_default           BOOL                 not null default false,
    constraint PK_MSG_TARGET_CATEGORY_CHANNEL primary key (id),
    constraint AK_CHANNEL_ID_AND_TARGET_CATEGORY_ID_MSG_TARGET_CATEGORY_CHANNEL unique (channel_id, target_category_id)
 );
 
 comment on table msg_target_category_channel is
 '目标类别渠道（默认渠道集）
-仅用于新建消息目标时由 UI 预填渠道，不参与投递
-投递只认 msg_message_target_channel，改这里不会影响已有消息';
+新建消息目标时由 UI 预填，同时是投递的回退出口：消息目标没有显式渠道行时，
+按这里 is_default 的渠道投递（一条都没标就投该类别全部绑定）
+显式绑定 msg_message_target_channel 优先于这里';
 
 comment on column msg_target_category_channel.id is
 'ID';
@@ -1126,6 +1136,9 @@ comment on column msg_target_category_channel.updater_id is
 
 comment on column msg_target_category_channel.update_ms is
 '更新时间戳';
+
+comment on column msg_target_category_channel.is_default is
+'是否默认渠道：同一目标类别下最多一条，新建目标时优先预填；消息目标没有显式渠道行时按它投，全部没标时投该类别全部绑定';
 
 /*==============================================================*/
 /* Index: msg_target_category_channel_PK                        */

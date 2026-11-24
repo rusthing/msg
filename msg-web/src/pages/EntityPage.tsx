@@ -444,12 +444,16 @@ export default function EntityPage({
     : undefined;
   const directory = useDirectoryOptions(subjectSource, formOpen);
 
-  // 定位卡目标不保存目标标识：卡号由报警事件的 labels 决定，打开编辑时把历史值清掉
+  // 类别声明了「目标标识键」时，标识由事件标签决定，配置里不保存历史值
+  const subjectTargetKeys =
+    subjectCategoryRow && subjectCategoryRow.targetKeys
+      ? String(subjectCategoryRow.targetKeys).trim()
+      : '';
   useEffect(() => {
-    if (formOpen && subjectField && subjectCategoryCode === 'locator') {
+    if (formOpen && subjectField && subjectTargetKeys) {
       form.setFieldValue(subjectField.key, '');
     }
-  }, [formOpen, subjectCategoryCode, subjectField, form]);
+  }, [formOpen, subjectTargetKeys, subjectField, form]);
 
   /** 筛选区同样按「目标类别」切换目录，让筛选里的目标标识也能选 */
   const filterSubjectByValue = subjectByField ? draft[subjectByField.key] : undefined;
@@ -947,11 +951,11 @@ export default function EntityPage({
         );
       }
       case 'subject': {
-        // 定位卡：卡号由报警事件的 labels 决定，配置里的目标标识不再生效
-        if (subjectField?.key === field.key && subjectCategoryCode === 'locator') {
+        // 类别声明了目标标识键：标识由事件标签按这些键取，配置里不填
+        if (subjectField?.key === field.key && subjectTargetKeys) {
           return (
             <Typography.Text type="secondary">
-              卡号由报警事件的 locatorCode / locatorCodes / cardCodes 决定，无需填写
+              目标标识由发布方事件标签中的 {subjectTargetKeys} 决定，无需填写
             </Typography.Text>
           );
         }

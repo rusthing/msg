@@ -73,31 +73,14 @@ const WEBSOCKET: ChannelOptionSchema = {
 const NATS: ChannelOptionSchema = {
   type: 'nats',
   label: 'nats',
-  desc: '把投递任务发到一条 Core NATS 主题，由消费方自己转下游协议',
+  desc: '把投递任务发到一条 Core NATS 主题，报文帧由「载荷模板」决定，本发送器不认识任何业务协议',
   fields: [
     {
       key: 'subject',
       label: 'NATS 主题',
       kind: 'text',
       placeholder: 'dtw.card.callback',
-      tip: '留空即 dtw.card.callback；定位卡下行由 dtw 订阅后写 queue_card_callback，换主题就能对接别的消费方',
-    },
-    {
-      key: 'code',
-      label: '报文 code',
-      kind: 'number',
-      min: 0,
-      max: 255,
-      placeholder: '0',
-      tip: '默认报文里的 code 字段：定位卡 0 = 红蓝双灯同时震动（协议 §2.4）',
-    },
-    {
-      key: 'messageTemplate',
-      label: '文案模板',
-      kind: 'textarea',
-      rows: 3,
-      placeholder: '留空即 title + 空格 + content',
-      tip: '默认报文里的 message。变量：{{eventCode}} {{title}} {{content}} {{deviceId}} {{code}}；过滤器写法同消息模板，如 {{title:trim}}',
+      tip: '必填。主题与报文帧由订阅方（如 dtw）注册这条渠道时写入；留空时这条渠道的每次投递都会判失败',
     },
   ],
 };

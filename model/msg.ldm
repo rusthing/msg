@@ -4345,6 +4345,33 @@ DAT 1795156565</a:History>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
+<o:EntityAttribute Id="o9801">
+<a:ObjectID>17C00863-1B19-4B46-B4D1-A032AAB056C5</a:ObjectID>
+<a:Name>是否允许广播</a:Name>
+<a:Code>allow_broadcast</a:Code>
+<a:CreationDate>1795556298</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795556298</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>false 表示该类别必须给出具体 target_id：空目标（按类别广播）直接跳过并记原因，由类别注册方声明，不做特例代码</a:Comment>
+<a:DefaultValue>true</a:DefaultValue>
+<a:DataType>BL</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o9802">
+<a:ObjectID>AA88CB56-151F-42C5-B3C6-B1F93F8EB3F5</a:ObjectID>
+<a:Name>目标标识键</a:Name>
+<a:Code>target_keys</a:Code>
+<a:CreationDate>1795556298</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795556298</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>从消息 labels 中取目标标识的键，逗号分隔按序取第一个有值者；值内逗号分隔表示多个目标。空表示只用配置的 target_id</a:Comment>
+<a:DataType>VA</a:DataType>
+<a:Length>100</a:Length>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
 </c:Attributes>
 </o:Entity>
 <o:Entity Id="o55">
@@ -4634,6 +4661,20 @@ DAT 1795156565</a:History>
 <a:ModificationDate>1790253121</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:DataType>LI</a:DataType>
+<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
+<a:GlobalObjectID/>
+</o:EntityAttribute>
+<o:EntityAttribute Id="o9800">
+<a:ObjectID>EAFD7383-0325-47C5-8E99-24CF0DD95CD1</a:ObjectID>
+<a:Name>是否默认渠道</a:Name>
+<a:Code>is_default</a:Code>
+<a:CreationDate>1795556298</a:CreationDate>
+<a:Creator>张柏子</a:Creator>
+<a:ModificationDate>1795556298</a:ModificationDate>
+<a:Modifier>张柏子</a:Modifier>
+<a:Comment>同一目标类别下最多一条默认渠道：消息未指定渠道时投默认出口，由目标类别的注册方声明</a:Comment>
+<a:DefaultValue>false</a:DefaultValue>
+<a:DataType>BL</a:DataType>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
