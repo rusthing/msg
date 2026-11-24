@@ -1,8 +1,8 @@
 //! # 投递队列服务
 //!
 //! 投递队列把「渠道」和「投递主题」绑在一起，但**不存渠道 ID**：主题固定为
-//! `msg.delivery.{渠道编码}`，末段就是 `msg_channel.code`，运行时由
-//! [`delivery_topic_channel_code`] 反解（见 [`crate::wkr::sub`]）。
+//! `msg.delivery.{渠道类型}`，末段就是 `msg_channel.channel_type`，运行时由
+//! [`delivery_topic_channel_type`] 反解（见 [`crate::wkr::sub`]）。
 //!
 //! ## 为什么写入时要校验
 //!
@@ -16,7 +16,7 @@
 
 use crate::dto::MsgChannelQueryDto;
 use crate::svc::MsgChannelSvc;
-use msg_api::cst::{MSG_DELIVERY_TOPIC_PREFIX, delivery_topic_channel_code};
+use msg_api::cst::{MSG_DELIVERY_TOPIC_PREFIX, delivery_topic_channel_type};
 use robotech::macros::svc;
 use validator::ValidationError;
 
@@ -64,37 +64,37 @@ impl MsgDeliveryQueueSvc {
 /// 1. 前缀必须是 [`MSG_DELIVERY_TOPIC_PREFIX`]，否则反解不出渠道；
 /// 2. 末段只能是 `[A-Za-z0-9_-]`——它就是 NATS subject 的一个 token，
 ///    带 `.` / `*` / `>` 会把主题拆成多级甚至变成通配；
-/// 3. 渠道必须真的存在（`msg_channel.code`），否则没有发送器认领。
+/// 3. 渠道必须真的存在（`msg_channel.channel_type`），否则没有发送器认领。
 ///
 /// 渠道禁用不影响这里：队列可以先配着，等启用再订阅。
 async fn check_delivery_topic<C: ConnectionTrait>(
     code: &str,
     db: &C,
 ) -> Result<(), SvcError> {
-    let Some(channel_code) = delivery_topic_channel_code(code) else {
+    let Some(channel_type) = delivery_topic_channel_type(code) else {
         return Err(validation_error(
             "投递主题不合约定",
             format!(
-                "主题必须是 {MSG_DELIVERY_TOPIC_PREFIX}{{渠道编码}}，例如 {MSG_DELIVERY_TOPIC_PREFIX}websocket"
+                "主题必须是 {MSG_DELIVERY_TOPIC_PREFIX}{{渠道类型}}，例如 {MSG_DELIVERY_TOPIC_PREFIX}websocket"
             ),
         ));
     };
 
-    if !channel_code
+    if !channel_type
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return Err(validation_error(
-            "渠道编码含非法字符",
+            "渠道类型含非法字符",
             format!(
-                "主题末段 {channel_code} 只能包含字母、数字、- 和 _（它是 NATS subject 的一个 token）"
+                "主题末段 {channel_type} 只能包含字母、数字、- 和 _（它是 NATS subject 的一个 token）"
             ),
         ));
     }
 
     let exists = !MsgChannelSvc::list_by_query_dto(
         MsgChannelQueryDto {
-            code: Some(channel_code.to_string()),
+            channel_type: Some(channel_type.to_string()),
             ..Default::default()
         },
         Some(db),
@@ -107,7 +107,7 @@ async fn check_delivery_topic<C: ConnectionTrait>(
     if !exists {
         return Err(validation_error(
             "渠道不存在",
-            format!("没有 code = {channel_code} 的渠道，先建渠道再配投递队列"),
+            format!("没有渠道类型 = {channel_type} 的渠道，先建渠道再配投递队列"),
         ));
     }
 

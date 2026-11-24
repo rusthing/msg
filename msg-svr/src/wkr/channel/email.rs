@@ -100,7 +100,7 @@ impl ChannelSender for EmailSender {
             return SendOutcome::Failed(format!("收件邮箱格式非法: {}", mask(to)));
         }
 
-        let options = match channel_options(&task.event_code, &task.channel_code) {
+        let options = match channel_options(&task.event_code, &task.channel_type) {
             Some(raw) => match serde_json::from_str::<EmailOptions>(&raw) {
                 Ok(options) => options,
                 Err(e) => {
@@ -224,12 +224,12 @@ impl Default for EmailOptions {
 }
 
 /// 取该消息下邮件渠道的 options（与短信一致：只走消息缓存，不在发送路径查库）
-fn channel_options(event_code: &str, channel_code: &str) -> Option<String> {
+fn channel_options(event_code: &str, channel_type: &str) -> Option<String> {
     get_message_cache()
         .get(event_code)?
         .channels
         .iter()
-        .find(|channel| channel.code == channel_code)?
+        .find(|channel| channel.channel_type == channel_type)?
         .options
         .clone()
 }
@@ -647,8 +647,7 @@ mod tests {
             target_category_id: 1,
             target_id: "1279350111347933186".to_string(),
             channel_id: 5,
-            channel_code: ChannelCode::Email.as_str().to_string(),
-            channel_type: "email".to_string(),
+            channel_type: ChannelCode::Email.as_str().to_string(),
             address: Some("notice@example.com".to_string()),
         }
     }

@@ -2816,7 +2816,7 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-投递主题，固定为 msg.delivery.{渠道编码}，末段即 msg_channel.code
+投递主题，固定为 msg.delivery.{渠道类型}，末段即 msg_channel.channel_type
 @len 1..=50</a:Comment>
 <a:DataType>VA50</a:DataType>
 <a:Length>50</a:Length>
@@ -3432,8 +3432,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1790294308</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>渠道
-投递的出口：channel_type 决定用哪个发送器与 options 的结构，code 是实例编码（同时是投递主题末段）
-新增内置类型要同时改 ChannelCode、实现发送器并配一条投递队列；同一类型可以配多条实例</a:Comment>
+投递的出口，由 channel_type 唯一标识：类型决定发送器与 options 的结构，同时是投递主题末段
+新增内置类型要同时改 ChannelCode、实现发送器并配一条投递队列 msg.delivery.{channel_type}</a:Comment>
 <a:GlobalObjectID/>
 <c:Identifiers>
 <o:Identifier Id="o128">
@@ -3451,15 +3451,15 @@ DAT 1792733861</a:History>
 </o:Identifier>
 <o:Identifier Id="o130">
 <a:ObjectID>C8FB5CA3-FD01-4244-9D66-5A8EE5B12357</a:ObjectID>
-<a:Name>编码</a:Name>
-<a:Code>code</a:Code>
+<a:Name>渠道类型</a:Name>
+<a:Code>channel_type</a:Code>
 <a:CreationDate>1790253296</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790253328</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:GlobalObjectID/>
 <c:Identifier.Attributes>
-<o:EntityAttribute Ref="o131"/>
+<o:EntityAttribute Ref="o9004"/>
 </c:Identifier.Attributes>
 </o:Identifier>
 </c:Identifiers>
@@ -3479,21 +3479,7 @@ DAT 1792733861</a:History>
 <a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
 <a:GlobalObjectID/>
 </o:EntityAttribute>
-<o:EntityAttribute Id="o131">
-<a:ObjectID>6E39C83A-9911-467E-9232-FEFFB97959CA</a:ObjectID>
-<a:Name>编码</a:Name>
-<a:Code>code</a:Code>
-<a:CreationDate>1790253279</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1790253311</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:Comment>编码
-@len 1..=50</a:Comment>
-<a:DataType>VA50</a:DataType>
-<a:Length>50</a:Length>
-<a:LogicalAttribute.Mandatory>1</a:LogicalAttribute.Mandatory>
-<a:GlobalObjectID/>
-</o:EntityAttribute>
+
 <o:EntityAttribute Id="o9004">
 <a:ObjectID>828F47F9-3D35-4484-8714-6C235F11C95D</a:ObjectID>
 <a:Name>渠道类型</a:Name>
@@ -3503,8 +3489,8 @@ DAT 1792733861</a:History>
 <a:ModificationDate>1795590000</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>渠道类型
-决定用哪个发送器、options 按哪套结构解析与校验，取值见 msg-api 的 ChannelCode（websocket / nats / sms / email）
-与 code 分离：code 是实例编码（同时是投递主题末段），同一类型可以配多条渠道（不同 subject、不同网关、不同发件账号）
+渠道唯一标识：决定用哪个发送器、options 按哪套结构解析与校验，也是投递主题 msg.delivery.{channel_type} 的末段
+取值见 msg-api 的 ChannelCode（websocket / nats / sms / email），一个类型一条渠道
 @len 1..=20</a:Comment>
 <a:DataType>VA20</a:DataType>
 <a:Length>20</a:Length>

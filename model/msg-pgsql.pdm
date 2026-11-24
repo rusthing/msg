@@ -7401,8 +7401,8 @@ DAT 1790046262</a:History>
 <a:ModificationDate>1790296995</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>渠道
-投递的出口：channel_type 决定用哪个发送器与 options 的结构，code 是实例编码（同时是投递主题末段）
-新增内置类型要同时改 ChannelCode、实现发送器并配一条投递队列；同一类型可以配多条实例</a:Comment>
+投递的出口，由 channel_type 唯一标识：类型决定发送器与 options 的结构，同时是投递主题末段
+新增内置类型要同时改 ChannelCode、实现发送器并配一条投递队列 msg.delivery.{channel_type}</a:Comment>
 <a:History>ORG {C660B69F-FF36-4D5B-991B-FCDEFB8B07B1}
 DAT 1790046262</a:History>
 <a:GlobalObjectID/>
@@ -7423,23 +7423,7 @@ DAT 1790046262</a:History>
 <a:Column.Mandatory>1</a:Column.Mandatory>
 <a:GlobalObjectID/>
 </o:Column>
-<o:Column Id="o192">
-<a:ObjectID>6E431C99-AD15-40BD-9DC9-B27E015D0427</a:ObjectID>
-<a:Name>编码</a:Name>
-<a:Code>code</a:Code>
-<a:CreationDate>1790254900</a:CreationDate>
-<a:Creator>张柏子</a:Creator>
-<a:ModificationDate>1790254908</a:ModificationDate>
-<a:Modifier>张柏子</a:Modifier>
-<a:Comment>编码
-@len 1..=50</a:Comment>
-<a:History>ORG {6E39C83A-9911-467E-9232-FEFFB97959CA}
-DAT 1790254901</a:History>
-<a:DataType>VARCHAR(50)</a:DataType>
-<a:Length>50</a:Length>
-<a:Column.Mandatory>1</a:Column.Mandatory>
-<a:GlobalObjectID/>
-</o:Column>
+
 <o:Column Id="o9004">
 <a:ObjectID>4456F9A1-DB95-48B2-B5CC-A940B3BE1222</a:ObjectID>
 <a:Name>渠道类型</a:Name>
@@ -7449,8 +7433,8 @@ DAT 1790254901</a:History>
 <a:ModificationDate>1795590000</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>渠道类型
-决定用哪个发送器、options 按哪套结构解析与校验，取值见 msg-api 的 ChannelCode（websocket / nats / sms / email）
-与 code 分离：code 是实例编码（同时是投递主题末段），同一类型可以配多条渠道（不同 subject、不同网关、不同发件账号）
+渠道唯一标识：决定用哪个发送器、options 按哪套结构解析与校验，也是投递主题 msg.delivery.{channel_type} 的末段
+取值见 msg-api 的 ChannelCode（websocket / nats / sms / email），一个类型一条渠道
 @len 1..=20</a:Comment>
 <a:History>ORG {828F47F9-3D35-4484-8714-6C235F11C95D}
 DAT 1795590000</a:History>
@@ -7619,8 +7603,8 @@ DAT 1790046262</a:History>
 </o:Key>
 <o:Key Id="o202">
 <a:ObjectID>2FF3F6B2-DBAC-4A62-A025-571DBDE19673</a:ObjectID>
-<a:Name>编码</a:Name>
-<a:Code>code</a:Code>
+<a:Name>渠道类型</a:Name>
+<a:Code>channel_type</a:Code>
 <a:CreationDate>1790254900</a:CreationDate>
 <a:Creator>张柏子</a:Creator>
 <a:ModificationDate>1790254908</a:ModificationDate>
@@ -7630,7 +7614,7 @@ DAT 1790254901
 INS COLNCOL {6E39C83A-9911-467E-9232-FEFFB97959CA}</a:History>
 <a:GlobalObjectID/>
 <c:Key.Columns>
-<o:Column Ref="o192"/>
+<o:Column Ref="o9004"/>
 </c:Key.Columns>
 </o:Key>
 </c:Keys>
@@ -7687,10 +7671,10 @@ INS COLNCOL {6E39C83A-9911-467E-9232-FEFFB97959CA}</a:History>
 <a:Modifier>张柏子</a:Modifier>
 <a:GlobalObjectID/>
 <c:Column>
-<o:Column Ref="o192"/>
+<o:Column Ref="o9004"/>
 </c:Column>
 <c:Elements>
-<o:Column Ref="o192"/>
+<o:Column Ref="o9004"/>
 </c:Elements>
 </o:IndexColumn>
 </c:IndexColumns>
@@ -9585,7 +9569,7 @@ DAT 1792744490</a:History>
 <a:ModificationDate>1792744490</a:ModificationDate>
 <a:Modifier>张柏子</a:Modifier>
 <a:Comment>编码
-投递主题，固定为 msg.delivery.{渠道编码}，末段即 msg_channel.code
+投递主题，固定为 msg.delivery.{渠道类型}，末段即 msg_channel.channel_type
 @len 1..=50</a:Comment>
 <a:History>ORG {FF8375B4-72D8-45EB-A924-1794B7F70C66}
 DAT 1792744490</a:History>

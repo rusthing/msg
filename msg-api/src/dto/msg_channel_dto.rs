@@ -2,13 +2,10 @@ use robotech::macros::crud_dto;
 
 #[crud_dto]
 pub struct MsgChannelDto {
-    /// 编码（实例编码，同时是投递主题 `msg.delivery.{code}` 的末段）
-    /// @len 1..=50
-    pub code: String,
-    /// 渠道类型：决定用哪个发送器、options 按哪套结构解析（见 `ChannelCode`）
+    /// 渠道类型：渠道唯一标识，决定用哪个发送器、options 按哪套结构解析
+    /// （见 `ChannelCode`），同时是投递主题 `msg.delivery.{channel_type}` 的末段。
     ///
-    /// 与 code 分离后，同一类型可以配多条实例（不同 NATS subject、不同短信网关、
-    /// 不同发件账号）。库里允许存未登记的类型，投递时会报「渠道未实现」。
+    /// 库里允许存未登记的类型，投递时会报「渠道未实现」。
     /// @len 1..=20
     pub channel_type: String,
     /// 名称

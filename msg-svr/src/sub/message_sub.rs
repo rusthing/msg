@@ -943,7 +943,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
         if let Err(e) = wkr::publish_task(&task).await {
             error!(
                 "发布投递任务失败: channel={}, target_id={}, error={e}",
-                task.channel_code, task.target_id
+                task.channel_type, task.target_id
             );
             // 发不出去就不会有发送结果回来，就地记失败，避免渠道一直挂在「投递中」。
             // 渠道日志的「接收时间」用这次发布尝试的时刻：任务根本没到消费端，
@@ -957,7 +957,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
             {
                 error!(
                     "发布投递任务失败后回写投递状态也失败: channel={}, target_id={}, error={write_err}",
-                    task.channel_code, task.target_id
+                    task.channel_type, task.target_id
                 );
             }
         }
@@ -1310,7 +1310,7 @@ async fn backfill_delivery(
         if let Err(e) = wkr::publish_task(task).await {
             error!(
                 "补建后发布投递任务失败: channel={}, target_id={}, error={e}",
-                task.channel_code, task.target_id
+                task.channel_type, task.target_id
             );
             if let Err(write_err) = deliver_result::record(
                 task,
@@ -1321,7 +1321,7 @@ async fn backfill_delivery(
             {
                 error!(
                     "补建后发布失败且回写状态也失败: channel={}, target_id={}, error={write_err}",
-                    task.channel_code, task.target_id
+                    task.channel_type, task.target_id
                 );
             }
         }
@@ -1513,7 +1513,6 @@ fn build_task(
         target_category_id: target.category_id,
         target_id: target.target_id.clone(),
         channel_id: route.channel.id,
-        channel_code: route.channel.code.clone(),
         channel_type: route.channel.channel_type.clone(),
         // 短信 / 邮件要的号码或邮箱，展开时已解析好；大屏、定位卡为 None
         address: route.address.clone(),
@@ -1574,7 +1573,7 @@ async fn publish_best_effort(
             if let Err(e) = wkr::publish_task(&task).await {
                 warn!(
                     "发布非持久化投递任务失败，已丢弃: channel={}, target_id={}, error={e}",
-                    task.channel_code, task.target_id
+                    task.channel_type, task.target_id
                 );
             }
         }

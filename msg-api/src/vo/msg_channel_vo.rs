@@ -4,9 +4,8 @@ use robotech::macros::vo;
 pub struct MsgChannelVo {
     /// ID
     pub id: u64,
-    /// 编码（实例编码，同时是投递主题 `msg.delivery.{code}` 的末段）
-    pub code: String,
-    /// 渠道类型：决定用哪个发送器、options 按哪套结构解析（见 `ChannelCode`）
+    /// 渠道类型：渠道唯一标识，决定用哪个发送器、options 按哪套结构解析，
+    /// 同时是投递主题 `msg.delivery.{channel_type}` 的末段
     pub channel_type: String,
     /// 名称
     pub name: String,

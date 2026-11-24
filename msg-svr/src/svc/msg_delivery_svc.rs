@@ -24,7 +24,7 @@
 //!
 //! - 目标与渠道**照旧**，不重新读消息定义的目标配置：重投的语义就是「把发过的
 //!   那几路再发一遍」，换了接收方那是另一次投递；
-//! - 渠道编码要现查（`msg_channel.code`）：任务里必须带编码，消费方按它认领；
+//! - 渠道类型要现查（`msg_channel.channel_type`）：任务里必须带类型，消费方按它认领；
 //! - 渠道被禁用或没配投递队列时，`publish_task` 会报错，那就按发布失败回写，
 //!   不影响同一投递的其它渠道。
 
@@ -56,7 +56,7 @@ pub struct MsgDeliverySvc;
 /// # 一路待重投的任务
 ///
 /// 「目标 × 渠道」的纯数据。先把要发的读齐、状态改完，再统一发任务：
-/// 中途查不到渠道编码就整批放弃，不会出现「一半改了状态、一半没发」。
+/// 中途查不到渠道类型就整批放弃，不会出现「一半改了状态、一半没发」。
 struct RedeliverTask {
     /// `msg_delivery_target.id`
     delivery_target_id: u64,
@@ -70,9 +70,7 @@ struct RedeliverTask {
     delivery_channel_id: u64,
     /// `msg_delivery_channel.channel_id`
     channel_id: u64,
-    /// `msg_channel.code`（投递主题末段，消费方按它认领）
-    channel_code: String,
-    /// `msg_channel.channel_type`（发送器按它分发）
+    /// `msg_channel.channel_type`（渠道类型，发送器按它分发，也是投递主题末段）
     channel_type: String,
     /// `msg_delivery_channel.address`（重投沿用原行上的地址）
     address: Option<String>,
@@ -135,7 +133,7 @@ impl MsgDeliverySvc {
                     failed_count += 1;
                     error!(
                         "再次投递发布失败: delivery_id={}, channel={}, target_id={}, error={e}",
-                        delivery.id, item.channel_code, item.target_id
+                        delivery.id, item.channel_type, item.target_id
                     );
                     // 发不出去就不会有发送结果回来，就地记失败，否则这一路会一直挂在
                     // 「投递中」。接收时间用这次发布尝试的时刻——任务压根没到消费端，
@@ -305,7 +303,6 @@ async fn plan_tasks(
                 target_id: target.target_id.clone(),
                 delivery_channel_id: channel.id.0,
                 channel_id: channel.channel_id.0,
-                channel_code: channel_vo.code.clone(),
                 channel_type: channel_vo.channel_type.clone(),
                 // 重投不再回查用户表：地址就用首次投递落库的那一份，
                 // 用户后来改了号也不影响「把这条消息再发一遍」的语义
@@ -394,7 +391,6 @@ fn build_task(delivery: &MsgDeliveryVo, item: &RedeliverTask) -> DeliveryMsg {
         target_category_id: item.target_category_id,
         target_id: item.target_id.clone(),
         channel_id: item.channel_id,
-        channel_code: item.channel_code.clone(),
         channel_type: item.channel_type.clone(),
         address: item.address.clone(),
     }

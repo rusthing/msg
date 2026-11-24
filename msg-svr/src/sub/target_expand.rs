@@ -81,9 +81,9 @@ impl AddressKind {
     ///
     /// 只有短信 / 邮件要把消息投到个人，其余渠道按连接或卡号路由，展开时不解析地址。
     ///
-    /// 入参是 `channel_type`，**不是** `code`：类型与实例分离后，短信实例可以叫
-    /// `sms_gw2`、邮件实例可以叫 `mail_notice`，按实例编码判断会把它们当成
-    /// 「不需要地址」的渠道，投递时静默跳过。
+    /// 按渠道类型判断，**不是**按渠道名或编码：短信 / 邮件要地址，大屏与 NATS
+    /// 不要。渠道类型认不出来时当作不需要地址，正好与「这个类型没有发送器、
+    /// 投递会报渠道未实现」一致。
     fn of_channel(channel_type: &str) -> Option<Self> {
         match ChannelCode::from_code(channel_type)? {
             ChannelCode::Sms => Some(Self::Mobile),
@@ -643,7 +643,7 @@ where
                                 // 这个渠道取不到地址：跳过这一路，但这个人还有别的渠道可投
                                 warn!(
                                     "用户 {user_id} 无 {:?} 地址，跳过渠道 {}（消息 {}）",
-                                    kind, channel.code, msg.event_code
+                                    kind, channel.channel_type, msg.event_code
                                 );
                                 continue;
                             }
@@ -657,7 +657,7 @@ where
                             // 不同人共用同一个号：先到先得，后者这一路不发
                             warn!(
                                 "地址重复，抑制后到的渠道: channel={}, address={addr}, 已归用户 {owner}, 本次用户 {user_id}（消息 {}）",
-                                channel.code, msg.event_code
+                                channel.channel_type, msg.event_code
                             );
                             outcome.suppressed += 1;
                             continue;
@@ -809,7 +809,7 @@ mod tests {
         assert_eq!(AddressKind::of_channel("email"), Some(AddressKind::Email));
         assert_eq!(AddressKind::of_channel("websocket"), None);
         assert_eq!(AddressKind::of_channel("nats"), None);
-        // 实例编码不是类型：定位卡渠道的 code 仍是 locator，但类型是 nats
+        // 定位卡渠道的类型已从 locator 改成 nats；旧值不再认识
         assert_eq!(AddressKind::of_channel("locator"), None);
         // 任何未登记的类型都不解析地址
         assert_eq!(AddressKind::of_channel("unknown"), None);

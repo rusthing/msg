@@ -4,7 +4,7 @@ use robotech::macros::vo;
 pub struct MsgDeliveryQueueVo {
     /// ID
     pub id: u64,
-    /// 编码：投递主题，固定为 `msg.delivery.{渠道编码}`
+    /// 编码：投递主题，固定为 `msg.delivery.{渠道类型}`
     pub code: String,
     /// 名称
     pub name: String,

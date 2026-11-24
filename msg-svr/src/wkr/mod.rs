@@ -17,7 +17,7 @@
 //!   连上来，按编码登记；
 //! - 投递：按 `msg_delivery_queue` 订阅（[`sub`]），websocket 是 Core NATS
 //!   广播——每个实例都收到，各自查本地连接表；
-//! - 发送：按渠道编码分发到 [`channel::ChannelSender`]；
+//! - 发送：按渠道类型分发到 [`channel::ChannelSender`]；
 //! - 回写：持久化消息才写状态（[`deliver_result`]），非持久化的发完就结束。
 //!
 //! ## 关停
@@ -94,7 +94,7 @@ pub async fn on_delivery_queue_refresh() {
 /// # 渠道写操作后：消息缓存与投递队列一起刷新
 ///
 /// 渠道既是「消息发不发」的开关（`msg_channel.enabled`，消息缓存只加载启用的
-/// 渠道），也是「有没有人订阅」的依据（投递队列的主题末段就是渠道编码）。
+/// 渠道），也是「有没有人订阅」的依据（投递队列的主题末段就是渠道类型）。
 /// 所以渠道的写操作必须同时通知两处，只发消息缓存信号会留下一段时间里
 /// 「不给它生成任务、却还挂着订阅」的错位状态。
 ///
@@ -114,10 +114,10 @@ pub async fn on_channel_refresh() {
 /// 渠道没配投递队列时直接报错：没有队列就没有订阅方，发出去只会蒸发。
 /// 发布失败（NATS 断连）由调用方决定怎么记账，这里只透传错误。
 pub async fn publish_task(task: &DeliveryMsg) -> Result<(), NatsError> {
-    let Some(queue) = sub::get_delivery_queue(&task.channel_code) else {
+    let Some(queue) = sub::get_delivery_queue(&task.channel_type) else {
         return Err(NatsError::Publish(format!(
             "渠道 {} 没有可用的投递队列（未配置或已禁用），任务无处投递",
-            task.channel_code
+            task.channel_type
         )));
     };
 

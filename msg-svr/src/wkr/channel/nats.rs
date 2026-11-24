@@ -112,7 +112,7 @@ impl ChannelSender for NatsSender {
         let message = compose_message(&options, task);
 
         // 配了载荷模板就按模板渲染；渲染失败/为空时回退默认报文
-        if let Some(frame) = payload_template(&task.event_code, &task.channel_code)
+        if let Some(frame) = payload_template(&task.event_code, &task.channel_type)
             .and_then(|template| render_frame(&template, task, device_id, &options, &message))
         {
             return publish(subject, &frame, device_id, task).await;
@@ -184,7 +184,7 @@ fn options_for(task: &DeliveryMsg) -> Result<NatsOptions, String> {
             message
                 .channels
                 .iter()
-                .find(|channel| channel.code == task.channel_code)
+                .find(|channel| channel.channel_type == task.channel_type)
         })
         .and_then(|channel| channel.options.clone());
 
@@ -239,12 +239,12 @@ fn compose_message(options: &NatsOptions, task: &DeliveryMsg) -> String {
 }
 
 /// 取该渠道的载荷模板；没配或为空返回 `None`（用默认报文）
-fn payload_template(event_code: &str, channel_code: &str) -> Option<String> {
+fn payload_template(event_code: &str, channel_type: &str) -> Option<String> {
     get_message_cache()
         .get(event_code)?
         .channels
         .iter()
-        .find(|channel| channel.code == channel_code)?
+        .find(|channel| channel.channel_type == channel_type)?
         .payload_template
         .clone()
         .filter(|template| !template.trim().is_empty())
@@ -328,13 +328,12 @@ mod tests {
             target_category_id: 11,
             target_id: String::new(),
             channel_id: 3,
-            channel_code: "nats".to_string(),
             channel_type: "nats".to_string(),
             address: None,
         }
     }
 
-    /// 渠道类型与 cst、msg_channel.code、投递队列末段一致
+    /// 渠道类型与 cst、msg_channel.channel_type、投递队列末段一致
     #[test]
     fn channel_is_nats() {
         assert_eq!(NatsSender.channel(), ChannelCode::Nats);

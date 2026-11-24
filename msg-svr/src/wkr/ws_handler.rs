@@ -165,8 +165,8 @@ async fn check_token(category_code: &str, token: Option<&str>) -> Result<(), Sta
                 Ok(parsed) => parsed.token,
                 Err(e) => {
                     warn!(
-                        "websocket 渠道 options 解析失败，拒绝连接（请修正渠道配置）: channel_code={}, err={e}",
-                        channel.code
+                        "websocket 渠道 options 解析失败，拒绝连接（请修正渠道配置）: channel_type={}, err={e}",
+                        channel.channel_type
                     );
                     return Err(StatusCode::SERVICE_UNAVAILABLE);
                 }

@@ -9,7 +9,6 @@
 /*==============================================================*/
 create table msg_channel (
    id                   INT8                 not null,
-   code                 VARCHAR(50)          not null,
    channel_type         VARCHAR(20)          not null,
    name                 VARCHAR(50)          not null,
    options              TEXT                 null,
@@ -21,25 +20,21 @@ create table msg_channel (
    updater_id           INT8                 not null,
    update_ms            INT8                 not null,
    constraint PK_MSG_CHANNEL primary key (id),
-   constraint AK_CODE_MSG_CHANNEL unique (code)
+   constraint AK_CHANNEL_TYPE_MSG_CHANNEL unique (channel_type)
 );
 
 comment on table msg_channel is
 '渠道
-投递的出口：channel_type 决定用哪个发送器与 options 的结构，code 是实例编码（同时是投递主题末段）
-新增内置类型要同时改 ChannelCode、实现发送器并配一条投递队列；同一类型可以配多条实例';
+投递的出口，由 channel_type 唯一标识：类型决定发送器与 options 的结构，同时是投递主题末段
+新增内置类型要同时改 ChannelCode、实现发送器并配一条投递队列 msg.delivery.{channel_type}';
 
 comment on column msg_channel.id is
 'ID';
 
-comment on column msg_channel.code is
-'编码
-@len 1..=50';
-
 comment on column msg_channel.channel_type is
 '渠道类型
-决定用哪个发送器、options 按哪套结构解析与校验，取值见 msg-api 的 ChannelCode（websocket / nats / sms / email）
-与 code 分离：code 是实例编码（同时是投递主题末段），同一类型可以配多条渠道（不同 subject、不同网关、不同发件账号）
+渠道唯一标识：决定用哪个发送器、options 按哪套结构解析与校验，也是投递主题 msg.delivery.{channel_type} 的末段
+取值见 msg-api 的 ChannelCode（websocket / nats / sms / email），一个类型一条渠道
 @len 1..=20';
 
 comment on column msg_channel.name is
@@ -506,7 +501,7 @@ comment on column msg_delivery_queue.id is
 
 comment on column msg_delivery_queue.code is
 '编码
-投递主题，固定为 msg.delivery.{渠道编码}，末段即 msg_channel.code
+投递主题，固定为 msg.delivery.{渠道类型}，末段即 msg_channel.channel_type
 @len 1..=50';
 
 comment on column msg_delivery_queue.name is

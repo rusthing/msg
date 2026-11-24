@@ -1,6 +1,6 @@
 //! # 内置渠道类型
 //!
-//! `msg_channel.code` 在库里是字符串：运营可以新增任意 code，配一条投递队列就
+//! `msg_channel.channel_type` 在库里是字符串：运营可以新增未登记的类型，配一条投递队列就
 //! 有订阅，再注册一个发送器就有人发。所以枚举只覆盖**代码里实现过发送器的类型**，
 //! 作为常量、发送器与前端配置表单的唯一事实来源；从库里读出来的未知 code 仍然
 //! 按字符串透传（[`ChannelCode::from_code`] 返回 `None`），不强迫扩展渠道先改这里。
@@ -9,14 +9,13 @@
 //!
 //! 1. 这里加一个变体（`as_str` / `from_code` / `ALL` 三处）；
 //! 2. 在 `msg-svr` 里实现 `ChannelSender`，`channel()` 返回新变体；
-//! 3. 在 `msg_delivery_queue` 里为某个**渠道实例编码**配投递队列
-//!    `msg.delivery.{code}`（同类型可配多条实例，各自一条队列）。
+//! 3. 在 `msg_delivery_queue` 里配投递队列 `msg.delivery.{channel_type}`。
 
 use std::fmt;
 
 /// 内置渠道类型
 ///
-/// 取值与 `msg_channel.code`、投递主题末段（`msg.delivery.{code}`）、
+/// 取值与 `msg_channel.channel_type`、投递主题末段（`msg.delivery.{channel_type}`）、
 /// `ChannelSender::channel()` 三处一致。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ChannelCode {
@@ -39,7 +38,7 @@ impl ChannelCode {
         ChannelCode::Websocket,
     ];
 
-    /// 渠道编码（`msg_channel.code`，同时也是投递主题末段）
+    /// 渠道类型（`msg_channel.channel_type`，同时也是投递主题末段）
     pub const fn as_str(self) -> &'static str {
         match self {
             ChannelCode::Email => "email",

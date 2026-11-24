@@ -5,7 +5,7 @@
 //! ## 订阅什么由表决定
 //!
 //! 一个渠道对应一条投递队列，**主题就是渠道的关联**：`code` 固定为
-//! `msg.delivery.{渠道编码}`，末段即 `msg_channel.code`，表里不存渠道 ID。
+//! `msg.delivery.{渠道类型}`，末段即 `msg_channel.channel_type`，表里不存渠道 ID。
 //!
 //! - `code` 是投递主题，发布与订阅共用这一份；
 //! - `persisted` 决定订阅方式：`false` 走 Core NATS 广播，`true` 走
@@ -43,7 +43,7 @@ use crate::svc::{MsgChannelSvc, MsgDeliveryQueueSvc};
 use crate::wkr::channel::SendOutcome;
 use crate::wkr::{channel, deliver_result};
 use arc_swap::ArcSwapOption;
-use msg_api::cst::{MSG_DELIVERY_TOPIC_PREFIX, delivery_topic_channel_code};
+use msg_api::cst::{MSG_DELIVERY_TOPIC_PREFIX, delivery_topic_channel_type};
 use msg_api::msg::DeliveryMsg;
 use robotech::db::get_db_conn;
 use robotech::mq::nats::{self, NatsError};
@@ -55,19 +55,19 @@ use tracing::{debug, error, info, warn};
 
 /// # 一个渠道的投递队列
 ///
-/// 发布侧与订阅侧共用这份快照：发布侧按 `channel_code` 查到它取 `subject` /
+/// 发布侧与订阅侧共用这份快照：发布侧按 `channel_type` 查到它取 `subject` /
 /// `persisted`，订阅侧按 `subject` 建立（或复用自己的）订阅。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeliveryQueue {
-    /// 渠道编码（`msg_channel.code`），任务按它认领发送器
-    pub channel_code: String,
+    /// 渠道类型（`msg_channel.channel_type`），任务按它认领发送器
+    pub channel_type: String,
     /// 投递主题（`msg_delivery_queue.code`）
     pub subject: String,
     /// 是否持久化（`true` → JetStream，`false` → Core NATS 广播）
     pub persisted: bool,
 }
 
-/// # 渠道编码 → 投递队列
+/// # 渠道类型 → 投递队列
 ///
 /// 发布侧每次投递都要查，所以放内存；变更由刷新信号驱动重载。
 static DELIVERY_QUEUES: ArcSwapOption<HashMap<String, DeliveryQueue>> =
@@ -87,7 +87,7 @@ struct DeliverySubscription {
     /// 建立订阅时应用的重投上限
     max_deliver: i64,
     /// 该订阅属于哪个渠道，只用于日志排查
-    channel_code: String,
+    channel_type: String,
 }
 
 /// # 当前投递订阅
@@ -98,10 +98,10 @@ static DELIVERY_SUBSCRIBERS: ArcSwapOption<HashMap<String, DeliverySubscription>
 ///
 /// 发布侧用：返回 `None` 表示这个渠道没配投递队列、或渠道已禁用，
 /// 任务无处投递。
-pub fn get_delivery_queue(channel_code: &str) -> Option<DeliveryQueue> {
+pub fn get_delivery_queue(channel_type: &str) -> Option<DeliveryQueue> {
     DELIVERY_QUEUES
         .load_full()
-        .and_then(|queues| queues.get(channel_code).cloned())
+        .and_then(|queues| queues.get(channel_type).cloned())
 }
 
 /// # 重新加载投递队列
@@ -115,7 +115,7 @@ pub fn get_delivery_queue(channel_code: &str) -> Option<DeliveryQueue> {
 pub async fn reload_delivery_queues() -> anyhow::Result<()> {
     let db = get_db_conn()?;
 
-    // ── 渠道编码 → 是否启用：队列只存主题，渠道从主题末段解析 ──
+    // ── 渠道类型 → 是否启用：队列只存主题，渠道从主题末段解析 ──
 
     let channels: HashMap<String, bool> =
         MsgChannelSvc::list_by_query_dto(MsgChannelQueryDto::default(), Some(db.as_ref()))
@@ -123,7 +123,7 @@ pub async fn reload_delivery_queues() -> anyhow::Result<()> {
             .extra
             .unwrap_or_default()
             .into_iter()
-            .map(|channel| (channel.code, channel.enabled))
+            .map(|channel| (channel.channel_type, channel.enabled))
             .collect();
 
     let rows = MsgDeliveryQueueSvc::list_by_query_dto(
@@ -137,37 +137,37 @@ pub async fn reload_delivery_queues() -> anyhow::Result<()> {
     let queues: HashMap<String, DeliveryQueue> = rows
         .into_iter()
         .filter_map(|queue| {
-            let Some(code) = delivery_topic_channel_code(&queue.code) else {
+            let Some(code) = delivery_topic_channel_type(&queue.code) else {
                 // 主题不符合约定就认不出是哪个渠道，发出去也没人认领
                 warn!(
-                    "投递队列 {} 的主题不是 {MSG_DELIVERY_TOPIC_PREFIX}{{渠道编码}}，跳过",
+                    "投递队列 {} 的主题不是 {MSG_DELIVERY_TOPIC_PREFIX}{{渠道类型}}，跳过",
                     queue.code
                 );
                 return None;
             };
-            let channel_code = code.to_string();
+            let channel_type = code.to_string();
 
-            match channels.get(&channel_code) {
+            match channels.get(&channel_type) {
                 // 渠道被删掉了：没有发送器，订阅和发布都只会白费
                 None => {
                     warn!(
-                        "投递队列 {} 指向不存在的渠道 {channel_code}，跳过",
+                        "投递队列 {} 指向不存在的渠道 {channel_type}，跳过",
                         queue.code
                     );
                     return None;
                 }
                 // 渠道禁用：不订阅、也不进发布快照，等于立刻停投
                 Some(false) => {
-                    info!("渠道 {channel_code} 已禁用，跳过投递队列 {}", queue.code);
+                    info!("渠道 {channel_type} 已禁用，跳过投递队列 {}", queue.code);
                     return None;
                 }
                 Some(true) => {}
             }
 
             Some((
-                channel_code.clone(),
+                channel_type.clone(),
                 DeliveryQueue {
-                    channel_code,
+                    channel_type,
                     subject: queue.code,
                     persisted: queue.persisted,
                 },
@@ -211,7 +211,7 @@ async fn sync_delivery_subscriptions(queues: &HashMap<String, DeliveryQueue>, ma
                         handle: Arc::clone(&subscription.handle),
                         persisted: subscription.persisted,
                         max_deliver: subscription.max_deliver,
-                        channel_code: subscription.channel_code.clone(),
+                        channel_type: subscription.channel_type.clone(),
                     },
                 );
                 continue;
@@ -229,7 +229,7 @@ async fn sync_delivery_subscriptions(queues: &HashMap<String, DeliveryQueue>, ma
             Ok(handle) => {
                 info!(
                     "启动投递订阅成功: channel={}, subject={}, persisted={}",
-                    queue.channel_code, queue.subject, queue.persisted
+                    queue.channel_type, queue.subject, queue.persisted
                 );
                 next.insert(
                     queue.subject.clone(),
@@ -237,7 +237,7 @@ async fn sync_delivery_subscriptions(queues: &HashMap<String, DeliveryQueue>, ma
                         handle,
                         persisted: queue.persisted,
                         max_deliver,
-                        channel_code: queue.channel_code.clone(),
+                        channel_type: queue.channel_type.clone(),
                     },
                 );
             }
@@ -251,7 +251,7 @@ async fn sync_delivery_subscriptions(queues: &HashMap<String, DeliveryQueue>, ma
         if !next.contains_key(subject) {
             info!(
                 "停止投递订阅: channel={}, subject={subject}",
-                subscription.channel_code
+                subscription.channel_type
             );
             subscription.handle.abort();
         }
@@ -327,7 +327,7 @@ async fn start_delivery_subscription(
                     }
                     _ => error!(
                         "【告警】消息已发送但投递状态回写失败，记录可能停在「投递中」: event_code={}, channel={}, target_id={}, error={e}",
-                        task.event_code, task.channel_code, task.target_id
+                        task.event_code, task.channel_type, task.target_id
                     ),
                 }
             }

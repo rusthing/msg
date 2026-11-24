@@ -86,7 +86,7 @@ impl ChannelSender for SmsSender {
             );
         };
 
-        let options = match channel_options(&task.event_code, &task.channel_code) {
+        let options = match channel_options(&task.event_code, &task.channel_type) {
             Some(raw) => match serde_json::from_str::<SmsOptions>(&raw) {
                 Ok(options) => options,
                 Err(e) => {
@@ -242,12 +242,12 @@ fn client() -> &'static reqwest::Client {
 ///
 /// 渠道配置以消息缓存为准（`msg_channel.options` 随渠道写操作全量重载），
 /// 不在发送路径上查库——一条报警可能同时发给几百个人，每人一次查库不值。
-fn channel_options(event_code: &str, channel_code: &str) -> Option<String> {
+fn channel_options(event_code: &str, channel_type: &str) -> Option<String> {
     get_message_cache()
         .get(event_code)?
         .channels
         .iter()
-        .find(|channel| channel.code == channel_code)?
+        .find(|channel| channel.channel_type == channel_type)?
         .options
         .clone()
 }
@@ -366,8 +366,7 @@ mod tests {
             target_category_id: 1,
             target_id: "1279350111347933186".to_string(),
             channel_id: 4,
-            channel_code: ChannelCode::Sms.as_str().to_string(),
-            channel_type: "sms".to_string(),
+            channel_type: ChannelCode::Sms.as_str().to_string(),
             address: Some("13800138000".to_string()),
         }
     }

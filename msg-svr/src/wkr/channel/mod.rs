@@ -4,7 +4,7 @@
 //!
 //! ## 扩展方式
 //!
-//! 1. 在 `msg-api` 的 `ChannelCode` 里加一个变体（`msg_channel.code` 用同一个值，
+//! 1. 在 `msg-api` 的 `ChannelCode` 里加一个变体（`msg_channel.channel_type` 用同一个值，
 //!    只用 `[A-Za-z0-9_-]`）；
 //! 2. 实现一个 `ChannelSender`，`channel()` 返回这个变体；
 //! 3. 在 [`init_senders`] 里注册；
@@ -66,7 +66,7 @@ impl SendOutcome {
 /// # 渠道发送器
 #[async_trait]
 pub trait ChannelSender: Send + Sync {
-    /// 渠道类型，对应 `msg_channel.channel_type`；实例由任务里的 `channel_code` 区分
+    /// 发送器负责的渠道类型（`msg_channel.channel_type`）
     fn channel(&self) -> ChannelCode;
     /// 发送一条投递任务
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome;
@@ -88,8 +88,8 @@ pub fn init_senders() {
 
 /// # 按渠道类型分发一条任务
 ///
-/// 发送器按 `channel_type` 选：同一类型的多条实例（不同 subject / 网关 / 发件账号）
-/// 复用同一个发送器，配置由各自渠道的 `options` 决定。
+/// 发送器按 `channel_type` 选：一个类型一条渠道，具体行为（subject / 网关 /
+/// 发件账号）由这条渠道的 `options` 决定。
 ///
 /// 渠道类型没实现时返回 [`SendOutcome::Failed`]，不会静默丢弃——
 /// 否则运营配了新渠道却一直没人发，很难查。
@@ -97,8 +97,8 @@ pub async fn dispatch(task: &DeliveryMsg) -> SendOutcome {
     let senders = SENDERS.get().map(Vec::as_slice).unwrap_or(&[]);
     let Some(channel) = ChannelCode::from_code(&task.channel_type) else {
         error!(
-            "渠道类型未实现（请在 ChannelCode 里登记并注册发送器）: channel_type={}, channel_code={}, event_code={}",
-            task.channel_type, task.channel_code, task.event_code
+            "渠道类型未实现（请在 ChannelCode 里登记并注册发送器）: channel_type={}, event_code={}",
+            task.channel_type, task.event_code
         );
         return SendOutcome::Failed(format!("渠道未实现: {}", task.channel_type));
     };
@@ -106,8 +106,8 @@ pub async fn dispatch(task: &DeliveryMsg) -> SendOutcome {
         Some(sender) => sender.send(task).await,
         None => {
             error!(
-                "渠道类型已登记但没注册发送器: channel={channel}, channel_code={}, event_code={}",
-                task.channel_code, task.event_code
+                "渠道类型已登记但没注册发送器: channel={channel}, channel_type={}, event_code={}",
+                task.channel_type, task.event_code
             );
             SendOutcome::Failed(format!("渠道未实现: {channel}"))
         }

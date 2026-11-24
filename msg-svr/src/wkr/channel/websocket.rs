@@ -117,11 +117,11 @@ impl ChannelSender for WebSocketSender {
 ///
 /// 渠道配了载荷模板就按模板渲染，模板缺席或渲染不出可用帧时回退默认结构。
 ///
-/// 模板从消息缓存里取（按事件编码找到消息、再按渠道编码找到渠道），不读库：
+/// 模板从消息缓存里取（按事件编码找到消息、再按渠道类型找到渠道），不读库：
 /// 位置更新这类消息一秒几十上百条，每条都查一次库不值。渠道写操作会触发缓存
 /// 全量重建，改模板不用重启。
 fn frame(task: &DeliveryMsg) -> Result<String, String> {
-    if let Some(template) = payload_template(&task.event_code, &task.channel_code)
+    if let Some(template) = payload_template(&task.event_code, &task.channel_type)
         && let Some(text) = render_payload(&template, task)
     {
         return Ok(text);
@@ -137,12 +137,12 @@ fn frame(task: &DeliveryMsg) -> Result<String, String> {
 /// - `Some(模板)`：渠道配了 `payload_template`；
 /// - `None`：没配（用默认帧），或缓存里找不到这条消息/渠道——后者只在缓存刚被
 ///   重建、渠道已解绑时才发生，同样按「没配」处理，不因为一次配置变更丢消息。
-fn payload_template(event_code: &str, channel_code: &str) -> Option<String> {
+fn payload_template(event_code: &str, channel_type: &str) -> Option<String> {
     get_message_cache()
         .get(event_code)?
         .channels
         .iter()
-        .find(|channel| channel.code == channel_code)?
+        .find(|channel| channel.channel_type == channel_type)?
         .payload_template
         .clone()
 }
@@ -192,7 +192,7 @@ fn render_payload(template: &str, task: &DeliveryMsg) -> Option<String> {
     if rendered.trim().is_empty() {
         warn!(
             "渠道载荷模板渲染为空，改用默认帧: channel={}, event_code={}",
-            task.channel_code, task.event_code
+            task.channel_type, task.event_code
         );
         return None;
     }
@@ -200,7 +200,7 @@ fn render_payload(template: &str, task: &DeliveryMsg) -> Option<String> {
     if serde_json::from_str::<serde::de::IgnoredAny>(&rendered).is_err() {
         warn!(
             "渠道载荷模板渲染结果不是合法 JSON，改用默认帧: channel={}, event_code={}, rendered={rendered}",
-            task.channel_code, task.event_code
+            task.channel_type, task.event_code
         );
         return None;
     }
@@ -288,7 +288,6 @@ mod tests {
             // 空串 = 该类别下的全部目标（按类别广播）
             target_id: String::new(),
             channel_id: 2,
-            channel_code: "screen".to_string(),
             channel_type: "websocket".to_string(),
             address: None,
         }

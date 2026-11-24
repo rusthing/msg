@@ -13,8 +13,8 @@
 //!   `simulated`；
 //! - 投递目标：`msg_delivery_target` 的 `target_category_id` / `target_id`，
 //!   外加 `msg_target_category.code`（消费方按类别编码决定发不发）；
-//! - 投递渠道：`msg_delivery_channel` 的 `channel_id`，外加 `msg_channel.code`
-//!   （发布主题的末段，消费方靠它认领任务）。
+//! - 投递渠道：`msg_delivery_channel` 的 `channel_id`，外加 `msg_channel.channel_type`
+//!   （投递主题的末段，消费方靠它认领任务）。
 //!
 //! ## 标题与内容必填，ext 可选
 //!
@@ -156,15 +156,10 @@ pub struct DeliveryMsg {
     pub target_id: String,
     /// 渠道 ID（`msg_delivery_channel.channel_id`）
     pub channel_id: u64,
-    /// 渠道编码（`msg_channel.code`，实例编码）
-    ///
-    /// 投递侧按它查 `msg_delivery_queue` 决定主题与是否持久化；消费方按
-    /// [`Self::channel_type`] 选择发送器，`channel_code` 只用来对日志与地址。
-    pub channel_code: String,
     /// 渠道类型（`msg_channel.channel_type`，取值见 `ChannelCode`）
     ///
-    /// 发送器按它分发：同一类型可以配多条实例（不同 NATS subject、不同网关），
-    /// 消费方不必认识具体实例编码。
+    /// 渠道的唯一标识，同时是投递主题 `msg.delivery.{channel_type}` 的末段：
+    /// 投递侧按它找队列与发送器，发送器按它取渠道配置。
     pub channel_type: String,
 
     /// 收件地址（`msg_delivery_channel.address`）
