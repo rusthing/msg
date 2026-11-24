@@ -437,7 +437,7 @@ const messageTarget: EntityConfig = {
   path: '/msg/message-target',
   name: '消息目标',
   title: '消息目标',
-  desc: '这条消息发给哪些目标类别；目标标识留空表示该类别下的全部目标',
+  desc: '这条消息发给哪些目标类别；目标标识留空表示该类别下的全部目标，定位卡的卡号由事件标签决定',
   icon: <ApartmentOutlined />,
   group: 'definition',
   fields: [
@@ -463,7 +463,7 @@ const messageTarget: EntityConfig = {
       searchable: true,
       allowEmptySubmit: true,
       emptyLabel: '全部目标',
-      tip: '用户 / 角色 / 组织从平台目录里选择；大屏、定位卡等动态目标仍按业务标识填写；留空表示该类别下的全部目标',
+      tip: '用户 / 角色 / 组织从平台目录里选择；大屏等动态目标仍按业务标识填写；定位卡的卡号由报警事件的 locatorCode / locatorCodes / cardCodes 决定，此字段不生效；留空表示该类别下的全部目标',
     },
   ],
 };

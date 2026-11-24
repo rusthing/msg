@@ -702,7 +702,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     if !msg.persisted {
         let db = get_db_conn().map_err(|e| NatsError::Handle(e.to_string()))?;
-        let expanded = expand_targets(db.as_ref(), msg)
+        let expanded = expand_targets(db.as_ref(), msg, &message_msg.labels)
             .await
             .map_err(|e| NatsError::Handle(format!("展开投递目标失败: {e}")))?;
         publish_best_effort(
@@ -758,7 +758,7 @@ pub async fn process_message(subject: &str, payload: &[u8]) -> Result<(), NatsEr
 
     // 抽象目标 → 人 + 地址：只读查询放事务外，摊到事务里只会拉长持锁时间。
     // 查询失败按「可重投」处理：这不是配置问题，重投有意义。
-    let expanded = expand_targets(db.as_ref(), msg)
+    let expanded = expand_targets(db.as_ref(), msg, &message_msg.labels)
         .await
         .map_err(|e| NatsError::Handle(format!("展开投递目标失败: {e}")))?;
     info!(

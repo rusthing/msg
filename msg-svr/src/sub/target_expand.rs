@@ -7,7 +7,9 @@
 //! user  目标  → 用户ID
 //! role  目标  → 角色下的全部用户
 //! org   目标  → 组织（含下级，tree_code 前缀）下的全部用户
-//! screen / locator（以及未知类别）→ 不展开，原样作为最终目标
+//! locator 目标 → 卡号取自消息 labels（locatorCode / locatorCodes / cardCodes），
+//!                配置里的 target_id 不参与；一张卡一条投递目标
+//! screen（以及未知类别）→ 不展开，原样作为最终目标
 //! ```
 //!
 //! 两条去重规则：
@@ -37,7 +39,7 @@ use crate::mo::msg_person::{Column as PersonCol, Entity as PersonEntity};
 use crate::mo::msg_role::{Column as RoleCol, Entity as RoleEntity};
 use crate::mo::msg_role_user::{Column as RoleUserCol, Entity as RoleUserEntity};
 use crate::mo::msg_user::{Column as UserCol, Entity as UserEntity};
-use msg_api::cst::ChannelCode;
+use msg_api::cst::{ChannelCode, TARGET_ID_ALL};
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 use tracing::warn;
@@ -46,6 +48,12 @@ use tracing::warn;
 const TC_USER: &str = "user";
 const TC_ROLE: &str = "role";
 const TC_ORG: &str = "org";
+/// 定位卡类别：卡号只认消息 labels，配置的 `target_id` 已废弃
+const TC_LOCATOR: &str = "locator";
+/// 定位卡卡号在 labels 中的键，按此顺序取第一个有值的
+const LOCATOR_CARD_KEYS: [&str; 3] = ["cardCodes", "locatorCodes", "locatorCode"];
+/// 单条消息最多展开多少张卡，与 dtw 报警标签的清单上限（32）对齐
+const LOCATOR_MAX_CARDS: usize = 32;
 /// `user` 类别的固定 ID（种子 id=1）
 ///
 /// 消息只配了 `role` / `org` 目标时，缓存里没有 `user` 类别的行可借 ID，展开
@@ -141,11 +149,45 @@ struct Hit<'a> {
     origins: Vec<String>,
 }
 
+/// # 从消息 labels 里取定位卡卡号
+///
+/// 取值优先级 `cardCodes` → `locatorCodes` → `locatorCode`：区域级报警同时带
+/// 单卡与全量清单时，以全量清单为准；只有一个键就按单卡。逗号分隔，去空白、
+/// 去重保序，最多 [`LOCATOR_MAX_CARDS`] 张（第二个返回值表示是否发生截断）。
+fn locator_cards(labels: &HashMap<String, String>) -> (Vec<String>, bool) {
+    let raw = LOCATOR_CARD_KEYS
+        .iter()
+        .find_map(|key| labels.get(*key).filter(|value| !value.trim().is_empty()))
+        .map(String::as_str)
+        .unwrap_or_default();
+
+    let mut cards = Vec::new();
+    let mut seen = HashSet::new();
+    for card in raw.split(',') {
+        let card = card.trim();
+        if card.is_empty() || !seen.insert(card) {
+            continue;
+        }
+        if cards.len() >= LOCATOR_MAX_CARDS {
+            return (cards, true);
+        }
+        cards.push(card.to_string());
+    }
+    (cards, false)
+}
+
 /// # 展开消息的全部目标
 ///
 /// 只读：全部查询都在调用方给的事务 / 连接上跑，不写库。失败返回 `Err`，
 /// 调用方按「可重投」处理（查询失败不是配置问题，重投有意义）。
-pub(crate) async fn expand_targets<C>(db: &C, msg: &MessageCache) -> Result<ExpandOutcome, String>
+///
+/// `labels` 是发布方随消息上报的结构化标签：定位卡目标的卡号只从这里取，
+/// 与模板渲染用的是同一份数据。
+pub(crate) async fn expand_targets<C>(
+    db: &C,
+    msg: &MessageCache,
+    labels: &HashMap<String, String>,
+) -> Result<ExpandOutcome, String>
 where
     C: ConnectionTrait,
 {
@@ -405,12 +447,84 @@ where
         }
     }
 
-    // ── 4. 屏幕 / 定位卡等不展开的类别：原样作为落地目标 ──
-    for target in msg
+    // ── 4. 定位卡：卡号取自消息 labels，配置的 target_id 不参与 ──
+    //
+    //   历史上 target_id 用来表示「全部卡（空串）/ 固定卡」，广播禁用后这个
+    //   配置已经没有意义：一条区域报警要通知哪些卡，只有发布方的 labels 知道。
+    //   这里忽略配置值，按 labels 展开成逐卡目标；多条 locator 目标只合并渠道。
+    let locator_targets: Vec<&TargetCache> = msg
         .targets
         .iter()
-        .filter(|t| !matches!(t.target_category.code.as_str(), TC_USER | TC_ROLE | TC_ORG))
-    {
+        .filter(|t| t.target_category.code == TC_LOCATOR)
+        .collect();
+    if let Some(first) = locator_targets.first() {
+        // 渠道按 ID 去重合并：多条 locator 目标只是历史配置残留
+        let mut seen_channels = HashSet::new();
+        let mut channels = Vec::new();
+        for target in &locator_targets {
+            for channel in &target.channels {
+                if !seen_channels.insert(channel.id) {
+                    continue;
+                }
+                channels.push(ExpandedChannel {
+                    channel: channel.clone(),
+                    address: None,
+                });
+            }
+        }
+
+        if channels
+            .iter()
+            .any(|c| AddressKind::of_channel(&c.channel.channel_type).is_some())
+        {
+            // 定位卡不该配短信 / 邮件渠道：没有地址可取，落 Skipped 而不是静默跳过
+            outcome.skipped.push(SkippedTarget {
+                category_id: first.target_category.id,
+                category_code: first.target_category.code.clone(),
+                target_id: TARGET_ID_ALL.to_string(),
+                origin: None,
+                reason: format!(
+                    "目标类别 {} 配了需要地址的渠道，但该类目标没有地址",
+                    first.target_category.code
+                ),
+            });
+        } else {
+            let (cards, truncated) = locator_cards(labels);
+            if truncated {
+                warn!(
+                    "定位卡卡号超过 {} 张，只投前 {} 张: event_code={}",
+                    LOCATOR_MAX_CARDS, LOCATOR_MAX_CARDS, msg.event_code
+                );
+            }
+            if cards.is_empty() {
+                outcome.skipped.push(SkippedTarget {
+                    category_id: first.target_category.id,
+                    category_code: first.target_category.code.clone(),
+                    target_id: TARGET_ID_ALL.to_string(),
+                    origin: None,
+                    reason: "定位卡目标按事件标签投递，但消息 labels 中没有 \
+                             locatorCode / locatorCodes / cardCodes"
+                        .to_string(),
+                });
+            } else {
+                for card in cards {
+                    outcome.targets.push(ExpandedTarget {
+                        category_id: first.target_category.id,
+                        category_code: first.target_category.code.clone(),
+                        target_id: card,
+                        origin: None,
+                        channels: channels.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    // ── 4.1 屏幕等其它不展开的类别：原样作为落地目标 ──
+    for target in msg.targets.iter().filter(|t| {
+        !matches!(t.target_category.code.as_str(), TC_USER | TC_ROLE | TC_ORG)
+            && t.target_category.code != TC_LOCATOR
+    }) {
         let needs_address = target
             .channels
             .iter()
@@ -699,5 +813,71 @@ mod tests {
         assert_eq!(AddressKind::of_channel("locator"), None);
         // 任何未登记的类型都不解析地址
         assert_eq!(AddressKind::of_channel("unknown"), None);
+    }
+
+    fn labels(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    /// 卡号优先级：cardCodes 全量清单优先，其次 locatorCodes，最后单卡 locatorCode
+    #[test]
+    fn locator_cards_prefer_full_lists() {
+        let all = labels(&[
+            ("locatorCode", "C001"),
+            ("locatorCodes", "C001,C002"),
+            ("cardCodes", "C009,C010"),
+        ]);
+        let (cards, truncated) = locator_cards(&all);
+        assert_eq!(cards, vec!["C009".to_string(), "C010".to_string()]);
+        assert!(!truncated);
+
+        let without_card_codes = labels(&[("locatorCode", "C001"), ("locatorCodes", "C001,C002")]);
+        let (cards, _) = locator_cards(&without_card_codes);
+        assert_eq!(cards, vec!["C001".to_string(), "C002".to_string()]);
+
+        let single = labels(&[("locatorCode", "C001")]);
+        let (cards, _) = locator_cards(&single);
+        assert_eq!(cards, vec!["C001".to_string()]);
+    }
+
+    /// 逗号分隔、空白与重复剔除、保序；空 labels / 空串不产生卡号
+    #[test]
+    fn locator_cards_split_trim_and_dedupe() {
+        let value = labels(&[("cardCodes", " C1 ,, C2,C1,  ,C3 ")]);
+        let (cards, truncated) = locator_cards(&value);
+        assert_eq!(
+            cards,
+            vec!["C1".to_string(), "C2".to_string(), "C3".to_string()]
+        );
+        assert!(!truncated);
+
+        assert!(locator_cards(&labels(&[])).0.is_empty());
+        assert!(locator_cards(&labels(&[("cardCodes", "   ")])).0.is_empty());
+    }
+
+    /// 超过 32 张截断，并标记 truncated
+    #[test]
+    fn locator_cards_cap_at_limit() {
+        let raw = (0..40)
+            .map(|i| format!("C{i:02}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let (cards, truncated) = locator_cards(&labels(&[("cardCodes", raw.as_str())]));
+        assert_eq!(cards.len(), LOCATOR_MAX_CARDS);
+        assert!(truncated);
+        assert_eq!(cards.first().map(String::as_str), Some("C00"));
+        assert_eq!(cards.last().map(String::as_str), Some("C31"));
+
+        // 刚好 32 张不算截断
+        let raw = (0..32)
+            .map(|i| format!("C{i:02}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let (cards, truncated) = locator_cards(&labels(&[("cardCodes", raw.as_str())]));
+        assert_eq!(cards.len(), LOCATOR_MAX_CARDS);
+        assert!(!truncated);
     }
 }

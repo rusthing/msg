@@ -43,7 +43,7 @@ import type { FormRule } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { crudOf } from '../api/crud';
 import type { QueryParams } from '../api/client';
@@ -416,6 +416,13 @@ export default function EntityPage({ config }: EntityPageProps) {
     ? subjectField?.subjectSources?.[subjectCategoryCode]
     : undefined;
   const directory = useDirectoryOptions(subjectSource, formOpen);
+
+  // 定位卡目标不保存目标标识：卡号由报警事件的 labels 决定，打开编辑时把历史值清掉
+  useEffect(() => {
+    if (formOpen && subjectField && subjectCategoryCode === 'locator') {
+      form.setFieldValue(subjectField.key, '');
+    }
+  }, [formOpen, subjectCategoryCode, subjectField, form]);
 
   /** 筛选区同样按「目标类别」切换目录，让筛选里的目标标识也能选 */
   const filterSubjectByValue = subjectByField ? draft[subjectByField.key] : undefined;
@@ -891,7 +898,15 @@ export default function EntityPage({ config }: EntityPageProps) {
         );
       }
       case 'subject': {
-        // 类别未选、或类别是 screen / locator 这类动态目标时，仍按文本填写业务标识
+        // 定位卡：卡号由报警事件的 labels 决定，配置里的目标标识不再生效
+        if (subjectField?.key === field.key && subjectCategoryCode === 'locator') {
+          return (
+            <Typography.Text type="secondary">
+              卡号由报警事件的 locatorCode / locatorCodes / cardCodes 决定，无需填写
+            </Typography.Text>
+          );
+        }
+        // 类别未选、或类别是 screen 这类动态目标时，仍按文本填写业务标识
         if (!subjectSource) {
           const needCategory = subjectField?.subjectBy !== undefined && !subjectByValue;
           return (

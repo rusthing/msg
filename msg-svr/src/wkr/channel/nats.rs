@@ -40,9 +40,9 @@
 //! 缺少具体目标直接判失败，不再按协议换成广播码 `FFFFFFFF`。配了载荷模板且
 //! 模板不使用 `deviceId` 时允许空目标——消费方不需要的标识不该把人卡住。
 //!
-//! 契约 §4 提到 gather 按 `labels.cardCodes` 精确投卡：投递任务（`DeliveryMsg`）
-//! 不带发布方的 labels，精确投卡由 dtw 订阅后处理；msg 侧只保证 `target_id`
-//! 原样落到 `deviceId`。
+//! 契约 §4 提到 gather 按 `labels.cardCodes` 精确投卡：目标展开阶段
+//! （`target_expand`）已经把发布方的 labels 展开成逐卡目标，本发送器只保证
+//! 每个任务一个卡号，原样落到 `deviceId`；这里不再做任何拆分或广播。
 //!
 //! ## 失败语义
 //!
