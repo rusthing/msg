@@ -421,7 +421,7 @@ const MAX_NAME_TOKEN_LEN: usize = 24;
 /// - 全是合法字符且不超长的 subject **原样保留**，已有 stream / consumer 不受影响。
 ///
 /// 投递侧（[`crate::wkr::sub`]）也用它派生投递队列的 Stream / Consumer 名；
-/// 两边 subject 不同（`msg.message.normal` vs `msg.delivery.websocket`），
+/// 两边 subject 不同（`msg.message.normal` vs `msg.delivery.screen`），
 /// 派生结果不会撞。
 pub(crate) fn nats_name_token(subject: &str) -> String {
     let mut token: String = subject

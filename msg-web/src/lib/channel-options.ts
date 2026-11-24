@@ -58,7 +58,7 @@ export const CHANNEL_TYPES: { label: string; value: string }[] = [
 const WEBSOCKET: ChannelOptionSchema = {
   type: 'websocket',
   label: 'websocket',
-  desc: '大屏长连接：握手令牌在这里配，报文结构看「载荷模板」',
+  desc: '大屏长连接（实例编码一般叫 screen）：握手令牌在这里配，报文结构看「载荷模板」；服务哪个目标类别由「目标类别-渠道绑定」决定，这里不重复配',
   fields: [
     {
       key: 'token',

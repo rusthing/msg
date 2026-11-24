@@ -301,7 +301,7 @@ const channel: EntityConfig = {
   path: '/msg/channel',
   name: '渠道',
   title: '投递渠道',
-  desc: '真正发消息的通道（websocket 大屏 / NATS / 短信 / 邮件）；类型决定发送器与配置字段，编码是实例编码',
+  desc: '真正发消息的通道（大屏 / 定位卡 / 短信 / 邮件）；类型决定发送器与配置字段，编码是实例编码',
   icon: <NotificationOutlined />,
   group: 'definition',
   hideUpdateTime: true,
@@ -325,7 +325,7 @@ const channel: EntityConfig = {
       required: true,
       searchable: true,
       maxLength: 50,
-      tip: '实例编码，同时是投递主题 `msg.delivery.<code>` 的末段；渠道写操作会触发投递队列缓存重建',
+      tip: '实例编码（如大屏 screen、定位卡 locator、通知邮箱 mail_notice），同时是投递主题 `msg.delivery.<code>` 的末段；渠道写操作会触发投递队列缓存重建',
     },
     { key: 'name', label: '名称', kind: 'text', width: 160, required: true, searchable: true, maxLength: 50 },
     {

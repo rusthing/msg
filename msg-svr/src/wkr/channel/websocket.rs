@@ -288,7 +288,7 @@ mod tests {
             // 空串 = 该类别下的全部目标（按类别广播）
             target_id: String::new(),
             channel_id: 2,
-            channel_code: "websocket".to_string(),
+            channel_code: "screen".to_string(),
             channel_type: "websocket".to_string(),
             address: None,
         }

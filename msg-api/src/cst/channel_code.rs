@@ -8,9 +8,9 @@
 //! 新增一种内置渠道的顺序：
 //!
 //! 1. 这里加一个变体（`as_str` / `from_code` / `ALL` 三处）；
-//! 2. 把 `MSG_CHANNEL_CODE_*` 常量挂到新变体上（见 `msg_mq_cst.rs`）；
-//! 3. 在 `msg-svr` 里实现 `ChannelSender`，`channel()` 返回新变体；
-//! 4. 在 `msg_delivery_queue` 里为该 code 配投递队列 `msg.delivery.{code}`。
+//! 2. 在 `msg-svr` 里实现 `ChannelSender`，`channel()` 返回新变体；
+//! 3. 在 `msg_delivery_queue` 里为某个**渠道实例编码**配投递队列
+//!    `msg.delivery.{code}`（同类型可配多条实例，各自一条队列）。
 
 use std::fmt;
 
