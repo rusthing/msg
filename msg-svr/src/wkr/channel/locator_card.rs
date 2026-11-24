@@ -9,14 +9,14 @@
 //!
 //! ## 字段从哪来
 //!
-//! - `deviceId`：`DeliveryMsg.target_id`。空串 = 该类别下全部目标，按协议换成
-//!   广播码 `FFFFFFFF`；非空就是卡号原样下发；
+//! - `deviceId`：`DeliveryMsg.target_id`。**只允许单卡**：广播已禁用，
+//!   空目标直接判失败，不再按协议换成广播码 `FFFFFFFF`；
 //! - `code`：固定 `0`（卡片红蓝双灯同时震动，协议 §2.4）；
 //! - `message`：`title` 与 `content` 拼成的通知文案。
 //!
 //! 契约 §4 提到 gather 按 `labels.cardCodes` 精确投卡：投递任务（`DeliveryMsg`）
 //! 不带发布方的 labels，精确投卡由 dtw 订阅 `dtw.card.callback` 后处理；msg 侧
-//! 只保证 `target_id` 语义（空串广播）原样落到 `deviceId`。
+//! 只保证 `target_id` 原样落到 `deviceId`。
 //!
 //! ## 失败语义
 //!
@@ -32,10 +32,8 @@ use robotech::mq::nats;
 use serde::Serialize;
 use tracing::{debug, error};
 
-/// 定位卡下行广播 subject（dtw 订阅后写 `queue_card_callback`）
+/// 定位卡下行 subject（dtw 订阅后写 `queue_card_callback`）
 const CARD_CALLBACK_SUBJECT: &str = "dtw.card.callback";
-/// 协议约定的广播卡号：`target_id` 为空串时用它，表示全部卡片
-const CARD_BROADCAST_ID: &str = "FFFFFFFF";
 
 /// 定位卡渠道发送器
 pub struct LocatorCardSender;
@@ -47,8 +45,15 @@ impl ChannelSender for LocatorCardSender {
     }
 
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome {
+        // 广播已禁用：没有具体卡号的投递任务直接判失败，不再改写成广播码。
+        let Some(device_id) = device_id(task) else {
+            error!(
+                "定位卡下行缺少目标卡号（广播已禁用）: event_code={}",
+                task.event_code
+            );
+            return SendOutcome::Failed("定位卡下行缺少目标卡号（广播已禁用）".to_string());
+        };
         let message = compose_message(task);
-        let device_id = device_id(task);
         let payload = CardCallback {
             device_id,
             code: 0,
@@ -87,13 +92,12 @@ struct CardCallback<'a> {
     message: &'a str,
 }
 
-/// `target_id` → 协议 `deviceId`：空串换广播码，非空原样当卡号。
-fn device_id(task: &DeliveryMsg) -> &str {
-    if task.target_id.is_empty() {
-        CARD_BROADCAST_ID
-    } else {
-        task.target_id.as_str()
-    }
+/// `target_id` → 协议 `deviceId`：必须是具体卡号，空串返回 `None`。
+///
+/// 广播已禁用，不再把空串换写成 `FFFFFFFF`；调用方按失败处理。
+fn device_id(task: &DeliveryMsg) -> Option<&str> {
+    let id = task.target_id.trim();
+    (!id.is_empty()).then_some(id)
 }
 
 /// `title` + `content` 拼成一条给卡片显示的通知文案，空段跳过、用空格分隔。
@@ -144,11 +148,12 @@ mod tests {
         assert_eq!(LocatorCardSender.code(), "locator");
     }
 
-    /// 空 target_id 落成广播码
-    #[test]
-    fn empty_target_is_broadcast() {
-        assert_eq!(device_id(&task()), CARD_BROADCAST_ID);
-    }
+    // 广播已禁用：空 target_id 不再落成广播码，以下用例注释保留作历史参考。
+    // /// 空 target_id 落成广播码
+    // #[test]
+    // fn empty_target_is_broadcast() {
+    //     assert_eq!(device_id(&task()), CARD_BROADCAST_ID);
+    // }
 
     /// 非空 target_id 原样作为卡号
     #[test]
@@ -157,7 +162,7 @@ mod tests {
             target_id: "C001".to_string(),
             ..task()
         };
-        assert_eq!(device_id(&task), "C001");
+        assert_eq!(device_id(&task), Some("C001"));
     }
 
     /// 报文字段名与大小写严格对齐懋特协议：deviceId / code / message
@@ -169,7 +174,7 @@ mod tests {
         };
         let message = compose_message(&task);
         let payload = CardCallback {
-            device_id: device_id(&task),
+            device_id: device_id(&task).expect("非空卡号"),
             code: 0,
             message: &message,
         };
@@ -183,19 +188,20 @@ mod tests {
         assert_eq!(value.as_object().expect("报文不是对象").len(), 3);
     }
 
-    /// 空 target_id 的报文里 deviceId 必须是 FFFFFFFF
-    #[test]
-    fn broadcast_payload_uses_ffffffff() {
-        let task = task();
-        let message = compose_message(&task);
-        let payload = CardCallback {
-            device_id: device_id(&task),
-            code: 0,
-            message: &message,
-        };
-        let value = serde_json::to_value(&payload).expect("报文序列化失败");
-        assert_eq!(value["deviceId"], CARD_BROADCAST_ID);
-    }
+    // 广播已禁用：空 target_id 的报文不再下发，以下用例注释保留作历史参考。
+    // /// 空 target_id 的报文里 deviceId 必须是 FFFFFFFF
+    // #[test]
+    // fn broadcast_payload_uses_ffffffff() {
+    //     let task = task();
+    //     let message = compose_message(&task);
+    //     let payload = CardCallback {
+    //         device_id: device_id(&task),
+    //         code: 0,
+    //         message: &message,
+    //     };
+    //     let value = serde_json::to_value(&payload).expect("报文序列化失败");
+    //     assert_eq!(value["deviceId"], CARD_BROADCAST_ID);
+    // }
 
     /// 文案拼接：空段跳过，不留下多余空格
     #[test]
