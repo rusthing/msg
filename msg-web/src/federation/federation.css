@@ -8,11 +8,11 @@
 .msg-federated {
   min-height: 100%;
   height: 100%;
-  background: #f4f6fa;
+  background: var(--msg-bg);
+  color: var(--msg-text);
 }
 
 .msg-federated[data-theme='dark'] {
-  background: #141414;
   color-scheme: dark;
 }
 

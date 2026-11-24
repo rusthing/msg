@@ -43,8 +43,8 @@ import type { FormRule } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { crudOf } from '../api/crud';
 import type { QueryParams } from '../api/client';
 import type { Row as MsgRow } from '../api/types';
@@ -359,22 +359,46 @@ function refBundle(options: EntitySelectOption[]): DirectoryBundle {
   return { entries, tree: [], groupsByEntry: new Map() };
 }
 
-interface EntityPageProps {
+export interface EntityPageProps {
   config: EntityConfig;
+  /**
+   * 固定查询条件（主从页里子表按外键过滤）：查询时强制带上，筛选区与表单里
+   * 对应的字段隐藏，新增时自动写入提交体。普通实体页不传。
+   */
+  fixedFilters?: QueryParams;
+  /** 单选模式：表格左侧出现单选框，点击行也能选中，用于「选主记录 → 看子记录」 */
+  selectable?: {
+    selectedId?: string;
+    onSelect: (row: MsgRow) => void;
+  };
+  /** 分区标题（合并维护页里区分上下两块） */
+  sectionTitle?: ReactNode;
+  /** 删除成功回调：主表删除当前选中行时，外层据此清空子表选择 */
+  onDeleted?: (row: MsgRow) => void;
 }
 
-export default function EntityPage({ config }: EntityPageProps) {
+export default function EntityPage({
+  config,
+  fixedFilters,
+  selectable,
+  sectionTitle,
+  onDeleted,
+}: EntityPageProps) {
   const { message, modal } = AntdApp.useApp();
   const screens = Grid.useBreakpoint();
   // 首帧 breakpoint 还没算出来，按桌面处理；窄屏下再取消操作列固定，避免固定列吃掉大半屏
   const isDesktop = screens.lg !== false;
   const api = useMemo(() => crudOf(config.path), [config.path]);
+  const fixedKeys = useMemo(() => Object.keys(fixedFilters ?? {}), [fixedFilters]);
 
   const { data, loading, error, pageNum, pageSize, search, reload, setPageNum, setPageSize } =
     usePagedQuery<MsgRow>(
       (params) => api.page(params),
       // 首屏也要带默认排序，否则第一页与「查询」之后的顺序不一致
-      config.defaultOrderBy ? { _orderBy: config.defaultOrderBy } : {},
+      {
+        ...fixedFilters,
+        ...(config.defaultOrderBy ? { _orderBy: config.defaultOrderBy } : {}),
+      },
     );
 
   const [draft, setDraft] = useState<FilterDraft>({});
@@ -387,8 +411,11 @@ export default function EntityPage({ config }: EntityPageProps) {
 
   /** 表单里出现的外键，一次性把选项拉齐 */
   const refKeys = useMemo(
-    () => config.fields.filter((field) => field.kind === 'ref' && field.ref).map((field) => field.ref!),
-    [config.fields],
+    () =>
+      config.fields
+        .filter((field) => field.kind === 'ref' && field.ref && !fixedKeys.includes(field.key))
+        .map((field) => field.ref!),
+    [config.fields, fixedKeys],
   );
   // 当前页记录一并交给选项层：批量映射没覆盖到的外键 ID 会按主键补查，
   // 避免生产环境「消息类别」这类列退化成一串短 ID
@@ -437,12 +464,12 @@ export default function EntityPage({ config }: EntityPageProps) {
   const filterDirectory = useDirectoryOptions(filterSubjectSource, true);
 
   const searchFields = useMemo(
-    () => config.fields.filter((field) => field.searchable),
-    [config.fields],
+    () => config.fields.filter((field) => field.searchable && !fixedKeys.includes(field.key)),
+    [config.fields, fixedKeys],
   );
   const formFields = useMemo(
-    () => config.fields.filter((field) => field.inForm !== false),
-    [config.fields],
+    () => config.fields.filter((field) => field.inForm !== false && !fixedKeys.includes(field.key)),
+    [config.fields, fixedKeys],
   );
   /** 成组模板字段抽出来放进「模板」Card 的 Tabs，其余字段仍按两列平铺 */
   const templateFields = useMemo(
@@ -458,6 +485,8 @@ export default function EntityPage({ config }: EntityPageProps) {
   /** 把草稿 + 关键字翻成 QueryDto 的查询参数；空值不传，避免变成等值条件 */
   const applyFilters = (next: FilterDraft, nextKeyword: string) => {
     const params: QueryParams = {
+      // 固定条件始终跟着查询走，重置也删不掉（主从页的子表只属于当前主记录）
+      ...fixedFilters,
       _keyword: nextKeyword.trim() || undefined,
       // 排序跟着条件一起走：重置之后仍然是「最新的在最上面」
       _orderBy: config.defaultOrderBy,
@@ -479,6 +508,19 @@ export default function EntityPage({ config }: EntityPageProps) {
     applyFilters({}, '');
   };
 
+  /** 固定条件本身变了（如主从页切到另一条消息）：保留当前筛选，但按新条件重查 */
+  const fixedSignature = JSON.stringify(fixedFilters ?? {});
+  const lastFixed = useRef(fixedSignature);
+  useEffect(() => {
+    if (lastFixed.current === fixedSignature) {
+      return;
+    }
+    lastFixed.current = fixedSignature;
+    applyFilters(draft, keyword);
+    // applyFilters/draft/keyword 每次渲染都是新的，这里只关心固定条件的签名
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedSignature]);
+
   /**
    * 把值灌进表单
    *
@@ -492,14 +534,14 @@ export default function EntityPage({ config }: EntityPageProps) {
   const openAdd = () => {
     setEditing(null);
     form.resetFields();
-    applyFormValues(toFormValues(config.fields, null));
+    applyFormValues(toFormValues(formFields, null));
     setFormOpen(true);
   };
 
   const openEdit = (record: MsgRow) => {
     setEditing(record);
     form.resetFields();
-    applyFormValues(toFormValues(config.fields, record));
+    applyFormValues(toFormValues(formFields, record));
     setFormOpen(true);
   };
 
@@ -517,10 +559,13 @@ export default function EntityPage({ config }: EntityPageProps) {
       return;
     }
 
-    const body = toSubmitBody(config.fields, values, {
-      isAdd: !editing,
-      isTouched: (key) => form.isFieldTouched(key),
-    });
+    const body = {
+      ...fixedFilters,
+      ...toSubmitBody(formFields, values, {
+        isAdd: !editing,
+        isTouched: (key) => form.isFieldTouched(key),
+      }),
+    };
     setSaving(true);
     try {
       if (editing) {
@@ -550,6 +595,7 @@ export default function EntityPage({ config }: EntityPageProps) {
         try {
           await api.remove(record.id);
           message.success('删除成功');
+          onDeleted?.(record);
           reload();
         } catch (reason) {
           message.error(errorMessage(reason));
@@ -614,7 +660,8 @@ export default function EntityPage({ config }: EntityPageProps) {
     const trailingSwitches: ColumnsType<MsgRow> = [];
 
     for (const field of config.fields) {
-      if (field.inTable === false) {
+      // 固定条件下这一列每行都一样（子表只属于当前主记录），不重复展示
+      if (field.inTable === false || fixedKeys.includes(field.key)) {
         continue;
       }
       const center = field.kind === 'dic' || field.kind === 'bool';
@@ -691,12 +738,14 @@ export default function EntityPage({ config }: EntityPageProps) {
     return result;
     // 依赖里刻意不放 `api`：它按 path 记忆化，path 变了 config 也会变
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, isDesktop, refOptions]);
+  }, [config, isDesktop, refOptions, fixedKeys]);
 
   const scrollX = useMemo(
     () =>
-      columns.reduce((sum, column) => sum + (typeof column.width === 'number' ? column.width : 160), 0),
-    [columns],
+      columns.reduce((sum, column) => sum + (typeof column.width === 'number' ? column.width : 160), 0) +
+      // 单选列由 antd 自己插入，算进横向滚动宽度，避免操作列被挤出可视区
+      (selectable ? 48 : 0),
+    [columns, selectable],
   );
 
   /** 筛选控件：等值匹配，控件类型跟着字段走 */
@@ -1079,13 +1128,40 @@ export default function EntityPage({ config }: EntityPageProps) {
         />
       )}
 
-      <Card variant="borderless">
+      <Card variant="borderless" title={sectionTitle}>
         <Table<MsgRow>
           rowKey="id"
           size="middle"
           loading={loading}
           columns={columns}
           dataSource={data.list}
+          // 主从页的上表：单选 + 整行可点；操作列里的按钮不触发选中
+          rowSelection={
+            selectable
+              ? {
+                  type: 'radio',
+                  selectedRowKeys: selectable.selectedId ? [selectable.selectedId] : [],
+                  onChange: (_keys, rows) => {
+                    if (rows[0]) {
+                      selectable.onSelect(rows[0]);
+                    }
+                  },
+                }
+              : undefined
+          }
+          onRow={
+            selectable
+              ? (record) => ({
+                  style: { cursor: 'pointer' },
+                  onClick: (event: ReactMouseEvent<HTMLElement>) => {
+                    if ((event.target as HTMLElement).closest('.msg-table-actions')) {
+                      return;
+                    }
+                    selectable.onSelect(record);
+                  },
+                })
+              : undefined
+          }
           tableLayout="fixed"
           scroll={{ x: scrollX }}
           pagination={{
@@ -1213,11 +1289,13 @@ export default function EntityPage({ config }: EntityPageProps) {
                 {detail.id}
               </Typography.Text>
             </Descriptions.Item>
-            {config.fields.map((field) => (
-              <Descriptions.Item key={field.key} label={field.label}>
-                {renderDetailValue(field, detail, refOptions)}
-              </Descriptions.Item>
-            ))}
+            {config.fields
+              .filter((field) => !fixedKeys.includes(field.key))
+              .map((field) => (
+                <Descriptions.Item key={field.key} label={field.label}>
+                  {renderDetailValue(field, detail, refOptions)}
+                </Descriptions.Item>
+              ))}
             <Descriptions.Item label="创建时间">
               <span className="msg-mono">{formatMs(detail.createMs as string)}</span>
             </Descriptions.Item>

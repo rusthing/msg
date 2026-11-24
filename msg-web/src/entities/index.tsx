@@ -908,6 +908,13 @@ export function entityOf(key: string): EntityConfig | undefined {
   return ENTITIES.find((item) => item.key === key);
 }
 
+/**
+ * # 消息定义与目标合并维护页的路由 key
+ *
+ * 两张表本身仍保留独立路由（深链、其它页面引用），侧边栏只显示合并后的入口。
+ */
+export const MESSAGE_WORKBENCH_KEY = 'message-workbench';
+
 /** # 分组标题 */
 export const GROUP_LABELS: Record<EntityGroup, string> = {
   definition: '消息定义',

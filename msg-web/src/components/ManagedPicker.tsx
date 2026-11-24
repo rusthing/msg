@@ -37,6 +37,16 @@ const PANEL_WIDTH = 640;
 const PANEL_HEIGHT = 430;
 const PAGE_SIZE = 8;
 
+/**
+ * 选择面板的 portal 宿主。
+ *
+ * 联邦窗口里主题变量挂在 `.msg-federated[data-theme]` 上，面板若直接挂到 body
+ * 就落到宿主的亮色上下文里，暗色下会出现白底面板；独立站则仍挂 body。
+ */
+function portalHost(): HTMLElement {
+  return document.querySelector<HTMLElement>('.msg-federated') ?? document.body;
+}
+
 /** treeCode 每层 3 位，根为 0。 */
 function depthOf(treeCode?: string): number {
   return treeCode ? Math.max(0, Math.floor(treeCode.length / 3) - 1) : 0;
@@ -459,7 +469,7 @@ export function ManagedPicker({
                 </div>
               </div>
             </div>,
-            document.body,
+            portalHost(),
           )
         : null}
     </>

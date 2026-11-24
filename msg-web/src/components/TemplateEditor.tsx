@@ -12,10 +12,11 @@
  * 不同的是下面的等宽字体类名。
  */
 
-import { Button, Tag, Typography } from 'antd';
+import { Button, Tag, Typography, theme as antdTheme } from 'antd';
 import OptionButtons from './OptionButtons';
 import { useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ChangeEvent } from 'react';
+import { useThemeMode } from '../lib/theme-config';
 import {
   DEFAULT_ENGINE,
   DEFAULT_TEMPLATE_TYPES,
@@ -32,7 +33,8 @@ const MONO_CLASS = 'msg-json-editor';
 const LINE_HEIGHT = 20;
 const PADDING = 8;
 
-const TOKEN_STYLE: Record<TemplateTokenKind, CSSProperties> = {
+/** 亮色下的语法高亮：深紫/深青在白底上清晰 */
+const TOKEN_STYLE_LIGHT: Record<TemplateTokenKind, CSSProperties> = {
   text: {},
   variable: { color: '#7c3aed', background: 'rgba(124, 58, 237, 0.10)', borderRadius: 2 },
   filter: { color: '#0f766e' },
@@ -43,6 +45,20 @@ const TOKEN_STYLE: Record<TemplateTokenKind, CSSProperties> = {
   'json-number': { color: '#b45309' },
   'json-literal': { color: '#c2410c' },
   'json-punct': { color: '#6b7280' },
+};
+
+/** 暗色下的语法高亮：同色系提亮，否则深蓝/深青在深底上几乎看不见 */
+const TOKEN_STYLE_DARK: Record<TemplateTokenKind, CSSProperties> = {
+  text: {},
+  variable: { color: '#c4b5fd', background: 'rgba(167, 139, 250, 0.16)', borderRadius: 2 },
+  filter: { color: '#5eead4' },
+  tag: { color: '#fcd34d', background: 'rgba(245, 158, 11, 0.16)', borderRadius: 2 },
+  comment: { color: '#8c8c8c', fontStyle: 'italic' },
+  'json-key': { color: '#93c5fd' },
+  'json-string': { color: '#6ee7b7' },
+  'json-number': { color: '#fcd34d' },
+  'json-literal': { color: '#fdba74' },
+  'json-punct': { color: '#9ca3af' },
 };
 
 export interface TemplateEditorProps {
@@ -96,6 +112,9 @@ export default function TemplateEditor({
   const [formatError, setFormatError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
+  const dark = useThemeMode();
+  const { token } = antdTheme.useToken();
+  const tokenStyle = dark ? TOKEN_STYLE_DARK : TOKEN_STYLE_LIGHT;
 
   const emitHeader =
     headerMode === 'always' || parts.hadHeader || parts.engine !== DEFAULT_ENGINE;
@@ -161,7 +180,7 @@ export default function TemplateEditor({
       </div>
 
       {showTypeHelp && current && (
-        <div style={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(0, 0, 0, 0.65)' }}>
+        <div style={{ fontSize: 12, lineHeight: 1.6, color: token.colorTextSecondary }}>
           <div>{current.description}</div>
           {current.syntax && (
             <div style={{ marginTop: 2 }}>
@@ -176,10 +195,10 @@ export default function TemplateEditor({
       <div
         style={{
           position: 'relative',
-          border: `1px solid ${focused ? '#1677ff' : '#d9d9d9'}`,
+          border: `1px solid ${focused ? token.colorPrimary : token.colorBorder}`,
           borderRadius: 6,
-          background: readOnly ? '#fafafa' : '#fff',
-          boxShadow: focused ? '0 0 0 2px rgba(22, 119, 255, 0.10)' : 'none',
+          background: readOnly ? token.colorBgLayout : token.colorBgContainer,
+          boxShadow: focused ? `0 0 0 2px ${token.colorPrimaryBg}` : 'none',
           transition: 'border-color 0.2s, box-shadow 0.2s',
         }}
       >
@@ -197,12 +216,12 @@ export default function TemplateEditor({
             wordBreak: 'break-word',
             overflow: 'hidden',
             pointerEvents: 'none',
-            color: '#1f1f1f',
+            color: token.colorText,
             tabSize: 2,
           }}
         >
           {tokens.map((token, index) => (
-            <span key={index} style={TOKEN_STYLE[token.kind]}>
+            <span key={index} style={tokenStyle[token.kind]}>
               {token.text}
             </span>
           ))}
@@ -238,7 +257,7 @@ export default function TemplateEditor({
             background: 'transparent',
             color: 'transparent',
             WebkitTextFillColor: 'transparent',
-            caretColor: '#1f1f1f',
+            caretColor: token.colorText,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             overflow: 'auto',

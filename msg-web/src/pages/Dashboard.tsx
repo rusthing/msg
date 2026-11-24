@@ -92,7 +92,7 @@ function StatCard({
       <div className="msg-stat-label">{title}</div>
       <div
         className="msg-stat-value"
-        style={danger && typeof value === 'number' && value > 0 ? { color: '#cf1322' } : undefined}
+        style={danger && typeof value === 'number' && value > 0 ? { color: 'var(--msg-danger)' } : undefined}
       >
         {typeof value === 'number' ? value.toLocaleString('zh-CN') : value}
       </div>
@@ -263,7 +263,7 @@ export default function Dashboard() {
           title="消息定义"
           value={error ? '--' : data.messages}
           hint="去配置"
-          link="/message"
+          link="/message-workbench"
           loading={loading}
         />
         <StatCard

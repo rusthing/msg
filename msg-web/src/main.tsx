@@ -11,7 +11,7 @@ import { BrowserRouter, HashRouter } from 'react-router-dom';
 import 'dayjs/locale/zh-cn';
 import App from './App';
 import { initEmbed, useEmbedTheme } from './lib/embed-bridge';
-import { antdConfig } from './lib/theme-config';
+import { antdConfig, ThemeModeContext } from './lib/theme-config';
 import './styles/global.css';
 
 const container = document.getElementById('root');
@@ -48,13 +48,15 @@ function Root() {
   const config = antdConfig({ dark: embeddedTheme === 'dark' });
   return (
     <React.StrictMode>
-      <ConfigProvider {...config}>
-        <AntdApp>
-          <Router basename={BASENAME}>
-            <App />
-          </Router>
-        </AntdApp>
-      </ConfigProvider>
+      <ThemeModeContext.Provider value={embeddedTheme === 'dark'}>
+        <ConfigProvider {...config}>
+          <AntdApp>
+            <Router basename={BASENAME}>
+              <App />
+            </Router>
+          </AntdApp>
+        </ConfigProvider>
+      </ThemeModeContext.Provider>
     </React.StrictMode>
   );
 }

@@ -1,6 +1,66 @@
 /**
  * # 全局样式
+ *
+ * 颜色一律走下面这组变量：独立站的暗色挂在 html[data-theme]，联邦窗口挂在
+ * `.msg-federated[data-theme]`。两套入口共用同一份 antd 令牌配置，自定义控件
+ * 不能再写死亮色，否则暗色下会出现「白底黑字」的孤岛（选择面板、JSON 视图等）。
  */
+
+:root,
+[data-theme='light'] {
+  --msg-bg: #f4f6fa;
+  --msg-surface: #ffffff;
+  --msg-surface-subtle: #fafbfd;
+  --msg-border: #eef0f4;
+  --msg-border-strong: #d9d9d9;
+  --msg-border-panel: #e5e7eb;
+  --msg-text: rgba(0, 0, 0, 0.88);
+  --msg-text-2: rgba(0, 0, 0, 0.65);
+  --msg-text-3: rgba(0, 0, 0, 0.45);
+  --msg-text-4: rgba(0, 0, 0, 0.3);
+  --msg-primary: #1677ff;
+  --msg-primary-hover: #4096ff;
+  --msg-primary-bg: #e6f4ff;
+  --msg-primary-text: #0958d9;
+  --msg-hover-bg: #f5f5f5;
+  --msg-hover-text: rgba(0, 0, 0, 0.88);
+  --msg-disabled-bg: #f5f5f5;
+  --msg-disabled-text: rgba(0, 0, 0, 0.35);
+  --msg-success-bg: #f6ffed;
+  --msg-success-text: #389e0d;
+  --msg-warning-bg: #fff7e6;
+  --msg-warning-text: #d46b08;
+  --msg-danger: #cf1322;
+  --msg-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.24);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --msg-bg: #141414;
+  --msg-surface: #1f1f1f;
+  --msg-surface-subtle: #262626;
+  --msg-border: #303030;
+  --msg-border-strong: #424242;
+  --msg-border-panel: #424242;
+  --msg-text: rgba(255, 255, 255, 0.88);
+  --msg-text-2: rgba(255, 255, 255, 0.65);
+  --msg-text-3: rgba(255, 255, 255, 0.45);
+  --msg-text-4: rgba(255, 255, 255, 0.3);
+  --msg-primary: #4096ff;
+  --msg-primary-hover: #69b1ff;
+  --msg-primary-bg: rgba(22, 119, 255, 0.22);
+  --msg-primary-text: #91caff;
+  --msg-hover-bg: rgba(255, 255, 255, 0.08);
+  --msg-hover-text: rgba(255, 255, 255, 0.88);
+  --msg-disabled-bg: rgba(255, 255, 255, 0.04);
+  --msg-disabled-text: rgba(255, 255, 255, 0.3);
+  --msg-success-bg: rgba(19, 194, 34, 0.15);
+  --msg-success-text: #95de64;
+  --msg-warning-bg: rgba(250, 140, 22, 0.15);
+  --msg-warning-text: #ffc069;
+  --msg-danger: #ff7875;
+  --msg-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+}
 
 * {
   box-sizing: border-box;
@@ -17,8 +77,12 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', sans-serif;
-  background: #f4f6fa;
-  color: rgba(0, 0, 0, 0.88);
+}
+
+/* 联邦态的 body 属于宿主桌面，子应用不能改它的画布底色 */
+body:not(:has(.msg-federated)) {
+  background: var(--msg-bg);
+  color: var(--msg-text);
 }
 
 /* 可点击元素统一手型；禁用态统一禁用光标（详见 dtw-web/docs/ui-spec.md）。 */
@@ -54,10 +118,10 @@ input[type='color']:not(:disabled) {
   height: 32px;
   min-height: 32px;
   padding: 0 10px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--msg-border-strong);
   border-radius: 6px;
-  background: #fff;
-  color: rgba(0, 0, 0, 0.65);
+  background: var(--msg-surface);
+  color: var(--msg-text-2);
   font-size: 12.5px;
   line-height: 1;
   white-space: nowrap;
@@ -68,14 +132,14 @@ input[type='color']:not(:disabled) {
 }
 
 .msg-option-button:hover:not(:disabled) {
-  border-color: #4096ff;
-  color: #1677ff;
+  border-color: var(--msg-primary-hover);
+  color: var(--msg-primary);
 }
 
 .msg-option-button[aria-checked='true'] {
-  border-color: #1677ff;
-  background: #e6f4ff;
-  color: #0958d9;
+  border-color: var(--msg-primary);
+  background: var(--msg-primary-bg);
+  color: var(--msg-primary-text);
   font-weight: 500;
 }
 
@@ -86,7 +150,7 @@ input[type='color']:not(:disabled) {
 
 /* 侧边栏 */
 .msg-sider {
-  border-right: 1px solid #eef0f4;
+  border-right: 1px solid var(--msg-border);
   overflow-y: auto;
 }
 
@@ -96,7 +160,7 @@ input[type='color']:not(:disabled) {
   gap: 10px;
   height: 60px;
   padding: 0 18px;
-  border-bottom: 1px solid #eef0f4;
+  border-bottom: 1px solid var(--msg-border);
 }
 
 .msg-brand-logo {
@@ -106,7 +170,7 @@ input[type='color']:not(:disabled) {
   width: 34px;
   height: 30px;
   border-radius: 8px;
-  background: #1677ff;
+  background: var(--msg-primary);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -125,7 +189,7 @@ input[type='color']:not(:disabled) {
 
 .msg-brand-sub {
   font-size: 11px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
 }
 
 /* 顶栏
@@ -139,8 +203,8 @@ input[type='color']:not(:disabled) {
   height: 60px;
   padding: 0 24px;
   line-height: 1.4;
-  background: #fff;
-  border-bottom: 1px solid #eef0f4;
+  background: var(--msg-surface);
+  border-bottom: 1px solid var(--msg-border);
 }
 
 .msg-header-main {
@@ -158,7 +222,7 @@ input[type='color']:not(:disabled) {
 
 .msg-header-desc {
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -247,13 +311,13 @@ input[type='color']:not(:disabled) {
 
 .msg-filter-label {
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   white-space: nowrap;
 }
 
 .msg-filter-static {
   font-size: 12.5px;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--msg-text-2);
 }
 
 .msg-toolbar-foot {
@@ -348,8 +412,8 @@ input[type='color']:not(:disabled) {
 .msg-json-view {
   margin: 0;
   padding: 12px 14px;
-  background: #fafbfd;
-  border: 1px solid #eef0f4;
+  background: var(--msg-surface-subtle);
+  border: 1px solid var(--msg-border);
   border-radius: 6px;
   max-height: 420px;
   overflow: auto;
@@ -381,7 +445,7 @@ input[type='color']:not(:disabled) {
 
 .msg-stat-label {
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
 }
 
 .msg-stat-value {
@@ -392,7 +456,7 @@ input[type='color']:not(:disabled) {
 
 .msg-stat-hint {
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
 }
 
 /* 投递链路示意 */
@@ -405,8 +469,8 @@ input[type='color']:not(:disabled) {
 
 .msg-chain-node {
   padding: 6px 12px;
-  background: #fafbfd;
-  border: 1px solid #eef0f4;
+  background: var(--msg-surface-subtle);
+  border: 1px solid var(--msg-border);
   border-radius: 6px;
   font-size: 13px;
   white-space: nowrap;
@@ -417,7 +481,7 @@ input[type='color']:not(:disabled) {
 }
 
 .msg-chain-arrow {
-  color: rgba(0, 0, 0, 0.3);
+  color: var(--msg-text-4);
 }
 
 /* 统计卡用 grid 保证 7 张卡等宽，不会出现最后一行两张被拉宽 */
@@ -548,7 +612,7 @@ html[data-embed='1'] .msg-header {
 
 .msg-entity-option-detail {
   overflow: hidden;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   text-overflow: ellipsis;
@@ -563,27 +627,27 @@ html[data-embed='1'] .msg-header {
   width: 100%;
   height: 32px;
   padding: 0 10px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--msg-border-strong);
   border-radius: 6px;
-  background: #fff;
-  color: rgba(0, 0, 0, 0.88);
+  background: var(--msg-surface);
+  color: var(--msg-text);
   font-size: 13px;
   text-align: left;
   transition: border-color 0.15s;
 }
 
 .msgp-trigger:hover:not(:disabled) {
-  border-color: #4096ff;
+  border-color: var(--msg-primary-hover);
 }
 
 .msgp-trigger:focus-visible {
-  border-color: #1677ff;
+  border-color: var(--msg-primary);
   outline: 2px solid rgba(22, 119, 255, 0.15);
 }
 
 .msgp-trigger:disabled {
-  background: #f5f5f5;
-  color: rgba(0, 0, 0, 0.35);
+  background: var(--msg-disabled-bg);
+  color: var(--msg-disabled-text);
 }
 
 .msgp-trigger-text {
@@ -595,7 +659,7 @@ html[data-embed='1'] .msg-header {
 }
 
 .msgp-trigger-text.is-placeholder {
-  color: rgba(0, 0, 0, 0.35);
+  color: var(--msg-disabled-text);
 }
 
 .msgp-clear {
@@ -605,18 +669,18 @@ html[data-embed='1'] .msg-header {
   width: 16px;
   height: 16px;
   border-radius: 3px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   font-size: 10px;
 }
 
 .msgp-clear:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: rgba(0, 0, 0, 0.75);
+  background: var(--msg-hover-bg);
+  color: var(--msg-hover-text);
 }
 
 .msgp-arrow {
   flex: 0 0 auto;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   font-size: 10px;
   transition: transform 0.15s;
 }
@@ -631,10 +695,10 @@ html[data-embed='1'] .msg-header {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--msg-border-panel);
   border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.24);
+  background: var(--msg-surface);
+  box-shadow: var(--msg-shadow);
 }
 
 .msgp-head {
@@ -643,18 +707,18 @@ html[data-embed='1'] .msg-header {
   justify-content: space-between;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--msg-border);
 }
 
 .msgp-head-title {
   font-size: 12.5px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.88);
+  color: var(--msg-text);
 }
 
 .msgp-head-count {
   font-size: 11px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
 }
 
 .msgp-tabs {
@@ -662,7 +726,7 @@ html[data-embed='1'] .msg-header {
   gap: 4px;
   padding: 6px 8px;
   overflow-x: auto;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--msg-border);
 }
 
 .msgp-tab {
@@ -671,19 +735,19 @@ html[data-embed='1'] .msg-header {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--msg-text-2);
   font-size: 11.5px;
   white-space: nowrap;
 }
 
 .msgp-tab:hover {
-  background: #f5f5f5;
-  color: rgba(0, 0, 0, 0.88);
+  background: var(--msg-hover-bg);
+  color: var(--msg-text);
 }
 
 .msgp-tab.is-active {
-  background: #e6f4ff;
-  color: #0958d9;
+  background: var(--msg-primary-bg);
+  color: var(--msg-primary-text);
   font-weight: 500;
 }
 
@@ -698,7 +762,7 @@ html[data-embed='1'] .msg-header {
   flex: 0 0 188px;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid #eee;
+  border-right: 1px solid var(--msg-border);
 }
 
 .msgp-tree-search {
@@ -706,8 +770,8 @@ html[data-embed='1'] .msg-header {
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  border-bottom: 1px solid #eee;
-  color: rgba(0, 0, 0, 0.45);
+  border-bottom: 1px solid var(--msg-border);
+  color: var(--msg-text-3);
   font-size: 11px;
 }
 
@@ -737,14 +801,14 @@ html[data-embed='1'] .msg-header {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--msg-text-2);
   font-size: 12px;
   font-weight: 500;
   text-align: left;
 }
 
 .msgp-tree-all span {
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   font-size: 10.5px;
   font-weight: 400;
 }
@@ -752,13 +816,13 @@ html[data-embed='1'] .msg-header {
 .msgp-tree-all:hover,
 .msgp-tree-item:hover,
 .msgp-tree-row:has(.msgp-tree-item:hover) .msgp-tree-toggle {
-  background: #f5f5f5;
+  background: var(--msg-hover-bg);
 }
 
 .msgp-tree-all.is-active,
 .msgp-tree-item.is-active {
-  background: #e6f4ff;
-  color: #0958d9;
+  background: var(--msg-primary-bg);
+  color: var(--msg-primary-text);
 }
 
 .msgp-tree-row {
@@ -777,7 +841,7 @@ html[data-embed='1'] .msg-header {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   font-size: 9px;
 }
 
@@ -789,7 +853,7 @@ html[data-embed='1'] .msg-header {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--msg-text-2);
   font-size: 12px;
   text-align: left;
   text-overflow: ellipsis;
@@ -809,8 +873,8 @@ html[data-embed='1'] .msg-header {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border-bottom: 1px solid #eee;
-  color: rgba(0, 0, 0, 0.45);
+  border-bottom: 1px solid var(--msg-border);
+  color: var(--msg-text-3);
   font-size: 12px;
 }
 
@@ -842,29 +906,29 @@ html[data-embed='1'] .msg-header {
   top: 0;
   z-index: 1;
   padding: 6px 10px;
-  background: #fafafa;
-  color: rgba(0, 0, 0, 0.45);
+  background: var(--msg-surface-subtle);
+  color: var(--msg-text-3);
   font-size: 10.5px;
   font-weight: 500;
   text-align: left;
 }
 
 .msgp-table tbody tr {
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--msg-border);
 }
 
 .msgp-table tbody tr:hover {
-  background: #fafafa;
+  background: var(--msg-surface-subtle);
 }
 
 .msgp-table tbody tr.is-active {
-  background: #e6f4ff;
+  background: var(--msg-primary-bg);
 }
 
 .msgp-table td {
   padding: 6px 10px;
   overflow: hidden;
-  color: rgba(0, 0, 0, 0.88);
+  color: var(--msg-text);
   vertical-align: middle;
 }
 
@@ -897,14 +961,14 @@ html[data-embed='1'] .msg-header {
 
 .msgp-cell-sub {
   overflow: hidden;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .msgp-mono {
-  color: rgba(0, 0, 0, 0.55);
+  color: var(--msg-text-2);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
 }
@@ -913,26 +977,26 @@ html[data-embed='1'] .msg-header {
   display: inline-block;
   padding: 0 6px;
   border-radius: 4px;
-  background: #f6ffed;
-  color: #389e0d;
+  background: var(--msg-success-bg);
+  color: var(--msg-success-text);
   font-size: 10.5px;
   line-height: 18px;
 }
 
 .msgp-status.is-off {
-  background: #fff7e6;
-  color: #d46b08;
+  background: var(--msg-warning-bg);
+  color: var(--msg-warning-text);
 }
 
 .msgp-check {
-  color: #1677ff;
+  color: var(--msg-primary);
   font-size: 11px;
 }
 
 .msgp-empty {
   margin: 0;
   padding: 32px 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--msg-text-3);
   font-size: 12px;
   text-align: center;
 }
@@ -943,8 +1007,8 @@ html[data-embed='1'] .msg-header {
   justify-content: space-between;
   gap: 8px;
   padding: 6px 10px;
-  border-top: 1px solid #eee;
-  color: rgba(0, 0, 0, 0.45);
+  border-top: 1px solid var(--msg-border);
+  color: var(--msg-text-3);
   font-size: 11px;
 }
 
@@ -952,16 +1016,16 @@ html[data-embed='1'] .msg-header {
   height: 22px;
   margin-left: 6px;
   padding: 0 8px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--msg-border-strong);
   border-radius: 4px;
-  background: #fff;
-  color: rgba(0, 0, 0, 0.65);
+  background: var(--msg-surface);
+  color: var(--msg-text-2);
   font-size: 11px;
 }
 
 .msgp-foot button:hover:not(:disabled) {
-  border-color: #4096ff;
-  color: #1677ff;
+  border-color: var(--msg-primary-hover);
+  color: var(--msg-primary);
 }
 
 .msgp-foot button:disabled {

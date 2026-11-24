@@ -7,9 +7,24 @@
  */
 import { theme as antdTheme, type ThemeConfig } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import { createContext, useContext } from 'react';
 
 export interface AntdThemeOptions {
   dark: boolean;
+}
+
+/**
+ * # 明暗模式上下文
+ *
+ * antd 令牌由 `ConfigProvider` 提供给组件，但有些原生元素（Sider 的 `theme`、模板
+ * 编辑器的高亮配色、portal 出去的选择面板）需要直接知道当前是不是暗色。两种入口
+ * （独立站读宿主消息、联邦读 props）都在这里写入，组件只读、不各自判断 DOM。
+ */
+export const ThemeModeContext = createContext(false);
+
+/** # 当前是否为暗色主题 */
+export function useThemeMode(): boolean {
+  return useContext(ThemeModeContext);
 }
 
 export function antdConfig({ dark }: AntdThemeOptions): {
