@@ -38,6 +38,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { deliveryApi } from '../api/delivery';
+import { CHANNEL_TYPES } from '../lib/channel-options';
 import { deadLetterApi } from '../api/deadLetter';
 import type { Row } from '../api/types';
 import { deliverChannelStatusDic, deliverStatusDic, deliverTargetStatusDic, type DicItem } from '../dic';
@@ -55,6 +56,10 @@ export type FieldKind =
   | 'jsonTemplate'
   /** JSON 文本（表单里带格式校验与一键格式化） */
   | 'json'
+  /** 渠道配置：按渠道类型渲染图形化表单，类型未登记时回退原始 JSON */
+  | 'channelOptions'
+  /** 静态选项下拉（选项是字符串，不是字典枚举） */
+  | 'select'
   /** `u64` 字符串：ID、次数这类不允许做数字运算的整数 */
   | 'u64'
   /** 毫秒时间戳（`u64` 字符串，展示成时间） */
@@ -107,6 +112,8 @@ export interface FieldConfig {
   dic?: DicItem[];
   /** 被引用实体的 `key`，`kind = 'ref'` 时必填 */
   ref?: string;
+  /** 下拉选项，`kind = 'select'` 时必填 */
+  options?: { label: string; value: string }[];
   /** 类别字段名，`kind = 'subject'` 时必填；该字段指向的实体编码决定目录来源 */
   subjectBy?: string;
   /** 类别编码 → 目录来源（用户/角色/组织）；未命中的类别仍按文本输入 */
@@ -294,12 +301,22 @@ const channel: EntityConfig = {
   path: '/msg/channel',
   name: '渠道',
   title: '投递渠道',
-  desc: '真正发消息的通道（站内 / 短信 / 邮件 / websocket 大屏…），编码同时是投递主题的末段',
+  desc: '真正发消息的通道（websocket 大屏 / NATS / 短信 / 邮件）；类型决定发送器与配置字段，编码是实例编码',
   icon: <NotificationOutlined />,
   group: 'definition',
   hideUpdateTime: true,
   modalWidth: 780,
   fields: [
+    {
+      key: 'channelType',
+      label: '渠道类型',
+      kind: 'select',
+      width: 120,
+      required: true,
+      searchable: true,
+      options: CHANNEL_TYPES,
+      tip: '决定用哪个发送器、「渠道配置」显示哪些字段。同一类型可以配多条实例（不同 NATS subject / 短信网关 / 发件账号）；websocket 一般只有一条，连接按目标类别分桶',
+    },
     {
       key: 'code',
       label: '编码',
@@ -308,15 +325,15 @@ const channel: EntityConfig = {
       required: true,
       searchable: true,
       maxLength: 50,
-      tip: '同时是投递主题 `msg.delivery.<code>` 的末段，渠道写操作会触发投递队列缓存重建',
+      tip: '实例编码，同时是投递主题 `msg.delivery.<code>` 的末段；渠道写操作会触发投递队列缓存重建',
     },
     { key: 'name', label: '名称', kind: 'text', width: 160, required: true, searchable: true, maxLength: 50 },
     {
       key: 'options',
       label: '渠道配置',
-      kind: 'json',
+      kind: 'channelOptions',
       rows: 6,
-      tip: '按渠道自定义的 JSON，如 websocket 的 {"token":"..."}；握手时现查，改令牌不用重启',
+      tip: '按渠道类型渲染字段；留空的项用后端默认值。改配置不用重启，渠道写操作会重建消息缓存',
     },
     {
       key: 'payloadTemplate',
@@ -325,7 +342,7 @@ const channel: EntityConfig = {
       width: 260,
       rows: 8,
       ellipsis: true,
-      tip: 'JSON 报文模板，保存前校验 JSON 与占位符。可用变量：{{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；过滤器链示例 {{title:trim|truncate(20)}}；${var} 等价',
+      tip: '报文模板，保存前校验 JSON 与占位符。websocket 用 {{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；NATS 另有 {{deviceId}} {{code}} {{message}}。字符串变量写 {{var:json}}（自带引号）；过滤器链示例 {{title:trim|truncate(20)}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', width: 200, maxLength: 50, ellipsis: true },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true, inForm: false },

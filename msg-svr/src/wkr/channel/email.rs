@@ -49,7 +49,7 @@ use crate::cache::get_message_cache;
 use crate::utils::render_template;
 use async_trait::async_trait;
 use chrono::Utc;
-use msg_api::cst::MSG_CHANNEL_CODE_EMAIL;
+use msg_api::cst::ChannelCode;
 use msg_api::msg::DeliveryMsg;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -80,8 +80,8 @@ pub struct EmailSender;
 
 #[async_trait]
 impl ChannelSender for EmailSender {
-    fn code(&self) -> &'static str {
-        MSG_CHANNEL_CODE_EMAIL
+    fn channel(&self) -> ChannelCode {
+        ChannelCode::Email
     }
 
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome {
@@ -100,7 +100,7 @@ impl ChannelSender for EmailSender {
             return SendOutcome::Failed(format!("收件邮箱格式非法: {}", mask(to)));
         }
 
-        let options = match channel_options(&task.event_code) {
+        let options = match channel_options(&task.event_code, &task.channel_code) {
             Some(raw) => match serde_json::from_str::<EmailOptions>(&raw) {
                 Ok(options) => options,
                 Err(e) => {
@@ -128,6 +128,15 @@ impl ChannelSender for EmailSender {
         if options.require_tls {
             return SendOutcome::Failed(
                 "邮件渠道要求 TLS，但当前构建未启用 TLS 特性（内网明文 SMTP 请把 requireTls 置 false）"
+                    .to_string(),
+            );
+        }
+
+        // 465 是隐式 TLS 端口：不加密地连上去，网关要么直接断开、要么等 TLS 握手到超时。
+        // 这种配置错误必须在连接前就说清楚，别让它表现为「邮件发送超时」。
+        if options.smtp_port == 465 {
+            return SendOutcome::Failed(
+                "邮件渠道端口 465 需要隐式 TLS，当前构建不支持；请改用明文端口（常见 25 或 587，且不启用 STARTTLS）"
                     .to_string(),
             );
         }
@@ -215,12 +224,12 @@ impl Default for EmailOptions {
 }
 
 /// 取该消息下邮件渠道的 options（与短信一致：只走消息缓存，不在发送路径查库）
-fn channel_options(event_code: &str) -> Option<String> {
+fn channel_options(event_code: &str, channel_code: &str) -> Option<String> {
     get_message_cache()
         .get(event_code)?
         .channels
         .iter()
-        .find(|channel| channel.code == MSG_CHANNEL_CODE_EMAIL)?
+        .find(|channel| channel.code == channel_code)?
         .options
         .clone()
 }
@@ -239,7 +248,10 @@ fn build_message(options: &EmailOptions, task: &DeliveryMsg, to: &str) -> String
     };
 
     let mut headers = String::new();
-    headers.push_str(&format!("From: {}\r\n", format_mailbox(&options.from_name, from_address)));
+    headers.push_str(&format!(
+        "From: {}\r\n",
+        format_mailbox(&options.from_name, from_address)
+    ));
     headers.push_str(&format!("To: <{to}>\r\n"));
     headers.push_str(&format!(
         "Subject: {}\r\n",
@@ -270,7 +282,12 @@ fn build_message(options: &EmailOptions, task: &DeliveryMsg, to: &str) -> String
 
 /// 渲染主题/正文：模板非空按模板（`{{title}}`/`{{content}}`/`{{eventCode}}`/`{{sign}}` 等），
 /// 空白则退回任务自带字段。
-fn render_field(template: &str, options: &EmailOptions, task: &DeliveryMsg, fallback: &str) -> String {
+fn render_field(
+    template: &str,
+    options: &EmailOptions,
+    task: &DeliveryMsg,
+    fallback: &str,
+) -> String {
     if template.trim().is_empty() {
         return fallback.to_string();
     }
@@ -330,7 +347,10 @@ fn wrap_base64(encoded: &str, width: usize) -> String {
 
 /// 从发件地址取域名，用于 `Message-ID`；取不到就用 `localhost`
 fn domain_of(address: &str) -> &str {
-    address.rsplit_once('@').map(|(_, domain)| domain).unwrap_or("localhost")
+    address
+        .rsplit_once('@')
+        .map(|(_, domain)| domain)
+        .unwrap_or("localhost")
 }
 
 /// `Message-ID` 的去重后缀（进程内单调递增 + 时间戳，够用且不引随机数依赖）
@@ -349,9 +369,7 @@ fn is_email(address: &str) -> bool {
         return false;
     }
     match address.split_once('@') {
-        Some((local, domain)) => {
-            !local.is_empty() && !domain.is_empty() && !domain.contains('@')
-        }
+        Some((local, domain)) => !local.is_empty() && !domain.is_empty() && !domain.contains('@'),
         None => false,
     }
 }
@@ -407,13 +425,21 @@ async fn deliver(options: &EmailOptions, to: &str, message: &str) -> Result<Stri
     let data_reply = session.command("DATA", 354).await?;
     let _ = data_reply;
 
-    session.writer.write_all(message.as_bytes()).await.map_err(|e| format!("写入邮件正文失败: {e}"))?;
+    session
+        .writer
+        .write_all(message.as_bytes())
+        .await
+        .map_err(|e| format!("写入邮件正文失败: {e}"))?;
     session
         .writer
         .write_all(b".\r\n")
         .await
         .map_err(|e| format!("写入正文结束符失败: {e}"))?;
-    session.writer.flush().await.map_err(|e| format!("刷新写缓冲失败: {e}"))?;
+    session
+        .writer
+        .flush()
+        .await
+        .map_err(|e| format!("刷新写缓冲失败: {e}"))?;
 
     let queued = session.read_reply().await?;
     if queued.code != 250 {
@@ -509,7 +535,10 @@ impl Session {
 async fn expect(session: &mut Session, expected: u16, stage: &str) -> Result<String, String> {
     let reply = session.read_reply().await?;
     if reply.code != expected {
-        return Err(format!("{stage} 期望 {expected}，实际 {}: {}", reply.code, reply.text));
+        return Err(format!(
+            "{stage} 期望 {expected}，实际 {}: {}",
+            reply.code, reply.text
+        ));
     }
     Ok(reply.text)
 }
@@ -518,19 +547,21 @@ async fn expect(session: &mut Session, expected: u16, stage: &str) -> Result<Str
 ///
 /// 优先 `AUTH PLAIN`（一次往返），不支持再走 `AUTH LOGIN`（三次往返）。
 /// 服务器 `EHLO` 里没列 AUTH 时直接失败——不去试探，避免把错误报文当成认证失败。
-async fn authenticate(session: &mut Session, options: &EmailOptions, capabilities: &str) -> Result<(), String> {
+async fn authenticate(
+    session: &mut Session,
+    options: &EmailOptions,
+    capabilities: &str,
+) -> Result<(), String> {
     let upper = capabilities.to_uppercase();
     let plain = upper.contains("AUTH") && upper.contains("PLAIN");
     let login = upper.contains("AUTH") && upper.contains("LOGIN");
 
     if plain {
-        let payload = format!(
-            "\0{}\0{}",
-            options.username.trim(),
-            options.password
-        );
+        let payload = format!("\0{}\0{}", options.username.trim(), options.password);
         let encoded = base64(payload.as_bytes());
-        session.command(&format!("AUTH PLAIN {encoded}"), 235).await?;
+        session
+            .command(&format!("AUTH PLAIN {encoded}"), 235)
+            .await?;
         return Ok(());
     }
 
@@ -546,7 +577,10 @@ async fn authenticate(session: &mut Session, options: &EmailOptions, capabilitie
         return Ok(());
     }
 
-    Err("SMTP 服务器未提供 AUTH PLAIN/LOGIN，无法使用配置的账号（清空 username 可走匿名中继）".to_string())
+    Err(
+        "SMTP 服务器未提供 AUTH PLAIN/LOGIN，无法使用配置的账号（清空 username 可走匿名中继）"
+            .to_string(),
+    )
 }
 
 /// # base64 编码（标准字母表 + `=` 填充）
@@ -613,7 +647,8 @@ mod tests {
             target_category_id: 1,
             target_id: "1279350111347933186".to_string(),
             channel_id: 5,
-            channel_code: MSG_CHANNEL_CODE_EMAIL.to_string(),
+            channel_code: ChannelCode::Email.as_str().to_string(),
+            channel_type: "email".to_string(),
             address: Some("notice@example.com".to_string()),
         }
     }

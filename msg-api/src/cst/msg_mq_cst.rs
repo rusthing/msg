@@ -1,3 +1,5 @@
+use super::ChannelCode;
+
 /// 消息主题前缀
 ///
 /// 消息主题**不是代码拼出来的**：它配置在 `msg_message_queue.code` 里
@@ -40,27 +42,32 @@ pub fn delivery_topic_channel_code(topic: &str) -> Option<&str> {
 /// websocket 渠道编码
 ///
 /// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.websocket`）
-/// 与 `ChannelSender::code` 的取值，三处必须一致。
-pub const MSG_CHANNEL_CODE_WEBSOCKET: &str = "websocket";
+/// 与 `ChannelSender::channel()` 的取值，三处必须一致。取值来自
+/// [`ChannelCode`]，不再手写字符串。
+pub const MSG_CHANNEL_CODE_WEBSOCKET: &str = ChannelCode::Websocket.as_str();
 
-/// 定位卡渠道编码
+/// NATS 渠道编码
 ///
-/// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.locator`）
-/// 与 `ChannelSender::code` 的取值，三处必须一致。报文发到 `dtw.card.callback`，
-/// 由 dtw 订阅后写 RabbitMQ `queue_card_callback`（见 channel/locator_card.rs）。
-pub const MSG_CHANNEL_CODE_LOCATOR_CARD: &str = "locator";
+/// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.nats`）
+/// 与 `ChannelSender::channel()` 的取值，三处必须一致。
+///
+/// 渠道只是「把投递任务发到一条 Core NATS subject」，subject、卡片震动码与
+/// 文案模板都在 `msg_channel.options` 里配（见 channel/nats.rs）。默认值
+/// 发到 `dtw.card.callback`，由 dtw 订阅后写 RabbitMQ `queue_card_callback`；
+/// 换一条 subject 就能对接别的 NATS 消费方，不用发版。
+pub const MSG_CHANNEL_CODE_NATS: &str = ChannelCode::Nats.as_str();
 
 /// 短信渠道编码
 ///
 /// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.sms`）
-/// 与 `ChannelSender::code` 的取值，三处必须一致。
-pub const MSG_CHANNEL_CODE_SMS: &str = "sms";
+/// 与 `ChannelSender::channel()` 的取值，三处必须一致。
+pub const MSG_CHANNEL_CODE_SMS: &str = ChannelCode::Sms.as_str();
 
 /// 邮件渠道编码
 ///
 /// 同时是 `msg_channel.code`、投递队列 `code` 的末段（`msg.delivery.email`）
-/// 与 `ChannelSender::code` 的取值，三处必须一致。
-pub const MSG_CHANNEL_CODE_EMAIL: &str = "email";
+/// 与 `ChannelSender::channel()` 的取值，三处必须一致。
+pub const MSG_CHANNEL_CODE_EMAIL: &str = ChannelCode::Email.as_str();
 
 /// 目标标识的通配值：表示该目标类别下的全部目标
 ///

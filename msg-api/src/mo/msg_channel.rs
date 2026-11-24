@@ -11,6 +11,7 @@ pub struct Model {
     pub id: i64,
     #[sea_orm(unique)]
     pub code: String,
+    pub channel_type: String,
     pub name: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub options: Option<String>,

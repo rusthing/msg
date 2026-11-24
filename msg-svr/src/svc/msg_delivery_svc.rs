@@ -72,6 +72,8 @@ struct RedeliverTask {
     channel_id: u64,
     /// `msg_channel.code`（投递主题末段，消费方按它认领）
     channel_code: String,
+    /// `msg_channel.channel_type`（发送器按它分发）
+    channel_type: String,
     /// `msg_delivery_channel.address`（重投沿用原行上的地址）
     address: Option<String>,
 }
@@ -304,6 +306,7 @@ async fn plan_tasks(
                 delivery_channel_id: channel.id.0,
                 channel_id: channel.channel_id.0,
                 channel_code: channel_vo.code.clone(),
+                channel_type: channel_vo.channel_type.clone(),
                 // 重投不再回查用户表：地址就用首次投递落库的那一份，
                 // 用户后来改了号也不影响「把这条消息再发一遍」的语义
                 address: channel.address.clone(),
@@ -392,6 +395,7 @@ fn build_task(delivery: &MsgDeliveryVo, item: &RedeliverTask) -> DeliveryMsg {
         target_id: item.target_id.clone(),
         channel_id: item.channel_id,
         channel_code: item.channel_code.clone(),
+        channel_type: item.channel_type.clone(),
         address: item.address.clone(),
     }
 }

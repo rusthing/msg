@@ -73,7 +73,7 @@ use crate::cache::get_message_cache;
 use crate::utils::render_template;
 use crate::wkr::conn;
 use async_trait::async_trait;
-use msg_api::cst::MSG_CHANNEL_CODE_WEBSOCKET;
+use msg_api::cst::ChannelCode;
 use msg_api::msg::DeliveryMsg;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -84,8 +84,8 @@ pub struct WebSocketSender;
 
 #[async_trait]
 impl ChannelSender for WebSocketSender {
-    fn code(&self) -> &'static str {
-        MSG_CHANNEL_CODE_WEBSOCKET
+    fn channel(&self) -> ChannelCode {
+        ChannelCode::Websocket
     }
 
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome {
@@ -289,6 +289,7 @@ mod tests {
             target_id: String::new(),
             channel_id: 2,
             channel_code: "websocket".to_string(),
+            channel_type: "websocket".to_string(),
             address: None,
         }
     }

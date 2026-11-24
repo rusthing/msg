@@ -10,6 +10,7 @@
 create table msg_channel (
    id                   INT8                 not null,
    code                 VARCHAR(50)          not null,
+   channel_type         VARCHAR(20)          not null,
    name                 VARCHAR(50)          not null,
    options              TEXT                 null,
    payload_template     TEXT                 null,
@@ -25,8 +26,8 @@ create table msg_channel (
 
 comment on table msg_channel is
 '渠道
-投递的出口，一个渠道一种投递方式
-目前实现的是 websocket 长连接，新增渠道要同时实现发送器并配一条投递队列';
+投递的出口：channel_type 决定用哪个发送器与 options 的结构，code 是实例编码（同时是投递主题末段）
+新增内置类型要同时改 ChannelCode、实现发送器并配一条投递队列；同一类型可以配多条实例';
 
 comment on column msg_channel.id is
 'ID';
@@ -34,6 +35,12 @@ comment on column msg_channel.id is
 comment on column msg_channel.code is
 '编码
 @len 1..=50';
+
+comment on column msg_channel.channel_type is
+'渠道类型
+决定用哪个发送器、options 按哪套结构解析与校验，取值见 msg-api 的 ChannelCode（websocket / nats / sms / email）
+与 code 分离：code 是实例编码（同时是投递主题末段），同一类型可以配多条渠道（不同 subject、不同网关、不同发件账号）
+@len 1..=20';
 
 comment on column msg_channel.name is
 '名称

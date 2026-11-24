@@ -1,28 +1,32 @@
 //! # 渠道发送器
 //!
-//! 每种渠道实现一个 [`ChannelSender`]，按 `channel_code` 分发。
+//! 每种内置渠道实现一个 [`ChannelSender`]，按 [`ChannelCode`] 分发。
 //!
 //! ## 扩展方式
 //!
-//! 接入短信/邮箱时：
-//!
-//! 1. 在 `msg_channel` 里加一条渠道，`code` 只用 `[A-Za-z0-9_-]`；
-//! 2. 实现一个 `ChannelSender`，`code()` 返回同样的值；
+//! 1. 在 `msg-api` 的 `ChannelCode` 里加一个变体（`msg_channel.code` 用同一个值，
+//!    只用 `[A-Za-z0-9_-]`）；
+//! 2. 实现一个 `ChannelSender`，`channel()` 返回这个变体；
 //! 3. 在 [`init_senders`] 里注册；
 //! 4. 在 `msg_delivery_queue` 里为这个渠道配一条投递队列（主题 + 是否持久化），
 //!    执行器按表自动建立订阅。
 //!
 //! 投递侧（`msg-svr` 发任务的地方）不需要任何改动——它按渠道的投递队列配置
 //! 发到对应主题。
+//!
+//! 库里配了 `ChannelCode` 之外的新 code 也不会走错路：`dispatch` 会明确返回
+//! 「渠道未实现」并打 error 日志，而不是静默丢弃。
 
 pub mod email;
-pub mod locator_card;
+pub mod nats;
 pub mod sms;
 pub mod websocket;
 
 use async_trait::async_trait;
+use msg_api::cst::ChannelCode;
 use msg_api::msg::DeliveryMsg;
 use std::sync::{Arc, OnceLock};
+use tracing::error;
 
 /// # 单次发送结果
 #[derive(Debug, Clone)]
@@ -62,8 +66,8 @@ impl SendOutcome {
 /// # 渠道发送器
 #[async_trait]
 pub trait ChannelSender: Send + Sync {
-    /// 渠道编码，与 `msg_channel.code`、投递主题末段一致
-    fn code(&self) -> &'static str;
+    /// 渠道类型，对应 `msg_channel.channel_type`；实例由任务里的 `channel_code` 区分
+    fn channel(&self) -> ChannelCode;
     /// 发送一条投递任务
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome;
 }
@@ -76,20 +80,36 @@ static SENDERS: OnceLock<Vec<Arc<dyn ChannelSender>>> = OnceLock::new();
 pub fn init_senders() {
     let _ = SENDERS.set(vec![
         Arc::new(websocket::WebSocketSender),
-        Arc::new(locator_card::LocatorCardSender),
+        Arc::new(nats::NatsSender),
         Arc::new(sms::SmsSender),
         Arc::new(email::EmailSender),
     ]);
 }
 
-/// # 按渠道分发一条任务
+/// # 按渠道类型分发一条任务
 ///
-/// 渠道没实现时返回 [`SendOutcome::Failed`]，不会静默丢弃——
+/// 发送器按 `channel_type` 选：同一类型的多条实例（不同 subject / 网关 / 发件账号）
+/// 复用同一个发送器，配置由各自渠道的 `options` 决定。
+///
+/// 渠道类型没实现时返回 [`SendOutcome::Failed`]，不会静默丢弃——
 /// 否则运营配了新渠道却一直没人发，很难查。
 pub async fn dispatch(task: &DeliveryMsg) -> SendOutcome {
     let senders = SENDERS.get().map(Vec::as_slice).unwrap_or(&[]);
-    match senders.iter().find(|s| s.code() == task.channel_code) {
+    let Some(channel) = ChannelCode::from_code(&task.channel_type) else {
+        error!(
+            "渠道类型未实现（请在 ChannelCode 里登记并注册发送器）: channel_type={}, channel_code={}, event_code={}",
+            task.channel_type, task.channel_code, task.event_code
+        );
+        return SendOutcome::Failed(format!("渠道未实现: {}", task.channel_type));
+    };
+    match senders.iter().find(|sender| sender.channel() == channel) {
         Some(sender) => sender.send(task).await,
-        None => SendOutcome::Failed(format!("渠道未实现: {}", task.channel_code)),
+        None => {
+            error!(
+                "渠道类型已登记但没注册发送器: channel={channel}, channel_code={}, event_code={}",
+                task.channel_code, task.event_code
+            );
+            SendOutcome::Failed(format!("渠道未实现: {channel}"))
+        }
     }
 }

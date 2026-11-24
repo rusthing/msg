@@ -16,20 +16,25 @@
 //! `targetCategory` 必填：它是这条连接唯一的「我是谁」信息，缺了服务端不知道
 //! 该把它归到哪一类，等于连上一个永远收不到消息的壳子，直接 400 拒绝。
 //!
-//! `token` 的期望值来自 `msg_channel.options`（websocket 那条渠道）：
+//! `token` 的期望值来自这个 `targetCategory` 在 `msg_target_category_channel`
+//! 里绑定的 websocket 渠道的 `msg_channel.options`：
 //!
 //! ```json
 //! { "token": "xxxx" }
 //! ```
 //!
-//! `token` 为空表示不校验（联调用）；渠道表里没有 websocket 这条渠道、或这条
-//! 渠道被禁用（`enabled = false`）时直接拒绝——没有可用的渠道配置就没人会往
-//! 这个渠道投递，连上也收不到消息。`options` 存在但解析不出 JSON、或 `token`
-//! 不是字符串时同样拒绝（503）：那是「本来要配令牌但写坏了」，不能退化成不校验。
+//! 按类别取令牌，是因为类别本身就是「这条连接是谁」：大屏是 `screen` 一种类别，
+//! 另一种业务的大屏就是另一种类别，各自绑自己的 websocket 渠道、各配各的令牌，
+//! 不需要在握手参数里再传渠道实例。一个类别绑了多条 websocket 渠道时取令牌并集
+//! （任一匹配即放行）。
+//!
+//! 拒绝的情形：类别在 `msg_target_category` 里不存在（400，投递永远命中不到它）；
+//! 该类别没绑 websocket 渠道、或绑的全被禁用（503）；`options` 存在但解析不出
+//! JSON（503，那是「本来要配令牌但写坏了」，不能退化成不校验）。令牌全为空表示
+//! 不校验（联调用）。
 
 use crate::config::get_msg_config;
-use crate::dto::MsgChannelQueryDto;
-use crate::svc::MsgChannelSvc;
+use crate::dao::{MsgChannelDao, MsgTargetCategoryChannelDao, MsgTargetCategoryDao};
 use crate::wkr::conn;
 use axum::extract::Query;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -37,7 +42,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
-use msg_api::cst::MSG_CHANNEL_CODE_WEBSOCKET;
+use msg_api::cst::ChannelCode;
 use robotech::db::get_db_conn;
 use serde::Deserialize;
 use std::time::Duration;
@@ -64,14 +69,14 @@ struct WsChannelOptions {
 
 /// # 升级为 websocket
 pub async fn upgrade(ws: WebSocketUpgrade, Query(query): Query<WsQuery>) -> Response {
-    if let Err(status) = check_token(query.token.as_deref()).await {
-        return status.into_response();
-    }
-
     let category_code = query.target_category.trim().to_string();
     if category_code.is_empty() {
         warn!("握手缺少目标类别编码，拒绝连接");
         return StatusCode::BAD_REQUEST.into_response();
+    }
+
+    if let Err(status) = check_token(&category_code, query.token.as_deref()).await {
+        return status.into_response();
     }
 
     ws.on_upgrade(move |socket| handle(socket, category_code))
@@ -79,62 +84,105 @@ pub async fn upgrade(ws: WebSocketUpgrade, Query(query): Query<WsQuery>) -> Resp
 
 /// 校验握手令牌
 ///
-/// 顺带挡掉「渠道不存在」和「渠道已禁用」两种情形：这两种情况下消息中心
-/// 不会往这个渠道投递，放连接进来只会让大屏一直空着。
-async fn check_token(token: Option<&str>) -> Result<(), StatusCode> {
+/// 顺序是「类别 → 该类别绑定的 websocket 渠道 → 令牌」：
+///
+/// 1. 类别不存在直接拒绝：连接登记进去也只会在投递时被当成没人接收的类别，
+///    早点报错比让大屏挂着一个永远空白的连接好；
+/// 2. 类别没绑 websocket 渠道、或绑的渠道全被禁用，拒绝——没有渠道配置就没人
+///    往这类连接投递；
+/// 3. 令牌取这些渠道 `options.token` 的并集：任何一条启用渠道配了非空令牌就
+///    按它校验，所有渠道都没配才不校验（联调场景）。`options` 解析不了直接拒绝，
+///    那是运营本意要配令牌却写坏了，按「未配置」放行等于把鉴权关掉。
+async fn check_token(category_code: &str, token: Option<&str>) -> Result<(), StatusCode> {
+    use crate::mo::msg_channel::{Column as ChannelCol, Model as ChannelModel};
+    use crate::mo::msg_target_category::{Column as CategoryCol, Model as CategoryModel};
+    use crate::mo::msg_target_category_channel::Column as CategoryChannelCol;
+    use sea_orm::{ColumnTrait, Condition};
+
     let db = get_db_conn().map_err(|e| {
         warn!("校验 websocket 令牌失败，取数据库连接出错: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let ro = MsgChannelSvc::get_by_query_dto(
-        MsgChannelQueryDto {
-            code: Some(MSG_CHANNEL_CODE_WEBSOCKET.to_string()),
-            ..Default::default()
-        },
-        Some(db.as_ref()),
+    // 1. 类别必须存在
+    let categories: Vec<CategoryModel> = MsgTargetCategoryDao::list_by_condition(
+        Condition::all().add(CategoryCol::Code.eq(category_code)),
+        &None,
+        db.as_ref(),
+    )
+    .await
+    .map_err(|e| {
+        warn!("校验 websocket 令牌失败，查询目标类别出错: {e}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let Some(category) = categories.into_iter().next() else {
+        warn!("目标类别不存在，拒绝连接: category={category_code}");
+        return Err(StatusCode::BAD_REQUEST);
+    };
+
+    // 2. 该类别绑定的 websocket 渠道（启用）
+    let binds: Vec<crate::mo::msg_target_category_channel::Model> =
+        MsgTargetCategoryChannelDao::list_by_condition(
+            Condition::all().add(CategoryChannelCol::TargetCategoryId.eq(category.id)),
+            &None,
+            db.as_ref(),
+        )
+        .await
+        .map_err(|e| {
+            warn!("校验 websocket 令牌失败，查询类别渠道绑定出错: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    let channel_ids: Vec<i64> = binds.iter().map(|bind| bind.channel_id).collect();
+    if channel_ids.is_empty() {
+        warn!("目标类别没有绑定任何渠道，拒绝连接: category={category_code}");
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    let channels: Vec<ChannelModel> = MsgChannelDao::list_by_condition(
+        Condition::all()
+            .add(ChannelCol::Id.is_in(channel_ids))
+            .add(ChannelCol::ChannelType.eq(ChannelCode::Websocket.as_str()))
+            .add(ChannelCol::Enabled.eq(true)),
+        &None,
+        db.as_ref(),
     )
     .await
     .map_err(|e| {
         warn!("校验 websocket 令牌失败，查询渠道出错: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-
-    let Some(channel) = ro.extra else {
-        warn!("未配置 websocket 渠道（msg_channel.code={MSG_CHANNEL_CODE_WEBSOCKET}），拒绝连接");
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
-    // 禁用即停服：渠道被禁用后消息缓存不再为它生成投递任务、投递订阅也已停掉，
-    // 再放连接进来只会让大屏连上却永远收不到消息
-    if !channel.enabled {
-        warn!("websocket 渠道已禁用，拒绝连接");
+    if channels.is_empty() {
+        warn!("目标类别没有启用中的 websocket 渠道，拒绝连接: category={category_code}");
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     }
 
-    // 没配置渠道参数（或配置成空白）才视为「不校验令牌」，方便联调。
-    // 配置存在但解析不了时必须拒绝：那是运营本意要配令牌却写坏了，按「未配置」
-    // 放行等于把鉴权关掉，任何人都能连上来收大屏消息。
-    let expected = match channel.options.as_deref() {
-        None => String::new(),
-        Some(options) if options.trim().is_empty() => String::new(),
-        Some(options) => match serde_json::from_str::<WsChannelOptions>(options) {
-            Ok(parsed) => parsed.token,
-            Err(e) => {
-                warn!("websocket 渠道 options 解析失败，拒绝连接（请修正渠道配置）: {e}");
-                return Err(StatusCode::SERVICE_UNAVAILABLE);
-            }
-        },
-    };
+    // 3. 令牌并集
+    let mut expected = Vec::new();
+    for channel in &channels {
+        let token = match channel.options.as_deref().map(str::trim) {
+            None | Some("") => String::new(),
+            Some(options) => match serde_json::from_str::<WsChannelOptions>(options) {
+                Ok(parsed) => parsed.token,
+                Err(e) => {
+                    warn!(
+                        "websocket 渠道 options 解析失败，拒绝连接（请修正渠道配置）: channel_code={}, err={e}",
+                        channel.code
+                    );
+                    return Err(StatusCode::SERVICE_UNAVAILABLE);
+                }
+            },
+        };
+        if !token.is_empty() {
+            expected.push(token);
+        }
+    }
 
-    // 没配令牌就是不校验，方便联调
     if expected.is_empty() {
         return Ok(());
     }
-    if token == Some(expected.as_str()) {
-        Ok(())
-    } else {
-        Err(StatusCode::UNAUTHORIZED)
+    match token {
+        Some(token) if expected.iter().any(|value| value == token) => Ok(()),
+        _ => Err(StatusCode::UNAUTHORIZED),
     }
 }
 
@@ -149,9 +197,8 @@ async fn handle(socket: WebSocket, category_code: String) {
     let mut shutdown = conn::shutdown_receiver();
     let (mut sink, mut stream) = socket.split();
 
-    let mut ticker = tokio::time::interval(Duration::from_secs(
-        config.ws.ping_interval_secs.max(1),
-    ));
+    let mut ticker =
+        tokio::time::interval(Duration::from_secs(config.ws.ping_interval_secs.max(1)));
     ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
     info!(

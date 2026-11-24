@@ -156,11 +156,16 @@ pub struct DeliveryMsg {
     pub target_id: String,
     /// 渠道 ID（`msg_delivery_channel.channel_id`）
     pub channel_id: u64,
-    /// 渠道编码（`msg_channel.code`）
+    /// 渠道编码（`msg_channel.code`，实例编码）
     ///
-    /// 投递侧按它查 `msg_delivery_queue` 决定主题与是否持久化，消费方按它认领
-    /// 任务（选择对应的渠道发送器）。
+    /// 投递侧按它查 `msg_delivery_queue` 决定主题与是否持久化；消费方按
+    /// [`Self::channel_type`] 选择发送器，`channel_code` 只用来对日志与地址。
     pub channel_code: String,
+    /// 渠道类型（`msg_channel.channel_type`，取值见 `ChannelCode`）
+    ///
+    /// 发送器按它分发：同一类型可以配多条实例（不同 NATS subject、不同网关），
+    /// 消费方不必认识具体实例编码。
+    pub channel_type: String,
 
     /// 收件地址（`msg_delivery_channel.address`）
     ///

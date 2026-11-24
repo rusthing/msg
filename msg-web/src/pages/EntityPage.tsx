@@ -49,6 +49,7 @@ import { crudOf } from '../api/crud';
 import type { QueryParams } from '../api/client';
 import type { Row as MsgRow } from '../api/types';
 import BoolSwitch from '../components/BoolSwitch';
+import ChannelOptionsEditor from '../components/ChannelOptionsEditor';
 import JsonEditor from '../components/JsonEditor';
 import JsonText from '../components/JsonText';
 import OptionButtons from '../components/OptionButtons';
@@ -84,7 +85,8 @@ function isWideField(field: FieldConfig): boolean {
     field.kind === 'textarea' ||
     field.kind === 'template' ||
     field.kind === 'jsonTemplate' ||
-    field.kind === 'json'
+    field.kind === 'json' ||
+    field.kind === 'channelOptions'
   );
 }
 
@@ -96,6 +98,7 @@ function isTextLike(field: FieldConfig): boolean {
     field.kind === 'template' ||
     field.kind === 'jsonTemplate' ||
     field.kind === 'json' ||
+    field.kind === 'channelOptions' ||
     field.kind === 'subject' ||
     field.kind === 'u64'
   );
@@ -289,6 +292,7 @@ function renderCell(
     case 'ref':
       return refLabel(field.ref ? refOptions[field.ref] : undefined, value);
     case 'json':
+    case 'channelOptions':
       return <JsonText value={value} />;
     case 'textarea':
     case 'template':
@@ -321,7 +325,7 @@ function renderDetailValue(
   refOptions: Record<string, RefOptions>,
 ): ReactNode {
   const value = record[field.key];
-  if (field.kind === 'json') {
+  if (field.kind === 'json' || field.kind === 'channelOptions') {
     return value ? <pre className="msg-json-view">{prettyJson(String(value))}</pre> : EMPTY;
   }
   if (field.kind === 'textarea' || field.kind === 'template' || field.kind === 'jsonTemplate') {
@@ -693,6 +697,16 @@ export default function EntityPage({ config }: EntityPageProps) {
     const value = draft[field.key];
     const common = { allowClear: true, className: 'msg-filter-control', placeholder: field.label };
 
+    if (field.kind === 'select') {
+      return (
+        <Select
+          {...common}
+          value={value === undefined || value === null ? undefined : String(value)}
+          options={field.options}
+          onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+        />
+      );
+    }
     if (field.kind === 'dic') {
       const options = dicOptions(field.dic ?? []);
       // 规范：0–1 个选项不渲染选择控件，2–5 个用按钮组，≥6 个仍用下拉。
@@ -838,6 +852,10 @@ export default function EntityPage({ config }: EntityPageProps) {
         );
       case 'json':
         return <JsonEditor rows={field.rows ?? 8} placeholder={`请输入${field.label}`} />;
+      case 'channelOptions':
+        return <ChannelOptionsEditor />;
+      case 'select':
+        return <Select allowClear options={field.options} placeholder={`请选择${field.label}`} />;
       case 'ms':
         return (
           <DatePicker
@@ -948,7 +966,7 @@ export default function EntityPage({ config }: EntityPageProps) {
         message: `${field.label}不能超过 ${field.maxLength} 个字符`,
       });
     }
-    if (field.kind === 'json') {
+    if (field.kind === 'json' || field.kind === 'channelOptions') {
       rules.push({
         validator: (_rule, value) => {
           const error = validateJsonText(value === undefined || value === null ? '' : String(value));
@@ -1113,6 +1131,7 @@ export default function EntityPage({ config }: EntityPageProps) {
                   // JSON/模板在输入过程中不校验，避免刚敲一个 `{` 就整片标红；失焦和保存时仍会校验
                   validateTrigger={
                     field.kind === 'json' ||
+                    field.kind === 'channelOptions' ||
                     field.kind === 'jsonTemplate' ||
                     field.kind === 'template'
                       ? ['onBlur']

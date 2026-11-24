@@ -163,13 +163,15 @@ pub struct CategoryCache {
 pub struct ChannelCache {
     /// 渠道 ID
     pub id: u64,
-    /// 渠道编码
+    /// 渠道编码（实例编码，同时是投递主题末段）
     pub code: String,
+    /// 渠道类型：决定用哪个发送器、options 按哪套结构解析（见 `ChannelCode`）
+    pub channel_type: String,
     /// 名称
     pub name: String,
     /// 渠道选项（JSON 字符串）
     pub options: Option<String>,
-    /// 载荷模板（为空时用渠道代码里的默认报文结构）
+    /// 载荷模板（为空时用发送器内置的默认报文结构）
     pub payload_template: Option<String>,
     /// 署名
     pub remark: Option<String>,
@@ -215,6 +217,7 @@ fn to_channel_cache(ch: &MsgChannelVo) -> ChannelCache {
     ChannelCache {
         id: ch.id.0,
         code: ch.code.clone(),
+        channel_type: ch.channel_type.clone(),
         name: ch.name.clone(),
         options: ch.options.clone(),
         payload_template: ch.payload_template.clone(),

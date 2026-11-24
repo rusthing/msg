@@ -1514,6 +1514,7 @@ fn build_task(
         target_id: target.target_id.clone(),
         channel_id: route.channel.id,
         channel_code: route.channel.code.clone(),
+        channel_type: route.channel.channel_type.clone(),
         // 短信 / 邮件要的号码或邮箱，展开时已解析好；大屏、定位卡为 None
         address: route.address.clone(),
     }

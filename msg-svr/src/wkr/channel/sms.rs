@@ -46,7 +46,7 @@ use super::{ChannelSender, SendOutcome};
 use crate::cache::get_message_cache;
 use crate::utils::render_template;
 use async_trait::async_trait;
-use msg_api::cst::MSG_CHANNEL_CODE_SMS;
+use msg_api::cst::ChannelCode;
 use msg_api::msg::DeliveryMsg;
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
@@ -70,8 +70,8 @@ pub struct SmsSender;
 
 #[async_trait]
 impl ChannelSender for SmsSender {
-    fn code(&self) -> &'static str {
-        MSG_CHANNEL_CODE_SMS
+    fn channel(&self) -> ChannelCode {
+        ChannelCode::Sms
     }
 
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome {
@@ -86,7 +86,7 @@ impl ChannelSender for SmsSender {
             );
         };
 
-        let options = match channel_options(&task.event_code) {
+        let options = match channel_options(&task.event_code, &task.channel_code) {
             Some(raw) => match serde_json::from_str::<SmsOptions>(&raw) {
                 Ok(options) => options,
                 Err(e) => {
@@ -116,8 +116,8 @@ impl ChannelSender for SmsSender {
             return SendOutcome::Failed("短信报文渲染为空（检查 bodyTemplate）".to_string());
         }
 
-        let method = Method::from_bytes(options.method.to_uppercase().as_bytes())
-            .unwrap_or(Method::POST);
+        let method =
+            Method::from_bytes(options.method.to_uppercase().as_bytes()).unwrap_or(Method::POST);
         let mut request = client()
             .request(method, options.gateway_url.trim())
             .timeout(Duration::from_millis(options.timeout_ms.max(1)))
@@ -242,12 +242,12 @@ fn client() -> &'static reqwest::Client {
 ///
 /// 渠道配置以消息缓存为准（`msg_channel.options` 随渠道写操作全量重载），
 /// 不在发送路径上查库——一条报警可能同时发给几百个人，每人一次查库不值。
-fn channel_options(event_code: &str) -> Option<String> {
+fn channel_options(event_code: &str, channel_code: &str) -> Option<String> {
     get_message_cache()
         .get(event_code)?
         .channels
         .iter()
-        .find(|channel| channel.code == MSG_CHANNEL_CODE_SMS)?
+        .find(|channel| channel.code == channel_code)?
         .options
         .clone()
 }
@@ -366,7 +366,8 @@ mod tests {
             target_category_id: 1,
             target_id: "1279350111347933186".to_string(),
             channel_id: 4,
-            channel_code: MSG_CHANNEL_CODE_SMS.to_string(),
+            channel_code: ChannelCode::Sms.as_str().to_string(),
+            channel_type: "sms".to_string(),
             address: Some("13800138000".to_string()),
         }
     }

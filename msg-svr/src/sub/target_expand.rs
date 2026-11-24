@@ -37,6 +37,7 @@ use crate::mo::msg_person::{Column as PersonCol, Entity as PersonEntity};
 use crate::mo::msg_role::{Column as RoleCol, Entity as RoleEntity};
 use crate::mo::msg_role_user::{Column as RoleUserCol, Entity as RoleUserEntity};
 use crate::mo::msg_user::{Column as UserCol, Entity as UserEntity};
+use msg_api::cst::ChannelCode;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 use std::collections::{HashMap, HashSet};
 use tracing::warn;
@@ -68,14 +69,18 @@ enum AddressKind {
 }
 
 impl AddressKind {
-    /// 渠道编码 → 地址种类；`None` 表示该渠道不需要地址
+    /// 渠道类型 → 地址种类；`None` 表示该渠道不需要地址
     ///
-    /// 新增短信 / 邮件渠道时只改这一张表：渠道编码按 `msg_channel.code` 约定。
-    fn of_channel(code: &str) -> Option<Self> {
-        match code {
-            "sms" => Some(Self::Mobile),
-            "email" => Some(Self::Email),
-            _ => None,
+    /// 只有短信 / 邮件要把消息投到个人，其余渠道按连接或卡号路由，展开时不解析地址。
+    ///
+    /// 入参是 `channel_type`，**不是** `code`：类型与实例分离后，短信实例可以叫
+    /// `sms_gw2`、邮件实例可以叫 `mail_notice`，按实例编码判断会把它们当成
+    /// 「不需要地址」的渠道，投递时静默跳过。
+    fn of_channel(channel_type: &str) -> Option<Self> {
+        match ChannelCode::from_code(channel_type)? {
+            ChannelCode::Sms => Some(Self::Mobile),
+            ChannelCode::Email => Some(Self::Email),
+            ChannelCode::Websocket | ChannelCode::Nats => None,
         }
     }
 }
@@ -409,7 +414,7 @@ where
         let needs_address = target
             .channels
             .iter()
-            .any(|c| AddressKind::of_channel(&c.code).is_some());
+            .any(|c| AddressKind::of_channel(&c.channel_type).is_some());
         if needs_address {
             // 大屏 / 定位卡不该配短信 / 邮件渠道：没有地址可取，落 Skipped 而不是静默跳过
             outcome.skipped.push(SkippedTarget {
@@ -495,7 +500,7 @@ where
 
             let mut routes: Vec<ExpandedChannel> = Vec::new();
             for channel in hit.channels {
-                let address = match AddressKind::of_channel(&channel.code) {
+                let address = match AddressKind::of_channel(&channel.channel_type) {
                     None => None,
                     Some(kind) => {
                         let raw = match kind {
@@ -683,12 +688,16 @@ mod tests {
         assert!(!blocked("002001", &disabled), "无关分支的下级");
     }
 
-    /// 渠道 → 地址种类：只有短信 / 邮件要地址，大屏与定位卡不要
+    /// 渠道 → 地址种类：只有短信 / 邮件要地址，大屏与 NATS 不要
     #[test]
     fn only_personal_channels_need_address() {
         assert_eq!(AddressKind::of_channel("sms"), Some(AddressKind::Mobile));
         assert_eq!(AddressKind::of_channel("email"), Some(AddressKind::Email));
         assert_eq!(AddressKind::of_channel("websocket"), None);
+        assert_eq!(AddressKind::of_channel("nats"), None);
+        // 实例编码不是类型：定位卡渠道的 code 仍是 locator，但类型是 nats
         assert_eq!(AddressKind::of_channel("locator"), None);
+        // 任何未登记的类型都不解析地址
+        assert_eq!(AddressKind::of_channel("unknown"), None);
     }
 }
