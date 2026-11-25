@@ -30,9 +30,21 @@ export function useThemeMode(): boolean {
 export function antdConfig({ dark }: AntdThemeOptions): {
   locale: typeof zhCN;
   theme: ThemeConfig;
+  getPopupContainer: (triggerNode?: HTMLElement) => HTMLElement;
 } {
   return {
     locale: zhCN,
+    /**
+     * 弹出层挂到应用根节点，而不是 document.body。
+     *
+     * 挂 body 时 antd 的可见区域按整个视口算：嵌进 uiam 桌面后，下拉框会画到
+     * 窗口外面、并且拿不到 `.msg-federated` 上的主题变量；挂到根节点后，弹层
+     * 的滚动祖先链里就有窗口内容区，滚动与边界都会跟着窗口走。
+     * 反例也要顾着：Modal / Drawer 本身挂在 body 上，里面的下拉框跟着回 body，
+     * 否则弹层会被窗口的层叠上下文压到遮罩下面，看不见。
+     */
+    getPopupContainer: (triggerNode?: HTMLElement) =>
+      triggerNode?.closest<HTMLElement>('.msg-federated') ?? document.body,
     theme: {
       algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
       token: {

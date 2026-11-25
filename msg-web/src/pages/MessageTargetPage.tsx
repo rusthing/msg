@@ -14,11 +14,9 @@ import {
   Button,
   Card,
   Descriptions,
-  Drawer,
   Empty,
   Form,
   Input,
-  Modal,
   Select,
   Space,
   Table,
@@ -26,6 +24,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
+import { Modal, Drawer } from '../lib/federated-overlay';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

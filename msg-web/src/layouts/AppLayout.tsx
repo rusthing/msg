@@ -9,7 +9,8 @@
  */
 
 import { DashboardOutlined, MenuOutlined } from '@ant-design/icons';
-import { Button, Drawer, Layout, Menu, Typography } from 'antd';
+import { Button, Layout, Menu, Typography } from 'antd';
+import { Drawer } from '../lib/federated-overlay';
 import type { MenuProps } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';

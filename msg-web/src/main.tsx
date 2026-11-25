@@ -12,6 +12,7 @@ import 'dayjs/locale/zh-cn';
 import App from './App';
 import { initEmbed, useEmbedTheme } from './lib/embed-bridge';
 import { antdConfig, ThemeModeContext } from './lib/theme-config';
+import { FederatedOverlayRoot } from './lib/federated-overlay';
 import './styles/global.css';
 
 const container = document.getElementById('root');
@@ -64,4 +65,9 @@ function Root() {
 // 必须在 createRoot 之前装桥接监听，否则宿主的 init 消息会错过
 initEmbed('msg');
 
-ReactDOM.createRoot(container).render(<Root />);
+ReactDOM.createRoot(container).render(
+  // 独立站的对话框也挂到 #root：与联邦窗口里「挂应用根节点」保持同一套行为
+  <FederatedOverlayRoot resolve={() => container}>
+    <Root />
+  </FederatedOverlayRoot>,
+);

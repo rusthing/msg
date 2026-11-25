@@ -5,12 +5,13 @@
  * 地址栏；页面清单、数据接口和鉴权仍复用 App.tsx 的同一份实现。主题通过 props
  * 传入（React 单例后 props 就是最可靠的通道），标题由当前路由推导后回报给宿主。
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { App as AntdApp, ConfigProvider } from 'antd';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AppRoutes } from '../App';
 import { ENTITIES } from '../entities';
 import { antdConfig, ThemeModeContext } from '../lib/theme-config';
+import { FederatedOverlayRoot } from '../lib/federated-overlay';
 import '../styles/global.css';
 import './federation.css';
 
@@ -43,18 +44,22 @@ export default function MsgFederatedApp({
 }: MsgFederatedProps) {
   const entry = initialPath.startsWith('/') ? initialPath : '/';
   const config = antdConfig({ dark: theme === 'dark' });
+  // Modal / Drawer 挂到这个节点上：遮罩只盖本窗口，而不是整个 uiam 桌面
+  const rootRef = useRef<HTMLDivElement>(null);
   return (
-    <div className="msg-federated" data-theme={theme}>
-      <ThemeModeContext.Provider value={theme === 'dark'}>
-        <ConfigProvider {...config}>
-          <AntdApp>
-            <MemoryRouter initialEntries={[entry]}>
-              <RouteReporter onRoute={onRoute} />
-              <AppRoutes />
-            </MemoryRouter>
-          </AntdApp>
-        </ConfigProvider>
-      </ThemeModeContext.Provider>
-    </div>
+    <FederatedOverlayRoot resolve={() => rootRef.current}>
+      <div ref={rootRef} className="msg-federated" data-theme={theme}>
+        <ThemeModeContext.Provider value={theme === 'dark'}>
+          <ConfigProvider {...config}>
+            <AntdApp>
+              <MemoryRouter initialEntries={[entry]}>
+                <RouteReporter onRoute={onRoute} />
+                <AppRoutes />
+              </MemoryRouter>
+            </AntdApp>
+          </ConfigProvider>
+        </ThemeModeContext.Provider>
+      </div>
+    </FederatedOverlayRoot>
   );
 }

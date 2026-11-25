@@ -23,12 +23,10 @@ import {
   Col,
   DatePicker,
   Descriptions,
-  Drawer,
   Empty,
   Form,
   Grid,
   Input,
-  Modal,
   Row as AntRow,
   Select,
   Space,
@@ -39,9 +37,10 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
+import { Modal, Drawer } from '../lib/federated-overlay';
 import type { FormRule } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, ReloadOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
@@ -1085,8 +1084,8 @@ export default function EntityPage({
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Card variant="borderless">
         {/*
-          条件与「查询 / 重置 / 刷新 / 新增」同一行：条件区自动换行占满左侧，
-          按钮组靠右。窄屏由样式把按钮组压到下一行，不影响点击热区。
+          条件与「查询 / 重置 / 新增」同一行：条件区可伸缩占满左侧，按钮组靠右。
+          「刷新」不在这里重复——它和「查询」打的是同一个接口、同一份条件。
         */}
         <div className="msg-toolbar">
           <div className="msg-toolbar-filters">
@@ -1111,9 +1110,6 @@ export default function EntityPage({
             </Button>
             <Button icon={<UndoOutlined />} onClick={resetFilters}>
               重置
-            </Button>
-            <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>
-              刷新
             </Button>
             {config.readOnly ? null : (
               <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>

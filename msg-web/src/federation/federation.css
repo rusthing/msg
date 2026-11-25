@@ -10,6 +10,10 @@
   height: 100%;
   background: var(--msg-bg);
   color: var(--msg-text);
+  /* antd 弹层按应用根节点定位（见 lib/theme-config.tsx）：根节点必须是定位祖先，
+     否则下拉框的坐标算在根节点、画在窗口外层，看起来就是「位置错位」。 */
+  position: relative;
+  isolation: isolate;
 }
 
 .msg-federated[data-theme='dark'] {

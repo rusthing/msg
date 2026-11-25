@@ -258,14 +258,17 @@ input[type='color']:not(:disabled) {
    条件区按剩余宽度均分并可压缩，压到最小才在窄屏换行。 */
 .msg-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 12px;
 }
 
+/* 条件区一行排布：控件定宽、关键字可伸缩，真放不下时横向滚动，
+   而不是折成两三行把表格顶下去 */
 .msg-toolbar-filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   align-items: center;
   gap: 12px;
   /* 基数为 0：条件区只吃「按钮组之外的剩余宽度」，不会把按钮组挤到下一行 */
@@ -689,6 +692,12 @@ html[data-embed='1'] .msg-header {
   transform: rotate(180deg);
 }
 
+/* 选择面板的 body 级 portal 宿主：不生成盒子，让面板的 `fixed` 真正相对视口，
+   同时保留 `data-theme` 的令牌继承。 */
+.msg-overlay-portal {
+  display: contents;
+}
+
 .msgp-panel {
   position: fixed;
   z-index: 2000;
@@ -1030,4 +1039,43 @@ html[data-embed='1'] .msg-header {
 
 .msgp-foot button:disabled {
   opacity: 0.4;
+}
+
+/* ---- 对话框收进窗口 -----------------------------------------------------
+   getContainer 把 Modal 挂到 `.msg-federated` 里，wrap 会撑满窗口内容区；
+   但 antd 默认 `top:100px` + 内容多高就多高，表单长一点就顶出窗口底部，
+   页脚（取消 / 确定）根本够不到。这里让 wrap 垂直居中，并给 Modal 设
+   上限高度、把滚动条收到 body 里，页头页脚常驻。 */
+.msg-federated .ant-modal-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.msg-federated .ant-modal {
+  top: 0;
+  max-height: 100%;
+  margin: 0;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.msg-federated .ant-modal-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.msg-federated .ant-modal-header,
+.msg-federated .ant-modal-footer {
+  flex: 0 0 auto;
+}
+
+.msg-federated .ant-modal-body {
+  min-height: 0;
+  overflow-y: auto;
 }

@@ -38,13 +38,26 @@ const PANEL_HEIGHT = 430;
 const PAGE_SIZE = 8;
 
 /**
- * 选择面板的 portal 宿主。
+ * 选择面板的 portal 宿主：body 上的一个隐形容器（`display: contents`）。
  *
- * 联邦窗口里主题变量挂在 `.msg-federated[data-theme]` 上，面板若直接挂到 body
- * 就落到宿主的亮色上下文里，暗色下会出现白底面板；独立站则仍挂 body。
+ * 面板是 `position: fixed` + 视口坐标（`getBoundingClientRect`）。uiam 给
+ * `.federation-app` 加了 `transform`，窗口内任何 `fixed` 后代的包含块都会变成
+ * 那个窗口，于是「按视口算坐标、按窗口画位置」，面板就整体偏出字段一截。
+ * 挂到 body 上，`fixed` 才真正相对视口，坐标与绘制同一个基准。
+ * 暗色靠 `data-theme` 复制过去（msg 的暗色令牌就是 `[data-theme='dark']`）。
  */
+let portalRoot: HTMLDivElement | null = null;
+
 function portalHost(): HTMLElement {
-  return document.querySelector<HTMLElement>('.msg-federated') ?? document.body;
+  if (!portalRoot) {
+    portalRoot = document.createElement('div');
+    portalRoot.className = 'msg-overlay-portal';
+  }
+  const theme = document.querySelector<HTMLElement>('.msg-federated')?.getAttribute('data-theme');
+  if (theme) portalRoot.setAttribute('data-theme', theme);
+  else portalRoot.removeAttribute('data-theme');
+  if (portalRoot.parentElement !== document.body) document.body.appendChild(portalRoot);
+  return portalRoot;
 }
 
 /** treeCode 每层 3 位，根为 0。 */
@@ -125,18 +138,28 @@ export function ManagedPicker({
   const currentPage = Math.min(page, pageCount);
   const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+  /**
+   * 面板摆放：下方不够就翻到上方，范围按**应用根节点**收敛。
+   * 联邦窗口里视口是整块桌面，按视口算会把面板推到窗口外，看起来像下拉框错位。
+   */
   const place = () => {
     const trigger = triggerRef.current;
     if (!trigger) return;
     const box = trigger.getBoundingClientRect();
-    const width = Math.min(Math.max(box.width, PANEL_WIDTH), window.innerWidth - 16);
-    const below = window.innerHeight - box.bottom - 12;
-    const above = box.top - 12;
+    const root = document.querySelector<HTMLElement>('.msg-federated:not(.msg-overlay-portal)');
+    const area = root?.getBoundingClientRect();
+    const minX = (area ? area.left : 0) + 8;
+    const maxX = (area ? area.right : window.innerWidth) - 8;
+    const minY = (area ? area.top : 0) + 8;
+    const maxY = (area ? area.bottom : window.innerHeight) - 8;
+    const width = Math.max(240, Math.min(Math.max(box.width, PANEL_WIDTH), maxX - minX));
+    const below = maxY - box.bottom - 6;
+    const above = box.top - minY - 6;
     const flip = below < 300 && above > below;
-    const height = Math.min(PANEL_HEIGHT, Math.max(260, flip ? above : below));
+    const height = Math.min(PANEL_HEIGHT, Math.max(240, flip ? above : below));
     setRect({
-      left: Math.min(Math.max(8, box.left), window.innerWidth - width - 8),
-      top: flip ? Math.max(8, box.top - height - 6) : box.bottom + 6,
+      left: Math.max(minX, Math.min(box.left, maxX - width)),
+      top: flip ? Math.max(minY, box.top - height - 6) : Math.min(box.bottom + 6, maxY - height),
       width,
       height,
     });
