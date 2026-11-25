@@ -850,44 +850,44 @@ mod tests {
         }
     }
 
-    /// 标识键优先级：cardCodes 全量清单优先，其次 locatorCodes，最后单卡 locatorCode
+    /// 每个目标类别只认自己的键：单卡 / 聚集清单 / 区域 ID 互不兜底
+    ///
+    /// 三个类别的 labels 可能同时带着多个键（报警中心按白名单透传），但类别的
+    /// `target_keys` 只配一个键，就只取那一个——不会因为别处有清单就多投。
     #[test]
-    fn target_ids_prefer_configured_keys_in_order() {
-        let cat = category(false, Some("cardCodes,locatorCodes,locatorCode"));
+    fn target_ids_take_only_category_configured_key() {
         let all = labels(&[
             ("locatorCode", "C001"),
             ("locatorCodes", "C001,C002"),
-            ("cardCodes", "C009,C010"),
+            ("regionId", "9"),
         ]);
-        let (ids, truncated) = target_ids_of("", &cat, &all);
-        assert_eq!(ids, vec!["C009".to_string(), "C010".to_string()]);
-        assert!(!truncated);
-
-        let without_card_codes = labels(&[("locatorCode", "C001"), ("locatorCodes", "C001,C002")]);
-        let (ids, _) = target_ids_of("", &cat, &without_card_codes);
-        assert_eq!(ids, vec!["C001".to_string(), "C002".to_string()]);
-
-        let single = labels(&[("locatorCode", "C001")]);
-        let (ids, _) = target_ids_of("", &cat, &single);
+        // 禁入/禁出：单卡
+        let (ids, _) = target_ids_of("", &category(false, Some("locatorCode")), &all);
         assert_eq!(ids, vec!["C001".to_string()]);
+        // 聚集：簇内清单
+        let (ids, _) = target_ids_of("", &category(false, Some("locatorCodes")), &all);
+        assert_eq!(ids, vec!["C001".to_string(), "C002".to_string()]);
+        // 超员：区域目标，展开成一条 regionId
+        let (ids, _) = target_ids_of("", &category(false, Some("regionId")), &all);
+        assert_eq!(ids, vec!["9".to_string()]);
     }
 
     /// 目标行写了具体 target_id 时不再看 labels：定向一条就只发一条
     #[test]
     fn explicit_target_id_wins_over_keys() {
-        let all = labels(&[("cardCodes", "C001,C002")]);
-        let (ids, _) = target_ids_of("C009", &category(false, Some("cardCodes")), &all);
+        let all = labels(&[("locatorCodes", "C001,C002")]);
+        let (ids, _) = target_ids_of("C009", &category(false, Some("locatorCodes")), &all);
         assert_eq!(ids, vec!["C009".to_string()]);
         // 允许广播的类别也一样：写了具体目标就不是广播
-        let (ids, _) = target_ids_of("C009", &category(true, Some("cardCodes")), &all);
+        let (ids, _) = target_ids_of("C009", &category(true, Some("locatorCodes")), &all);
         assert_eq!(ids, vec!["C009".to_string()]);
     }
 
     /// 逗号分隔、空白与重复剔除、保序；空 labels / 空串不产生标识
     #[test]
     fn target_ids_split_trim_and_dedupe() {
-        let cat = category(false, Some("cardCodes"));
-        let value = labels(&[("cardCodes", " C1 ,, C2,C1,  ,C3 ")]);
+        let cat = category(false, Some("locatorCodes"));
+        let value = labels(&[("locatorCodes", " C1 ,, C2,C1,  ,C3 ")]);
         let (ids, truncated) = target_ids_of("", &cat, &value);
         assert_eq!(
             ids,
@@ -897,7 +897,7 @@ mod tests {
 
         assert!(target_ids_of("", &cat, &labels(&[])).0.is_empty());
         assert!(
-            target_ids_of("", &cat, &labels(&[("cardCodes", "   ")]))
+            target_ids_of("", &cat, &labels(&[("locatorCodes", "   ")]))
                 .0
                 .is_empty()
         );
@@ -906,12 +906,12 @@ mod tests {
     /// 超过 32 个截断，并标记 truncated
     #[test]
     fn target_ids_cap_at_limit() {
-        let cat = category(false, Some("cardCodes"));
+        let cat = category(false, Some("locatorCodes"));
         let raw = (0..40)
             .map(|i| format!("C{i:02}"))
             .collect::<Vec<_>>()
             .join(",");
-        let (ids, truncated) = target_ids_of("", &cat, &labels(&[("cardCodes", raw.as_str())]));
+        let (ids, truncated) = target_ids_of("", &cat, &labels(&[("locatorCodes", raw.as_str())]));
         assert_eq!(ids.len(), MAX_TARGET_IDS);
         assert!(truncated);
         assert_eq!(ids.first().map(String::as_str), Some("C00"));
@@ -921,7 +921,7 @@ mod tests {
             .map(|i| format!("C{i:02}"))
             .collect::<Vec<_>>()
             .join(",");
-        let (ids, truncated) = target_ids_of("", &cat, &labels(&[("cardCodes", raw.as_str())]));
+        let (ids, truncated) = target_ids_of("", &cat, &labels(&[("locatorCodes", raw.as_str())]));
         assert_eq!(ids.len(), MAX_TARGET_IDS);
         assert!(!truncated);
     }
