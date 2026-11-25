@@ -263,7 +263,7 @@ export default function Dashboard() {
           title="消息定义"
           value={error ? '--' : data.messages}
           hint="去配置"
-          link="/message-workbench"
+          link="/message"
           loading={loading}
         />
         <StatCard

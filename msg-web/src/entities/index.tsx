@@ -230,6 +230,12 @@ export interface EntityConfig {
   /** 新增/编辑弹窗宽度 */
   modalWidth?: number;
   /**
+   * 不在侧边栏显示（路由仍保留）。
+   *
+   * 用于「维护入口已经合并进别的页面、但接口和深链还要留着」的表。
+   */
+  hideInMenu?: boolean;
+  /**
    * 下拉/表格里的可读名称。
    *
    * 默认取 `name` / `code` / 主键；投递链路这类没有 name 的表需要自己拼一行
@@ -371,8 +377,10 @@ const message: EntityConfig = {
   fields: [
     // 列表列顺序与 fields 一致：事件编码、名称是最先看的身份列，放最前；
     // 两个外键来源退到它们后面（筛选区与详情抽屉也跟着这个顺序）
-    { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
-    { key: 'name', label: '名称', kind: 'text', width: 180, required: true, searchable: true, maxLength: 50 },
+    // 事件编码与名称都已在服务端的 `_keyword` 模糊列里（含标题/内容模板、备注），
+    // 再加两个等值筛选只会把筛选区拉长，按关键字搜一次就够
+    { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, maxLength: 50 },
+    { key: 'name', label: '名称', kind: 'text', width: 180, required: true, maxLength: 50 },
     {
       key: 'eventSourceId',
       label: '事件来源',
@@ -476,15 +484,17 @@ const messageTarget: EntityConfig = {
   ],
 };
 
-/** # 消息目标与渠道的绑定（投递的唯一来源） */
+/** # 消息目标与渠道的绑定（已并入消息目标表单，仅保留路由供接口/深链使用） */
 const messageTargetChannel: EntityConfig = {
   key: 'message-target-channel',
   path: '/msg/message-target-channel',
   name: '目标渠道绑定',
   title: '目标渠道绑定',
-  desc: '这条消息的这个目标单独指定走的渠道：绑几行走几个；一行都不绑就走目标类别的默认渠道。不想让这条消息发这个类别，删的是上一页的「消息目标」，不是这里',
+  desc: '投递只认这里的显式绑定；维护入口已合并进「消息目标」的新增/编辑弹窗，本页不再出现在侧边栏',
   icon: <LinkOutlined />,
   group: 'definition',
+  hideInMenu: true,
+  readOnly: true,
   fields: [
     {
       key: 'messageTargetId',
@@ -505,7 +515,7 @@ const targetCategoryChannel: EntityConfig = {
   path: '/msg/target-category-channel',
   name: '默认渠道集',
   title: '默认渠道集',
-  desc: '新建消息目标时的渠道预填模板；消息目标没有显式绑渠道时，按这里的默认渠道兜底投递',
+  desc: '新建消息目标时的渠道预填模板；投递只认目标上显式绑定的渠道，这里不再做运行时兜底',
   icon: <LinkOutlined />,
   group: 'definition',
   fields: [
@@ -525,7 +535,7 @@ const targetCategoryChannel: EntityConfig = {
       kind: 'bool',
       width: 96,
       defaultValue: false,
-      tip: '同一目标类别下最多一条：新建消息目标时优先预填；消息目标没有显式渠道行时按它投递',
+      tip: '同一目标类别下最多一条：新建消息目标时界面按它预填；保存后渠道写进目标自己的绑定，投递不再回读这里',
     },
   ],
 };
@@ -933,13 +943,6 @@ export const ENTITIES: EntityConfig[] = [
 export function entityOf(key: string): EntityConfig | undefined {
   return ENTITIES.find((item) => item.key === key);
 }
-
-/**
- * # 消息定义与目标合并维护页的路由 key
- *
- * 两张表本身仍保留独立路由（深链、其它页面引用），侧边栏只显示合并后的入口。
- */
-export const MESSAGE_WORKBENCH_KEY = 'message-workbench';
 
 /** # 分组标题 */
 export const GROUP_LABELS: Record<EntityGroup, string> = {

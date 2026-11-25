@@ -3,18 +3,17 @@
  *
  * 15 张表的路由由 `ENTITIES` 直接展开，不逐个写 `<Route>`：加一个实体只改元数据，
  * 路由、导航、页面一起生效，也不会出现「页面写了但忘了挂路由」。
- * 消息定义与目标另有一张合并维护页（见 `MessageWorkbench`），单表路由仍保留。
  */
 
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthGate } from './auth/AuthGate';
 import { EmbedNavigation } from './lib/embed-bridge';
-import { ENTITIES, MESSAGE_WORKBENCH_KEY } from './entities';
+import { ENTITIES } from './entities';
 import AppLayout from './layouts/AppLayout';
 import Dashboard from './pages/Dashboard';
 import EntityPage from './pages/EntityPage';
 import LoginPage from './pages/login';
-import MessageWorkbench from './pages/MessageWorkbench';
+import MessageTargetPage from './pages/MessageTargetPage';
 
 /**
  * 页面路由表：独立访问（BrowserRouter/HashRouter）与联邦入口（MemoryRouter）共用这一份，
@@ -26,8 +25,9 @@ export function AppRoutes() {
       <Route path="login" element={<LoginPage />} />
       <Route element={<AuthGate><AppLayout /></AuthGate>}>
         <Route index element={<Dashboard />} />
-        <Route path={MESSAGE_WORKBENCH_KEY} element={<MessageWorkbench />} />
-        {ENTITIES.map((entity) => (
+        {/* 消息目标的表单里带渠道绑定、列表里聚合渠道，单独实现；其余表走通用页 */}
+        <Route path="message-target" element={<MessageTargetPage />} />
+        {ENTITIES.filter((entity) => entity.key !== 'message-target').map((entity) => (
           /*
            * `key` 必须挂在 EntityPage 上（不是只挂在 Route 上）：
            * 切换实体时如果沿用同一个组件实例，React 只会更新 props、保留内部 state，

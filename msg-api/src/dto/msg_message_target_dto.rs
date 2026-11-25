@@ -12,4 +12,13 @@ pub struct MsgMessageTargetDto {
     /// 登记时知道有哪些屏，只能声明「发给大屏这一类」。
     /// @len 0..=100
     pub target_id: String,
+    /// 这条目标要走的渠道 ID（可多条）
+    ///
+    /// 请求专用字段，不落在 `msg_message_target` 表上：服务层在同一个事务里
+    /// 同步 `msg_message_target_channel`。新增/修改都接受；不传时服务端按
+    /// 目标类别的默认渠道写入显式绑定（兼容发布方自动注册），类别也没配
+    /// 渠道则报错，不会建出一条没有出口的目标。
+    #[req_only]
+    #[fill_by_svc]
+    pub channel_ids: Vec<U64>,
 }

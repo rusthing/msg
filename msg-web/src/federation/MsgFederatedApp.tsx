@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { App as AntdApp, ConfigProvider } from 'antd';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AppRoutes } from '../App';
-import { ENTITIES, MESSAGE_WORKBENCH_KEY } from '../entities';
+import { ENTITIES } from '../entities';
 import { antdConfig, ThemeModeContext } from '../lib/theme-config';
 import '../styles/global.css';
 import './federation.css';
@@ -24,7 +24,6 @@ export interface MsgFederatedProps {
 function titleOf(pathname: string): string {
   const slug = pathname.replace(/^\/+/, '');
   if (!slug) return '消息中心';
-  if (slug === MESSAGE_WORKBENCH_KEY) return '消息定义与目标';
   const hit = ENTITIES.find((entity) => entity.key === slug);
   return hit ? hit.title : '消息中心';
 }

@@ -8,12 +8,12 @@
  * 避免 234px 的侧栏把内容区压到不可用。
  */
 
-import { DashboardOutlined, MenuOutlined, MessageOutlined } from '@ant-design/icons';
+import { DashboardOutlined, MenuOutlined } from '@ant-design/icons';
 import { Button, Drawer, Layout, Menu, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { ENTITIES, GROUP_LABELS, MESSAGE_WORKBENCH_KEY, type EntityConfig, type EntityGroup } from '../entities';
+import { ENTITIES, GROUP_LABELS, type EntityGroup } from '../entities';
 import { reportView } from '../lib/embed-bridge';
 import { useThemeMode } from '../lib/theme-config';
 
@@ -26,13 +26,6 @@ const GROUP_ORDER: EntityGroup[] = ['definition', 'delivery', 'queue'];
 const OVERVIEW = {
   title: '总览',
   desc: '消息中心全局：定义了多少消息、投递成功与否、死信有没有积压',
-};
-
-/** 合并维护页在导航与顶栏里的名字 */
-const WORKBENCH = {
-  key: MESSAGE_WORKBENCH_KEY,
-  title: '消息定义与目标',
-  desc: '一条消息的模板与它发给哪些目标放在同一页维护，选中消息即可看它的目标',
 };
 
 export default function AppLayout() {
@@ -50,42 +43,11 @@ export default function AppLayout() {
    * 留着斜杠就精确匹配不上了，会把高亮和标题错误地回退到「总览」。
    */
   const pathname = location.pathname.replace(/\/+$/, '') || '/';
-  const current: Pick<EntityConfig, 'key' | 'title' | 'desc'> | undefined =
-    pathname === `/${MESSAGE_WORKBENCH_KEY}`
-      ? WORKBENCH
-      : ENTITIES.find((entity) => pathname === `/${entity.key}`);
+  const current = ENTITIES.find((entity) => pathname === `/${entity.key}`);
 
   useEffect(() => {
     reportView(current?.title ?? OVERVIEW.title, pathname);
   }, [current?.title, pathname]);
-
-  /** 单表导航项 */
-  const entityItem = (entity: EntityConfig): NonNullable<MenuProps['items']>[number] => ({
-    key: `/${entity.key}`,
-    icon: entity.icon,
-    label: <Link to={`/${entity.key}`}>{entity.title}</Link>,
-  });
-
-  /** 定义分组用合并页替换「消息定义」+「消息目标」两个入口 */
-  const groupChildren = (group: EntityGroup) => {
-    const entities = ENTITIES.filter((entity) => entity.group === group);
-    if (group !== 'definition') {
-      return entities.map(entityItem);
-    }
-    const items: NonNullable<MenuProps['items']>[number][] = [];
-    for (const entity of entities) {
-      if (entity.key === 'message') {
-        items.push({
-          key: `/${MESSAGE_WORKBENCH_KEY}`,
-          icon: <MessageOutlined />,
-          label: <Link to={`/${MESSAGE_WORKBENCH_KEY}`}>{WORKBENCH.title}</Link>,
-        });
-      } else if (entity.key !== 'message-target') {
-        items.push(entityItem(entity));
-      }
-    }
-    return items;
-  };
 
   const menuItems: MenuProps['items'] = [
     {
@@ -96,7 +58,11 @@ export default function AppLayout() {
     ...GROUP_ORDER.map((group) => ({
       type: 'group' as const,
       label: GROUP_LABELS[group],
-      children: groupChildren(group),
+      children: ENTITIES.filter((entity) => entity.group === group && !entity.hideInMenu).map((entity) => ({
+        key: `/${entity.key}`,
+        icon: entity.icon,
+        label: <Link to={`/${entity.key}`}>{entity.title}</Link>,
+      })),
     })),
   ];
 

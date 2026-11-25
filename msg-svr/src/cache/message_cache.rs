@@ -69,18 +69,13 @@ use tracing::{error, info};
 // ── SVC 引用 ──
 use crate::dto::{
     MsgChannelQueryDto, MsgEventSourceQueryDto, MsgMessageCategoryQueryDto, MsgMessageQueryDto,
-    MsgMessageTargetChannelQueryDto, MsgMessageTargetQueryDto, MsgTargetCategoryChannelQueryDto,
-    MsgTargetCategoryQueryDto,
+    MsgMessageTargetChannelQueryDto, MsgMessageTargetQueryDto, MsgTargetCategoryQueryDto,
 };
 use crate::svc::{
     MsgChannelSvc, MsgEventSourceSvc, MsgMessageCategorySvc, MsgMessageSvc,
-    MsgMessageTargetChannelSvc, MsgMessageTargetSvc, MsgTargetCategoryChannelSvc,
-    MsgTargetCategorySvc,
+    MsgMessageTargetChannelSvc, MsgMessageTargetSvc, MsgTargetCategorySvc,
 };
-use crate::vo::{
-    MsgChannelVo, MsgMessageExVo, MsgMessageTargetChannelVo, MsgMessageTargetVo,
-    MsgTargetCategoryChannelVo,
-};
+use crate::vo::{MsgChannelVo, MsgMessageExVo, MsgMessageTargetChannelVo, MsgMessageTargetVo};
 
 // ═══════════════════════════════════════════════════════════════
 //  全局缓存
@@ -184,8 +179,7 @@ pub struct ChannelCache {
 /// # 缓存的目标类别
 ///
 /// 分类标签 + 该类别 owner 声明的业务规则：`allow_broadcast` / `target_keys`
-/// 决定目标怎么展开；类别对应的默认渠道（`msg_target_category_channel`）在
-/// 「消息目标没有显式渠道」时兜底，见 [`resolve_target_channels`]。
+/// 决定目标怎么展开。类别-渠道表只用于配置目标时预填，不参与投递解析。
 #[derive(Debug, Clone)]
 pub struct TargetCategoryCache {
     /// 类别 ID
@@ -202,9 +196,9 @@ pub struct TargetCategoryCache {
 
 /// # 缓存的消息目标
 ///
-/// 直接内嵌所属类别，并把该目标要走的渠道组装好：`msg_message_target_channel`
-/// 里显式配的优先，没配就回退到该类别的默认渠道。
-/// 投递时只看 `target.channels` —— 这是渠道的唯一来源。
+/// 直接内嵌所属类别，并把该目标要走的渠道组装好：只认
+/// `msg_message_target_channel` 里的显式绑定。写入目标时由服务层在同一事务里
+/// 落好这些绑定，投递时只看 `target.channels`。
 #[derive(Debug, Clone)]
 pub struct TargetCache {
     /// 该目标的 ID（`msg_message_target.id`）
@@ -214,8 +208,7 @@ pub struct TargetCache {
     pub target_id: String,
     /// 该目标要走的渠道列表（含完整配置，刷新时组装）
     ///
-    /// 显式绑定优先，没显式绑定就是类别默认渠道。为空说明两边都没配，
-    /// 投递侧会报错跳过（不会静默成功）。
+    /// 为空说明没有显式绑定（脏数据或绕过服务层直写），投递侧会报错跳过。
     pub channels: Vec<ChannelCache>,
 }
 
@@ -237,26 +230,16 @@ fn to_channel_cache(ch: &MsgChannelVo) -> ChannelCache {
 
 /// 取某个消息目标要走的渠道（含完整配置）
 ///
-/// 取渠道的顺序是两级：
-///
-/// 1. `msg_message_target_channel` 里显式绑定的渠道——这条消息的这个目标单独指定；
-/// 2. 没显式绑定就回退到 `msg_target_category_channel` 里该类别的默认渠道（类别
-///    owner 注册上来的出口，`is_default` 标记；一条都没标时取该类别的全部绑定）。
-///
-/// 这样注册方只要登记「消息 → 类别」和「类别 → 渠道」，不必再为每条消息补一遍
-/// 消息目标的渠道行。渠道本身 `enabled=false` 时不会出现在 `channels_by_id` 里，
-/// 等价于没配。
+/// 唯一来源是 `msg_message_target_channel` 里这个目标的显式绑定：新增/修改
+/// 消息目标时由服务层在事务内写入，类别默认渠道只负责配置时预填，不再兜底。
+/// 渠道本身 `enabled=false` 时不会出现在 `channels_by_id` 里，等价于没配。
 fn resolve_target_channels(
     message_target_channels: &HashMap<u64, Vec<u64>>,
-    category_channels: &HashMap<u64, Vec<u64>>,
     message_target_id: u64,
-    category_id: u64,
     channels_by_id: &HashMap<u64, &MsgChannelVo>,
 ) -> Vec<ChannelCache> {
     let ch_ids = message_target_channels
         .get(&message_target_id)
-        .filter(|ids| !ids.is_empty())
-        .or_else(|| category_channels.get(&category_id))
         .cloned()
         .unwrap_or_default();
     ch_ids
@@ -424,39 +407,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
         })
         .collect();
 
-    // ── 目标类别 → 默认渠道（消息目标没显式配渠道时的回退出口） ──
-    //
-    // 类别 owner（如 dtw）首次启动注册的就是这里：类别 + 渠道 + `is_default`。
-    // 一个类别标了默认的只留默认那几条，一条都没标就留全部绑定——历史数据里
-    // 没有 `is_default` 的类别仍按「全部绑定」投。
-    let category_channels: HashMap<u64, Vec<u64>> = {
-        let links: Vec<MsgTargetCategoryChannelVo> =
-            MsgTargetCategoryChannelSvc::list_by_query_dto(
-                MsgTargetCategoryChannelQueryDto::default(),
-                Some(db.as_ref()),
-            )
-            .await?
-            .extra
-            .unwrap_or_default();
-        let mut all: HashMap<u64, Vec<u64>> = HashMap::new();
-        let mut defaults: HashMap<u64, Vec<u64>> = HashMap::new();
-        for link in links {
-            let category_id = link.target_category_id.0;
-            let channel_id = link.channel_id.0;
-            all.entry(category_id).or_default().push(channel_id);
-            if link.is_default {
-                defaults.entry(category_id).or_default().push(channel_id);
-            }
-        }
-        all.into_iter()
-            .map(|(category_id, channel_ids)| {
-                let chosen = defaults.remove(&category_id).unwrap_or(channel_ids);
-                (category_id, chosen)
-            })
-            .collect()
-    };
-
-    // ── 消息目标 → 渠道（显式绑定优先于类别默认渠道） ──
+    // ── 消息目标 → 渠道（唯一来源：目标上显式绑定的渠道） ──
 
     let message_target_channels: HashMap<u64, Vec<u64>> = {
         let links: Vec<MsgMessageTargetChannelVo> = MsgMessageTargetChannelSvc::list_by_query_dto(
@@ -500,13 +451,7 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
         .unwrap_or_default();
         let mut map: HashMap<u64, Vec<ChannelCache>> = HashMap::new();
         for link in links {
-            for ch in resolve_target_channels(
-                &message_target_channels,
-                &category_channels,
-                link.id.0,
-                link.target_category_id.0,
-                &channels_by_id,
-            ) {
+            for ch in resolve_target_channels(&message_target_channels, link.id.0, &channels_by_id) {
                 let entry = map.entry(link.message_id.0).or_default();
                 if !entry.iter().any(|c| c.id == ch.id) {
                     entry.push(ch);
@@ -532,13 +477,8 @@ pub async fn build_message_cache() -> anyhow::Result<HashMap<String, MessageCach
         let mut map: HashMap<u64, Vec<TargetCache>> = HashMap::new();
         for link in links {
             if let Some(tc) = target_categories.get(&link.target_category_id.0) {
-                let channels = resolve_target_channels(
-                    &message_target_channels,
-                    &category_channels,
-                    link.id.0,
-                    link.target_category_id.0,
-                    &channels_by_id,
-                );
+                let channels =
+                    resolve_target_channels(&message_target_channels, link.id.0, &channels_by_id);
                 if channels.is_empty() {
                     empty_channel_targets.push((
                         link.message_id.0,
