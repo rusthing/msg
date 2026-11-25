@@ -756,6 +756,15 @@ export default function EntityPage({
   const renderFilter = (field: FieldConfig) => {
     const value = draft[field.key];
     const common = { allowClear: true, className: 'msg-filter-control', placeholder: field.label };
+    /**
+     * 选择类控件改变即查询：先把 patch 合成完整的新草稿，再同时更新 state 与发请求。
+     * 不能在 setDraft 的 updater 里读旧 draft（异步），必须显式用 nextDraft 查。
+     */
+    const commit = (patch: FilterDraft) => {
+      const nextDraft = { ...draft, ...patch };
+      setDraft(nextDraft);
+      applyFilters(nextDraft, keyword);
+    };
 
     if (field.kind === 'select') {
       return (
@@ -763,7 +772,7 @@ export default function EntityPage({
           {...common}
           value={value === undefined || value === null ? undefined : String(value)}
           options={field.options}
-          onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+          onChange={(next) => commit({ [field.key]: next })}
         />
       );
     }
@@ -783,7 +792,7 @@ export default function EntityPage({
               ariaLabel={field.label}
               value={value as number | undefined}
               options={options}
-              onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+              onChange={(next) => commit({ [field.key]: next })}
             />
           </div>
         );
@@ -793,7 +802,7 @@ export default function EntityPage({
           {...common}
           value={value as number | undefined}
           options={options}
-          onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+          onChange={(next) => commit({ [field.key]: next })}
         />
       );
     }
@@ -808,16 +817,14 @@ export default function EntityPage({
           placeholder={field.label}
           nameLabel={field.label}
           value={value === undefined || value === null ? '' : String(value)}
-          onChange={(next) =>
-            setDraft((prev) => {
-              const patch: FilterDraft = { [field.key]: next || undefined };
-              // 目标类别变了，旧的「目标标识」筛选条件不再适用
-              if (subjectField?.subjectBy === field.key) {
-                patch[subjectField.key] = undefined;
-              }
-              return { ...prev, ...patch };
-            })
-          }
+          onChange={(next) => {
+            const patch: FilterDraft = { [field.key]: next || undefined };
+            // 目标类别变了，旧的「目标标识」筛选条件不再适用
+            if (subjectField?.subjectBy === field.key) {
+              patch[subjectField.key] = undefined;
+            }
+            commit(patch);
+          }}
         />
       );
     }
@@ -834,6 +841,7 @@ export default function EntityPage({
             placeholder={field.label}
             value={value as string | undefined}
             onChange={(event) => setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))}
+            onPressEnter={() => applyFilters(draft, keyword)}
           />
         );
       }
@@ -847,9 +855,7 @@ export default function EntityPage({
           title={`筛选${field.label}`}
           placeholder={field.label}
           value={value === undefined || value === null ? '' : String(value)}
-          onChange={(next) =>
-            setDraft((prev) => ({ ...prev, [field.key]: next || undefined }))
-          }
+          onChange={(next) => commit({ [field.key]: next || undefined })}
         />
       );
     }
@@ -865,7 +871,7 @@ export default function EntityPage({
               { value: 'true', label: '是' },
               { value: 'false', label: '否' },
             ]}
-            onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+            onChange={(next) => commit({ [field.key]: next })}
           />
         </div>
       );
