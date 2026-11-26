@@ -840,6 +840,7 @@ export default function EntityPage({
             placeholder={field.label}
             value={value as string | undefined}
             onChange={(event) => setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))}
+            onClear={() => commit({ [field.key]: undefined })}
             onPressEnter={() => applyFilters(draft, keyword)}
           />
         );
@@ -881,6 +882,7 @@ export default function EntityPage({
         inputMode={field.kind === 'u64' ? 'numeric' : 'text'}
         value={value === undefined ? '' : String(value)}
         onChange={(event) => setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))}
+        onClear={() => commit({ [field.key]: undefined })}
         onPressEnter={() => applyFilters(draft, keyword)}
       />
     );
@@ -1096,6 +1098,10 @@ export default function EntityPage({
               placeholder="关键字（模糊搜索）"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
+              onClear={() => {
+                setKeyword('');
+                applyFilters(draft, '');
+              }}
               onPressEnter={() => applyFilters(draft, keyword)}
             />
             {searchFields.map((field) => (

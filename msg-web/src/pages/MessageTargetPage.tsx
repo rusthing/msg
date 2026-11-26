@@ -216,6 +216,13 @@ export default function MessageTargetPage() {
     });
   };
 
+  /** 选择类控件与输入框清空立即重查；文本输入仍走回车/查询按钮。 */
+  const commitFilters = (patch: Partial<typeof draft>) => {
+    const next = { ...draft, ...patch };
+    setDraft(next);
+    applyFilters(next);
+  };
+
   const resetFilters = () => {
     setDraft({});
     search({});
@@ -400,7 +407,7 @@ export default function MessageTargetPage() {
             placeholder="消息"
             options={messageOptions}
             value={draft.messageId}
-            onChange={(value) => setDraft((prev) => ({ ...prev, messageId: value }))}
+            onChange={(value) => commitFilters({ messageId: value })}
           />
           <Select
             allowClear
@@ -410,7 +417,7 @@ export default function MessageTargetPage() {
             placeholder="目标类别"
             options={categoryOptions}
             value={draft.targetCategoryId}
-            onChange={(value) => setDraft((prev) => ({ ...prev, targetCategoryId: value }))}
+            onChange={(value) => commitFilters({ targetCategoryId: value })}
           />
           <Input
             allowClear
@@ -419,6 +426,7 @@ export default function MessageTargetPage() {
             placeholder="目标标识"
             value={draft.targetId}
             onChange={(event) => setDraft((prev) => ({ ...prev, targetId: event.target.value }))}
+            onClear={() => commitFilters({ targetId: '' })}
             onPressEnter={() => applyFilters(draft)}
           />
           <Button type="primary" icon={<SearchOutlined />} onClick={() => applyFilters(draft)}>
