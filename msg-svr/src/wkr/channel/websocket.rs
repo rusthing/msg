@@ -6,7 +6,7 @@
 //! 就用下面这个默认结构：
 //!
 //! ```json
-//! {"eventCode":"…","title":"…","content":"…","ext":"…","firstReceiveMs":1761…,"businessTriggerMs":1761…}
+//! {"eventCode":"…","title":"…","content":"…","ext":"…","firstTriggerMs":1761…,"firstReceiveMs":1761…,"receiveMs":1761…,"businessTriggerMs":1761…,"sendMs":1761…}
 //! ```
 //!
 //! 模板能用的变量只有服务端给的这几个，都是已渲染好的结果或服务端事实：
@@ -17,8 +17,11 @@
 //! | `title` | 渲染好的标题 |
 //! | `content` | 渲染好的内容；定位消息的落点就在这段 JSON 文本里 |
 //! | `ext` | 渲染好的附加内容（`msg_delivery.ext`），这条消息没有就不注入 |
+//! | `firstTriggerMs` | 事件起点（业务/发布方时钟），发布方没带就不注入 |
 //! | `firstReceiveMs` | 链路第一跳收到事件的服务端时刻，发布方没带就不注入 |
+//! | `receiveMs` | 消息中心收到这条消息的时刻（服务端时钟，取 `create_ms`） |
 //! | `businessTriggerMs` | 本次通知的业务时间（发布方时钟），没带就不注入 |
+//! | `sendMs` | 本渠道把这一帧推出去的时刻（服务端时钟） |
 //!
 //! 语法与消息模板完全一致（`{{变量:过滤器}}`，字符串要写成 `{{title:json}}` 才有引号与
 //! 转义；`${变量}` 是等价别名，可混用）。缺失的变量用 `{{ext:json}}` 渲染成 `null`；
@@ -40,13 +43,20 @@
 //! 格式解析 `content` 即可；也可以在载荷模板里用 `{{content}}` 原样嵌进自己的结构。
 //! 发布方上报的 `labels` / `annotations` 只是模板的输入，不随这一帧下发。
 //!
-//! ## 两个时间锚点
+//! ## 时间锚点
 //!
-//! `firstReceiveMs` 是链路第一跳收到原始事件的服务端时刻，`businessTriggerMs`
-//! 是本次通知的业务时间（发布方时钟）。大屏是只收不发的长连接，没有回执通道，
-//! 帧里不带时间戳，它就只能拿本地收帧时刻当起点，既算不出真实延迟，也判不了
-//! 「这条报警是不是早就该到了」。两个值都可能缺（发布方没接入），缺了就是
-//! `null`，大屏按「不可算」处理。
+//! 一条消息从设备到屏幕要经过几次打点，帧里把服务端能拿到的都带下去：
+//!
+//! - `firstTriggerMs` / `businessTriggerMs`：事件起点与本次通知的业务时间，
+//!   来自发布方时钟，可能为空；
+//! - `firstReceiveMs`：链路第一跳（如 dtw）收到原始事件的时刻；
+//! - `receiveMs`：消息中心收到报文的时刻（`create_ms`）；
+//! - `sendMs`：本渠道把帧写出去的时刻。
+//!
+//! 大屏是只收不发的长连接，没有回执通道；帧里不带这些时间戳，它就只能拿本地
+//! 收帧时刻当起点，既算不出真实延迟，也判不了「这条定位是不是早就该到了」。
+//! 发布方没接入的锚点为 `null`，大屏按「不可算」处理；`receiveMs` / `sendMs`
+//! 由服务端打点，任何帧都有。
 //!
 //! ## `ext` 是给机器看的那一份
 //!
@@ -73,6 +83,7 @@ use crate::cache::get_message_cache;
 use crate::utils::render_template;
 use crate::wkr::conn;
 use async_trait::async_trait;
+use chrono::Utc;
 use msg_api::cst::ChannelCode;
 use msg_api::msg::DeliveryMsg;
 use serde::Serialize;
@@ -89,7 +100,10 @@ impl ChannelSender for WebSocketSender {
     }
 
     async fn send(&self, task: &DeliveryMsg) -> SendOutcome {
-        let text = match frame(task) {
+        // 推送时刻在组帧前取：模板帧和默认帧都用它，两条路径的 `sendMs` 同口径。
+        // 没有连接时这个时刻是「尝试推送」的时间，不是送达时间（大屏无回执）。
+        let send_ms = Utc::now().timestamp_millis() as u64;
+        let text = match frame(task, send_ms) {
             Ok(text) => text,
             Err(e) => return SendOutcome::Failed(format!("推送内容序列化失败: {e}")),
         };
@@ -120,14 +134,16 @@ impl ChannelSender for WebSocketSender {
 /// 模板从消息缓存里取（按事件编码找到消息、再按渠道类型找到渠道），不读库：
 /// 位置更新这类消息一秒几十上百条，每条都查一次库不值。渠道写操作会触发缓存
 /// 全量重建，改模板不用重启。
-fn frame(task: &DeliveryMsg) -> Result<String, String> {
+///
+/// `send_ms` 是本渠道推出这一帧的时刻，由调用方在组帧前打点。
+fn frame(task: &DeliveryMsg, send_ms: u64) -> Result<String, String> {
     if let Some(template) = payload_template(&task.event_code, &task.channel_type)
-        && let Some(text) = render_payload(&template, task)
+        && let Some(text) = render_payload(&template, task, send_ms)
     {
         return Ok(text);
     }
 
-    default_frame(task)
+    default_frame(task, send_ms)
 }
 
 /// # 取该渠道的载荷模板
@@ -153,7 +169,8 @@ fn payload_template(event_code: &str, channel_type: &str) -> Option<String> {
 ///
 /// - `template`：渠道的载荷模板；
 /// - `task`：投递任务，提供 `eventCode` / `title` / `content` / `ext` /
-///   `firstReceiveMs` / `businessTriggerMs` 六个变量。
+///   `firstTriggerMs` / `firstReceiveMs` / `receiveMs` / `businessTriggerMs`；
+/// - `send_ms`：本渠道推出这一帧的时刻。
 ///
 /// ## 返回值
 ///
@@ -165,11 +182,16 @@ fn payload_template(event_code: &str, channel_type: &str) -> Option<String> {
 /// websocket 这条渠道的约定就是 JSON：大屏 `JSON.parse` 整帧，解析失败会丢掉
 /// 整帧（包括里面的定位数据），比收到一份旧结构的帧更糟。校验用
 /// [`serde::de::IgnoredAny`] 只走一遍语法，不建 DOM——热路径上省一次内存分配。
-fn render_payload(template: &str, task: &DeliveryMsg) -> Option<String> {
+fn render_payload(template: &str, task: &DeliveryMsg, send_ms: u64) -> Option<String> {
+    // `receiveMs` 取 `create_ms`：msg-svr 收到报文时用同一个时刻写 `create_ms`
+    // （非持久化消息直接传给投递任务，持久化消息重投时取投递记录里的原值），
+    // 它就是消息中心的接收时刻，不用为帧单独加一个投递字段。
     let mut builtins: HashMap<&'static str, String> = HashMap::from([
         ("eventCode", task.event_code.clone()),
         ("title", task.title.clone()),
         ("content", task.content.clone()),
+        ("receiveMs", task.create_ms.to_string()),
+        ("sendMs", send_ms.to_string()),
     ]);
 
     // 缺的变量不注入：模板里 `{{ext:json}}` 会渲染成 null，与「这条消息没有附加
@@ -177,6 +199,9 @@ fn render_payload(template: &str, task: &DeliveryMsg) -> Option<String> {
     // 当成一份有效的附加内容。
     if let Some(ext) = task.ext.as_deref() {
         builtins.insert("ext", ext.to_owned());
+    }
+    if let Some(first_trigger_ms) = task.first_trigger_ms {
+        builtins.insert("firstTriggerMs", first_trigger_ms.to_string());
     }
     if let Some(first_receive_ms) = task.first_receive_ms {
         builtins.insert("firstReceiveMs", first_receive_ms.to_string());
@@ -210,20 +235,23 @@ fn render_payload(template: &str, task: &DeliveryMsg) -> Option<String> {
 
 /// # 默认帧
 ///
-/// 渠道没配载荷模板时的结构，也是模板写错时的兜底。只放渲染结果 + 两个时间
-/// 锚点：字段越少，大屏侧解析越稳，帧也越小。
+/// 渠道没配载荷模板时的结构，也是模板写错时的兜底。只放渲染结果 + 时间锚点：
+/// 字段越少，大屏侧解析越稳，帧也越小。
 ///
 /// 时间锚点是大屏唯一能自己算延迟的地方：它拿不到库，也没有回执通道，
-/// 想判断「这条报警从事件发生到现在过了多久」「该不该判过期不弹」，
+/// 想判断「这条定位从设备上报到现在过了多久」「该不该判过期不落点」，
 /// 只能靠帧里带下来的时间戳。
-fn default_frame(task: &DeliveryMsg) -> Result<String, String> {
+fn default_frame(task: &DeliveryMsg, send_ms: u64) -> Result<String, String> {
     let push = WsPush {
         event_code: &task.event_code,
         title: &task.title,
         content: &task.content,
         ext: task.ext.as_deref(),
+        first_trigger_ms: task.first_trigger_ms,
         first_receive_ms: task.first_receive_ms,
+        receive_ms: task.create_ms,
         business_trigger_ms: task.business_trigger_ms,
+        send_ms,
     };
 
     serde_json::to_string(&push).map_err(|e| e.to_string())
@@ -244,23 +272,33 @@ struct WsPush<'a> {
     /// 渲染好的附加内容（`msg_delivery.ext`），没有就不出现在帧里
     #[serde(skip_serializing_if = "Option::is_none")]
     ext: Option<&'a str>,
+    /// 事件起点（毫秒，发布方时钟），没带就不出现在帧里
+    #[serde(skip_serializing_if = "Option::is_none")]
+    first_trigger_ms: Option<u64>,
     /// 链路第一跳收到原始事件的时刻（毫秒，服务端时钟）
     ///
     /// 端到端延迟只用它算：它是链路上第一个可信的服务端时间，不受终端时钟
     /// 偏差、离线补传影响。发布方没带就是 `null`，大屏按「不可算」处理。
     #[serde(skip_serializing_if = "Option::is_none")]
     first_receive_ms: Option<u64>,
+    /// 消息中心收到报文的时刻（毫秒，服务端时钟，取 `create_ms`）
+    receive_ms: u64,
     /// 本次通知的业务时间（毫秒，发布方时钟）
     ///
     /// 与业务库的幂等键同值，大屏回查报警详情时用它对齐同一次通知；
     /// 不适合单独用来算延迟（时钟可能偏）。
     #[serde(skip_serializing_if = "Option::is_none")]
     business_trigger_ms: Option<u64>,
+    /// 本渠道把这一帧写出去的时刻（毫秒，服务端时钟）
+    send_ms: u64,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 固定的推送时刻，便于断言帧里的 `sendMs`
+    const SEND_MS: u64 = 1_761_000_123_456;
 
     fn task() -> DeliveryMsg {
         DeliveryMsg {
@@ -295,7 +333,7 @@ mod tests {
 
     /// 默认帧解析成 JSON
     fn default_json(task: &DeliveryMsg) -> serde_json::Value {
-        let text = default_frame(task).expect("帧序列化失败");
+        let text = default_frame(task, SEND_MS).expect("帧序列化失败");
         serde_json::from_str(&text).expect("帧反序列化失败")
     }
 
@@ -308,8 +346,8 @@ mod tests {
     #[test]
     fn absent_template_uses_default_frame() {
         assert_eq!(
-            frame(&task()).expect("帧序列化失败"),
-            default_frame(&task()).expect("帧序列化失败")
+            frame(&task(), SEND_MS).expect("帧序列化失败"),
+            default_frame(&task(), SEND_MS).expect("帧序列化失败")
         );
     }
 
@@ -318,6 +356,7 @@ mod tests {
     #[test]
     fn frame_carries_time_anchors() {
         let task = DeliveryMsg {
+            first_trigger_ms: Some(1_760_999_980_000),
             first_receive_ms: Some(1_761_000_000_000),
             business_trigger_ms: Some(1_760_999_990_000),
             ..task()
@@ -325,17 +364,24 @@ mod tests {
 
         let frame = default_json(&task);
 
+        assert_eq!(frame["firstTriggerMs"], 1_760_999_980_000i64);
         assert_eq!(frame["firstReceiveMs"], 1_761_000_000_000i64);
+        // 消息中心的接收时刻取 create_ms，与帧一起推出的时刻单独打点
+        assert_eq!(frame["receiveMs"], task.create_ms);
         assert_eq!(frame["businessTriggerMs"], 1_760_999_990_000i64);
+        assert_eq!(frame["sendMs"], SEND_MS);
     }
 
-    /// 两个锚点都没有时字段整段消失：大屏按「有没有」判断能不能算延迟
+    /// 发布方没给的三个锚点整段消失；服务端打点的两个一定有
     #[test]
     fn absent_time_anchors_are_not_serialized() {
         let frame = default_json(&task());
 
+        assert!(frame.get("firstTriggerMs").is_none());
         assert!(frame.get("firstReceiveMs").is_none());
         assert!(frame.get("businessTriggerMs").is_none());
+        assert_eq!(frame["receiveMs"], task().create_ms);
+        assert_eq!(frame["sendMs"], SEND_MS);
     }
 
     /// 一帧放三个渲染结果：事件编码、标题、内容
@@ -386,7 +432,10 @@ mod tests {
             .cloned()
             .collect();
         keys.sort_unstable();
-        assert_eq!(keys, ["content", "eventCode", "title"]);
+        assert_eq!(
+            keys,
+            ["content", "eventCode", "receiveMs", "sendMs", "title"]
+        );
     }
 
     /// 模板接管帧结构：字段名、字段集、嵌套都由模板决定，不再受默认帧约束
@@ -395,6 +444,7 @@ mod tests {
         let text = render_payload(
             r#"{"type":{{eventCode:json}},"data":{"title":{{title:json}},"body":{{content:json}}}}"#,
             &task(),
+            SEND_MS,
         )
         .expect("模板应渲染出合法 JSON");
 
@@ -410,7 +460,7 @@ mod tests {
     /// 内容本身是 JSON 文本时可以原样嵌进自己的结构，大屏少解一层
     #[test]
     fn template_may_inline_rendered_content() {
-        let text = render_payload(r#"{"code":{{eventCode:json}},"data":{{content}}}"#, &task())
+        let text = render_payload(r#"{"code":{{eventCode:json}},"data":{{content}}}"#, &task(), SEND_MS)
             .expect("模板应渲染出合法 JSON");
 
         let frame = parse(&text);
@@ -421,73 +471,79 @@ mod tests {
     #[test]
     fn template_carries_time_anchors() {
         let with_anchors = DeliveryMsg {
+            first_trigger_ms: Some(1_760_999_980_000),
             first_receive_ms: Some(1_761_000_000_000),
             business_trigger_ms: Some(1_760_999_990_000),
             ..task()
         };
-        let template = r#"{"recv":{{firstReceiveMs}},"notify":{{businessTriggerMs}}}"#;
+        let template = r#"{"start":{{firstTriggerMs}},"recv":{{firstReceiveMs}},"msgRecv":{{receiveMs}},"notify":{{businessTriggerMs}},"send":{{sendMs}}}"#;
 
-        let frame = parse(&render_payload(template, &with_anchors).expect("应渲染出合法 JSON"));
+        let frame = parse(&render_payload(template, &with_anchors, SEND_MS).expect("应渲染出合法 JSON"));
+        assert_eq!(frame["start"], 1_760_999_980_000i64);
         assert_eq!(frame["recv"], 1_761_000_000_000i64);
+        assert_eq!(frame["msgRecv"], with_anchors.create_ms);
         assert_eq!(frame["notify"], 1_760_999_990_000i64);
+        assert_eq!(frame["send"], SEND_MS);
 
         // 缺了就得靠 `:json` 才渲染成 null；裸占位符会留下 `{{firstReceiveMs}}` 字面量，
         // 整帧判为非法 JSON → 回退默认帧（不会带着占位符推给大屏）
         let nullable = r#"{"recv":{{firstReceiveMs:json}},"notify":{{businessTriggerMs:json}}}"#;
-        let frame = parse(&render_payload(nullable, &task()).expect("应渲染出合法 JSON"));
+        let frame = parse(&render_payload(nullable, &task(), SEND_MS).expect("应渲染出合法 JSON"));
         assert!(frame["recv"].is_null());
-        assert!(render_payload(template, &task()).is_none());
+        assert!(render_payload(template, &task(), SEND_MS).is_none());
     }
 
     /// ext 缺失时渲染成 null，帧仍然合法
     #[test]
     fn template_missing_ext_renders_null() {
-        let text = render_payload(r#"{"ext":{{ext:json}}}"#, &task()).expect("应渲染出合法 JSON");
+        let text = render_payload(r#"{"ext":{{ext:json}}}"#, &task(), SEND_MS).expect("应渲染出合法 JSON");
         assert!(parse(&text)["ext"].is_null());
     }
 
-    /// 种子里的那份渠道模板（迁移 20261031000004 修正后）就是这个形状：下发事件编码、
-    /// 标题、内容、ext 与两个时间锚点，字段集与默认帧一致。
+    /// 种子里的那份渠道模板（迁移 20261127160000 修正后）就是这个形状：下发事件编码、
+    /// `data`（位置结构化载荷）与整条链路的时间锚点。
     ///
     /// 这里把模板原文抄一份做契约测试：种子里写错一个过滤器，或者哪天过滤器行为
-    /// 变了，都是这条用例先炸，而不是上线后大屏收到一帧没有坐标的数据。
+    /// 变了，都是这条用例先炸，而不是上线后大屏收到一帧没有坐标/时间戳的数据。
     #[test]
     fn seeded_channel_template_shape() {
-        // 与 20261031000004_fix-channel-payload-template-content.sql 的字段集一致，
-        // 占位符已由 20261103000000 迁移换成双花括号
-        const SEEDED: &str = r#"{"eventCode":{{eventCode:json}},"title":{{title:json}},"content":{{content:json}},"ext":{{ext:json}},"firstReceiveMs":{{firstReceiveMs:default(null)}},"businessTriggerMs":{{businessTriggerMs:default(null)}}}"#;
+        // 与 20261109000002_init-data.sql 的 websocket 渠道模板一致（含首行引擎声明）
+        const SEEDED: &str = r#"@engine: robotech
+{"eventCode":{{eventCode:json}},"data":{{ext:json}},"firstTriggerMs":{{firstTriggerMs:default(null)}},"firstReceiveMs":{{firstReceiveMs:default(null)}},"receiveMs":{{receiveMs:default(null)}},"businessTriggerMs":{{businessTriggerMs:default(null)}},"sendMs":{{sendMs:default(null)}}}"#;
 
         let with_ext = DeliveryMsg {
-            ext: Some(r#"{"alertId":"7"}"#.to_string()),
+            ext: Some(r#"{"alertId":"7","lon":113.9}"#.to_string()),
+            first_trigger_ms: Some(1_760_999_980_000),
             first_receive_ms: Some(1_761_000_000_000),
             ..task()
         };
-        let frame = parse(&render_payload(SEEDED, &with_ext).expect("种子模板应渲染出合法 JSON"));
+        let frame = parse(&render_payload(SEEDED, &with_ext, SEND_MS).expect("种子模板应渲染出合法 JSON"));
 
         assert_eq!(frame["eventCode"], "position.updated");
-        assert_eq!(frame["title"], "张三 进入 1F");
-        // content 是 JSON 文本：`:json` 把它当字符串嵌进来，大屏再解一层拿坐标
-        let content: serde_json::Value =
-            serde_json::from_str(frame["content"].as_str().expect("content 不是字符串"))
-                .expect("content 不是合法 JSON");
-        assert_eq!(content["lon"], 113.9);
         // ext 是字符串：大屏要自己再解一层，与默认帧的形态一致
-        assert_eq!(frame["ext"], r#"{"alertId":"7"}"#);
+        assert_eq!(frame["data"], r#"{"alertId":"7","lon":113.9}"#);
         // 时间锚点是数字，不是 "1761…"：裸占位符 + default(null) 才两头都对
+        assert_eq!(frame["firstTriggerMs"], 1_760_999_980_000i64);
         assert_eq!(frame["firstReceiveMs"], 1_761_000_000_000i64);
+        assert_eq!(frame["receiveMs"], with_ext.create_ms);
+        assert_eq!(frame["sendMs"], SEND_MS);
         assert!(frame["businessTriggerMs"].is_null());
 
-        // 没有 ext、没有锚点的消息仍然是一帧合法 JSON（两个字段都是 null）
-        let frame = parse(&render_payload(SEEDED, &task()).expect("种子模板应渲染出合法 JSON"));
-        assert!(frame["ext"].is_null());
+        // 没有 ext、没有发布方锚点的消息仍是一帧合法 JSON：可空的三个字段是 null，
+        // 服务端打点的 receiveMs/sendMs 一定有值
+        let frame = parse(&render_payload(SEEDED, &task(), SEND_MS).expect("种子模板应渲染出合法 JSON"));
+        assert!(frame["data"].is_null());
+        assert!(frame["firstTriggerMs"].is_null());
         assert!(frame["firstReceiveMs"].is_null());
         assert!(frame["businessTriggerMs"].is_null());
+        assert_eq!(frame["receiveMs"], task().create_ms);
+        assert_eq!(frame["sendMs"], SEND_MS);
     }
 
     /// 模板写错就不给帧：裸占位符会留下 `{{key}}` 字面量，解析不了的帧不能推给大屏
     #[test]
     fn template_with_unknown_variable_is_rejected() {
-        assert!(render_payload(r#"{"v":{{missing}}}"#, &task()).is_none());
+        assert!(render_payload(r#"{"v":{{missing}}}"#, &task(), SEND_MS).is_none());
     }
 
     /// 字符串没用 `:json` 时引号会把 JSON 撑破，同样按「渲染不出可用帧」处理
@@ -497,12 +553,12 @@ mod tests {
             title: "1F \"东\" 区".to_string(),
             ..task()
         };
-        assert!(render_payload(r#"{"title":{{title}}}"#, &task).is_none());
+        assert!(render_payload(r#"{"title":{{title}}}"#, &task, SEND_MS).is_none());
     }
 
     /// 渲染成空白不算一帧：空帧推过去，大屏只会当成一条空消息
     #[test]
     fn blank_template_is_rejected() {
-        assert!(render_payload("   ", &task()).is_none());
+        assert!(render_payload("   ", &task(), SEND_MS).is_none());
     }
 }
