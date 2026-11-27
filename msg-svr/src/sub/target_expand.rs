@@ -843,17 +843,18 @@ mod tests {
     ) -> crate::cache::TargetCategoryCache {
         crate::cache::TargetCategoryCache {
             id: 5,
-            code: "locator".to_string(),
-            name: "定位卡".to_string(),
+            code: "locator-card-no".to_string(),
+            name: "定位卡-卡号".to_string(),
             allow_broadcast,
             target_keys: target_keys.map(str::to_string),
         }
     }
 
-    /// 每个目标类别只认自己的键：单卡 / 聚集清单 / 区域 ID 互不兜底
+    /// 每个目标类别只认自己配置的键：卡号清单 / 单卡 / 区域 ID 互不串台
     ///
-    /// 三个类别的 labels 可能同时带着多个键（报警中心按白名单透传），但类别的
-    /// `target_keys` 只配一个键，就只取那一个——不会因为别处有清单就多投。
+    /// 报警中心按白名单透传，labels 可能同时带着多个键；类别的 `target_keys`
+    /// 只列了哪些键就从哪些键取，没列的键不会兜底。「定位卡-卡号」列了两个键，
+    /// 按序取第一个有值的：有清单用清单，没清单才退回单卡。
     #[test]
     fn target_ids_take_only_category_configured_key() {
         let all = labels(&[
@@ -861,13 +862,26 @@ mod tests {
             ("locatorCodes", "C001,C002"),
             ("regionId", "9"),
         ]);
-        // 禁入/禁出：单卡
-        let (ids, _) = target_ids_of("", &category(false, Some("locatorCode")), &all);
-        assert_eq!(ids, vec!["C001".to_string()]);
-        // 聚集：簇内清单
-        let (ids, _) = target_ids_of("", &category(false, Some("locatorCodes")), &all);
+        // 定位卡-卡号：清单优先，展开成两张卡
+        let (ids, _) = target_ids_of(
+            "",
+            &category(false, Some("locatorCodes,locatorCode")),
+            &all,
+        );
         assert_eq!(ids, vec!["C001".to_string(), "C002".to_string()]);
-        // 超员：区域目标，展开成一条 regionId
+        // 清单键没值时退回单卡键；区域 ID 不会被卡号类别取走
+        let single = labels(&[
+            ("locatorCodes", "  "),
+            ("locatorCode", "C001"),
+            ("regionId", "9"),
+        ]);
+        let (ids, _) = target_ids_of(
+            "",
+            &category(false, Some("locatorCodes,locatorCode")),
+            &single,
+        );
+        assert_eq!(ids, vec!["C001".to_string()]);
+        // 超员：区域目标只认 regionId
         let (ids, _) = target_ids_of("", &category(false, Some("regionId")), &all);
         assert_eq!(ids, vec!["9".to_string()]);
     }

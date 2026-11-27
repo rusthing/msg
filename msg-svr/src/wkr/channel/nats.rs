@@ -270,7 +270,7 @@ mod tests {
             create_ms: 1_700_000_000_000,
             simulated: false,
             redeliver: false,
-            target_category_code: "locator".to_string(),
+            target_category_code: "locator-card-no".to_string(),
             target_category_id: 11,
             target_id: "C001".to_string(),
             channel_id: 3,
