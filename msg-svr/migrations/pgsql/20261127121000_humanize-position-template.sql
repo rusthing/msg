@@ -1,4 +1,4 @@
--- 位置更新消息的模板去掉设备卡号：标题和正文都改用「谁」
+-- 位置更新消息模板：标题写「谁」，正文写「姓名（卡号）」（卡号保留）
 --
 -- `telemetry.dtw.position.updated` 是消息中心里唯一渲染文案的定位消息
 -- （报警类消息的三份模板留空，文案由报警策略渲染）。它的标题 / 正文是给人看
@@ -7,9 +7,10 @@
 --   标题：定位卡 {{locatorCode}} 位置已更新
 --   正文：定位卡 {{locatorCode}} 位于 {{floor:default(未知)}} 层
 --
--- `locatorCode` 是设备卡号，人要看的是「谁在这里」。位置消息的
--- annotations 里已经有 `bindTargetName`（绑定的人员姓名 / 车牌号，见 dtw
--- `position_updated_msg`），直接换掉卡号；未绑定时兜底「未知目标」。
+-- 原来把卡号当人名展示。位置消息的 annotations 里已经有 `bindTargetName`
+-- （绑定的人员姓名 / 车牌号，见 dtw `position_updated_msg`）：标题只说人，
+-- 未绑定时兜底「未知目标」；正文写「姓名（卡号 xxx）」——卡号是现场找人、
+-- 运维查设备与轨迹要用的数据，留在正文里，不删。
 --
 -- 只替换默认片段，不动 `ext_template`：那是给大屏的机器载荷，`locatorCode`、
 -- `triggerMs`、`regionId`、Unity 坐标都必须保留——大屏按卡号做去重与落点，
@@ -33,7 +34,7 @@ set
     content_template = replace(
         content_template,
         '定位卡 {{locatorCode}} 位于',
-        '{{bindTargetName:default(未知目标)}} 位于'
+        '{{bindTargetName:default(未知目标)}}（卡号 {{locatorCode}}） 位于'
     ),
     update_ms = 1795752000000
 where (
