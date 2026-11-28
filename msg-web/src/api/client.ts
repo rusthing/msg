@@ -123,7 +123,7 @@ async function request<T>(
   }
   if (ro.result !== RO_SUCCESS) {
     if (ro.code === 'ADM00005') handleUnauthorized();
-    throw new ApiError(ro.msg || '请求失败', {
+    throw new ApiError(ro.msg || '操作没有成功，请稍后重试', {
       result: ro.result,
       code: ro.code,
       detail: ro.detail,

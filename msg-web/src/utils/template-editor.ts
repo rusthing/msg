@@ -26,7 +26,7 @@ export const DEFAULT_TEMPLATE_TYPES: TemplateTypeOption[] = [
     value: 'robotech',
     label: 'robotech（默认）',
     description:
-      '项目内置默认引擎。{{var}}（或 ${var}）直接代入变量，{{var:filter(arg)|filter}} 按管道从左到右加工；内置 json/time/since/upper/lower/trim/default/truncate/fixed/mask/url 11 个过滤器。变量缺失时保留占位符，json 过滤器输出 null。适合标题、正文和 JSON 报文。',
+      '内置默认模板引擎。{{var}}（或 ${var}）直接代入变量，多个过滤器用管道按从左到右依次加工；内置 json、time、since、upper、lower、trim、default、truncate、fixed、mask、url 十一个过滤器。变量缺失时保留原占位符，json 过滤器会输出 null。适合标题、正文和 JSON 报文。',
     syntax: '{{var}} / ${var} / {{var:upper|truncate(10)}}',
   },
   {

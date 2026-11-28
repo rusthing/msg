@@ -325,7 +325,7 @@ const channel: EntityConfig = {
   path: '/msg/channel',
   name: '渠道',
   title: '投递渠道',
-  desc: '真正发消息的通道（大屏 / 定位卡 / 短信 / 邮件）；渠道类型就是渠道的身份，决定发送器与配置字段',
+  desc: '真正发消息的通道（大屏 / 定位卡 / 短信 / 邮件）；渠道类型决定用什么方式发送，以及这里显示哪些配置项',
   icon: <NotificationOutlined />,
   group: 'definition',
   hideUpdateTime: true,
@@ -339,7 +339,7 @@ const channel: EntityConfig = {
       required: true,
       searchable: true,
       options: CHANNEL_TYPES,
-      tip: '渠道的唯一标识：决定用哪个发送器、「渠道配置」显示哪些字段，也是投递主题 `msg.delivery.<类型>` 的末段。一个类型一条渠道，建好后一般不改；业务叫法写在名称里',
+      tip: '渠道类型的唯一标识：决定用哪种方式发送、「渠道配置」里出现哪些项，也决定投递主题的最后一段（msg.delivery.<类型>）。一个类型对应一条渠道，建好后一般不改；业务叫法写在名称里',
     },
     { key: 'name', label: '名称', kind: 'text', width: 160, required: true, searchable: true, maxLength: 50 },
     {
@@ -347,7 +347,7 @@ const channel: EntityConfig = {
       label: '渠道配置',
       kind: 'channelOptions',
       rows: 6,
-      tip: '按渠道类型渲染字段；留空的项用后端默认值。改配置不用重启，渠道写操作会重建消息缓存',
+      tip: '按渠道类型显示对应配置项；留空的项使用系统默认值。改完立即生效，不需要重启',
     },
     {
       key: 'payloadTemplate',
@@ -356,7 +356,7 @@ const channel: EntityConfig = {
       width: 260,
       rows: 8,
       ellipsis: true,
-      tip: '报文模板，保存前校验 JSON 与占位符。通用变量：{{targetId}} {{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；业务协议（如定位卡的 deviceId/code/message）由注册渠道的一方在模板里写死。字符串变量写 {{var:json}}（自带引号）；过滤器链示例 {{title:trim|truncate(20)}}；${var} 等价',
+      tip: '报文模板，保存前会校验 JSON 格式与占位符。通用变量：{{targetId}} {{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；业务协议（如定位卡的 deviceId/code/message）由接入这个渠道的一方在模板里固定写好。字符串变量要写 {{var:json}}（自带引号）；过滤器写法示例 {{title:trim|truncate(20)}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', width: 200, maxLength: 50, ellipsis: true },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true, inForm: false },
@@ -399,7 +399,7 @@ const message: EntityConfig = {
       required: true,
       searchable: true,
     },
-    { key: 'persisted', label: '持久化', kind: 'bool', defaultValue: true, dbDefault: true, inTable: false, tip: '不持久化时投递不落库，出问题只能看日志' },
+    { key: 'persisted', label: '持久化', kind: 'bool', defaultValue: true, dbDefault: true, inTable: false, tip: '不保存时不会留下投递记录，出问题只能查日志' },
     {
       key: 'titleTemplate',
       label: '标题模板',
@@ -409,7 +409,7 @@ const message: EntityConfig = {
       inTable: false,
       templateGroup: true,
       nullable: true,
-      tip: '纯文本模板，变量取 labels 与 annotations。直接写 {{var}}，过滤器链示例 {{var:trim|truncate(20)}}、{{var:default(未知)}}；${var} 等价；留空用发布方给的标题',
+      tip: '纯文本模板，变量取自标签与标注。直接写 {{var}}；过滤器写法示例 {{var:trim|truncate(20)}}、{{var:default(未知)}}；${var} 等价；留空则使用发布方给的标题',
     },
     {
       key: 'contentTemplate',
@@ -419,7 +419,7 @@ const message: EntityConfig = {
       inTable: false,
       templateGroup: true,
       nullable: true,
-      tip: '纯文本模板。过滤器示例 {{amount:fixed(2)}}、{{phone:mask(3,4)}}、{{createAt:time}}；过滤器链示例 {{var:trim|upper}}；${var} 等价；留空用发布方给的内容',
+      tip: '纯文本模板。过滤器示例 {{amount:fixed(2)}}、{{phone:mask(3,4)}}、{{createAt:time}}；多个过滤器写法示例 {{var:trim|upper}}；${var} 等价；留空则使用发布方给的内容',
     },
     {
       key: 'extTemplate',
@@ -429,7 +429,7 @@ const message: EntityConfig = {
       inTable: false,
       templateGroup: true,
       nullable: true,
-      tip: 'JSON 模板（渲染结果原样下发给消费方）。字符串变量写 {{var:json}}（自带引号），数字/时间直接写 {{var}}；如 {"name": {{userName:json}}, "at": {{createAt:time}}}；${var} 等价',
+      tip: 'JSON 模板（生成结果会原样发送给接收方）。字符串变量要写 {{var:json}}（自带引号），数字和时间直接写 {{var}}；如 {"name": {{userName:json}}, "at": {{createAt:time}}}；${var} 等价',
     },
     { key: 'remark', label: '备注', kind: 'text', inTable: false, maxLength: 50 },
     {
@@ -479,7 +479,7 @@ const messageTarget: EntityConfig = {
       searchable: true,
       allowEmptySubmit: true,
       emptyLabel: '全部目标',
-      tip: '用户 / 角色 / 组织从平台目录里选择；大屏等动态目标按业务标识填写；类别配了「目标标识键」时标识由事件标签决定、此字段不生效；留空表示该类别下的全部目标（类别禁用广播时会被跳过）',
+      tip: '用户、角色、组织从平台目录里选择；大屏等动态目标按业务标识填写；如果类别配置了「目标标识键」，标识由事件标签决定，这里填的不生效；留空表示该类别下的全部目标（类别关闭广播时会被跳过）',
     },
   ],
 };
@@ -546,7 +546,7 @@ const delivery: EntityConfig = {
   path: '/msg/delivery',
   name: '投递',
   title: '投递记录',
-  desc: '一条消息的一次业务触发；`businessId + businessTriggerMs` 唯一，用于幂等去重',
+  desc: '一条消息的一次业务触发；业务编号加上业务发生时间唯一，用于判重',
   icon: <CloudUploadOutlined />,
   group: 'delivery',
   readOnly: true,
@@ -556,7 +556,7 @@ const delivery: EntityConfig = {
   // 投递记录只增不减，默认按更新时间倒序：刷新后最上面一条就是刚动过的那条
   defaultOrderBy: 'update_ms:desc',
   fields: [
-    // 标题 / 事件编码 / 业务ID 只展示不参与筛选：它们要么是自由文本，要么是长数字，
+    // 标题 / 事件编码 / 业务编号 只展示不参与筛选：它们要么是自由文本，要么是长数字，
     // 精确等值匹配在投递记录上没什么用（模糊搜索走「关键字」，模糊不到就去投递目标里下钻）
     { key: 'title', label: '标题', kind: 'text', width: 220, required: true, maxLength: 150, ellipsis: true },
     { key: 'eventCode', label: '事件编码', kind: 'text', width: 180, required: true, maxLength: 50 },
@@ -586,9 +586,9 @@ const delivery: EntityConfig = {
       kind: 'ms',
       width: 180,
       required: true,
-      tip: '与 businessId 组成幂等键，必须是业务时刻，不要用服务端当前时间',
+      tip: '和业务编号一起用于判重，必须填业务发生时间，不要用系统当前时间',
     },
-    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 180, required: true, inTable: false, tip: '消息中心收到并开始落库的时刻，服务端时钟' },
+    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 180, required: true, inTable: false, tip: '消息中心收到并开始记录的时间，取系统时钟' },
     { key: 'firstReceiveMs', label: '首收时间', kind: 'ms', width: 180, inTable: false, tip: '链路第一跳收到原始事件的时刻，由发布方透传' },
     { key: 'firstTriggerMs', label: '首次触发时间', kind: 'ms', width: 180, inTable: false },
     { key: 'messageId', label: '消息', kind: 'ref', ref: 'message', width: 180, required: true, searchable: true, inTable: false },
@@ -613,12 +613,12 @@ const delivery: EntityConfig = {
     },
     {
       key: 'businessId',
-      label: '业务ID',
+      label: '业务编号',
       kind: 'u64',
       width: 180,
       required: true,
       inTable: false,
-      tip: '业务触发时生成，或用业务 ID 本身；与 businessTriggerMs 一起做幂等去重',
+      tip: '业务触发时生成，或直接用业务编号；和业务触发时间一起用于判重',
     },
     { key: 'labels', label: '路由标签', kind: 'json', rows: 5, inTable: false, tip: '结构化 key-value，所有规则匹配只看它，不看自由文本' },
     { key: 'annotations', label: '标注', kind: 'json', rows: 5, inTable: false, tip: '标题、详细描述、建议处理步骤这类可读文本，不参与匹配' },
@@ -652,7 +652,7 @@ const delivery: EntityConfig = {
         ctx.confirm({
           title: '再次投递这条消息？',
           content:
-            '按这条投递原来的目标与渠道重新发一遍：状态会回到「投递中」，已经成功的渠道也会再收一次；渠道投递日志里会多一行「手工重投」。',
+            '按这条投递原来的目标和渠道重新发一遍：状态会回到「投递中」，已经成功的渠道也会再收到一次；渠道投递日志里会多一条「手工重投」。',
           okText: '再次投递',
           onOk: async () => {
             try {
@@ -689,7 +689,7 @@ const deliveryTarget: EntityConfig = {
   readOnly: true,
   displayLabel: (row) => `${row.targetId ? String(row.targetId) : '全部目标'} · #${row.id}`,
   fields: [
-    { key: 'deliveryId', label: '投递ID', kind: 'ref', ref: 'delivery', width: 190, required: true, searchable: true },
+    { key: 'deliveryId', label: '投递编号', kind: 'ref', ref: 'delivery', width: 190, required: true, searchable: true },
     {
       key: 'targetCategoryId',
       label: '目标类别',
@@ -731,13 +731,13 @@ const deliveryChannel: EntityConfig = {
   path: '/msg/delivery-channel',
   name: '投递渠道任务',
   title: '投递渠道任务',
-  desc: '一个投递目标 × 一个渠道 = 一条发送任务；每次发送尝试在「渠道投递日志」里留一行',
+  desc: '一个投递目标加一个渠道就是一条发送任务；每次发送尝试都会在「渠道投递日志」里留一条记录',
   icon: <ApiOutlined />,
   group: 'delivery',
   readOnly: true,
   displayLabel: (row) => `渠道 #${String(row.channelId)} · ${String(row.address ?? '')}`.trim(),
   fields: [
-    { key: 'deliverTargetId', label: '投递目标ID', kind: 'ref', ref: 'delivery-target', width: 190, required: true, searchable: true },
+    { key: 'deliverTargetId', label: '投递目标编号', kind: 'ref', ref: 'delivery-target', width: 190, required: true, searchable: true },
     { key: 'channelId', label: '渠道', kind: 'ref', ref: 'channel', width: 160, required: true, searchable: true },
     {
       key: 'deliverChannelStatus',
@@ -765,7 +765,7 @@ const deliveryChannelLog: EntityConfig = {
   readOnly: true,
   modalWidth: 820,
   fields: [
-    { key: 'deliveryChannelId', label: '投递渠道ID', kind: 'ref', ref: 'delivery-channel', width: 190, required: true, searchable: true },
+    { key: 'deliveryChannelId', label: '投递渠道编号', kind: 'ref', ref: 'delivery-channel', width: 190, required: true, searchable: true },
     {
       key: 'deliverChannelStatus',
       label: '状态',
@@ -776,7 +776,7 @@ const deliveryChannelLog: EntityConfig = {
       defaultValue: 0,
       inForm: false,
     },
-    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 180, required: true, tip: '渠道消费到投递任务、开始发送的时刻，服务端时钟' },
+    { key: 'receiveMs', label: '接收时间', kind: 'ms', width: 180, required: true, tip: '渠道收到投递任务、开始发送的时间，取系统时钟' },
     { key: 'finishMs', label: '完成时间', kind: 'ms', width: 180 },
     {
       key: 'businessTriggerMs',
@@ -785,14 +785,14 @@ const deliveryChannelLog: EntityConfig = {
       width: 180,
       required: true,
       inTable: false,
-      tip: '与 msg_delivery.business_trigger_ms 同值，用它算端到端耗时',
+      tip: '和消息投递记录里的业务触发时间相同，用来算端到端耗时',
     },
     { key: 'firstReceiveMs', label: '首收时间', kind: 'ms', width: 180, inTable: false },
     { key: 'firstTriggerMs', label: '首次触发时间', kind: 'ms', width: 180, inTable: false },
     { key: 'address', label: '投递地址', kind: 'text', width: 220, maxLength: 80, searchable: true, ellipsis: true },
     // 详情是自由文本（「发送成功」/异常原因/渠道原始响应），不是 JSON：
     // 用 json 控件会让编辑这条日志时因存量纯文本过不了 JSON 校验而无法保存
-    { key: 'detail', label: '投递详情', kind: 'textarea', rows: 6, inTable: false, tip: '失败原因或渠道返回的原始响应' },
+    { key: 'detail', label: '投递详情', kind: 'textarea', rows: 6, inTable: false, tip: '失败原因，或渠道返回的原始内容' },
   ],
   extraColumns: [
     {
@@ -881,7 +881,7 @@ const messageQueue: EntityConfig = {
   path: '/msg/message-queue',
   name: '消息队列',
   title: '消息队列',
-  desc: '消息中心订阅的业务主题：发布方往这里发事件，服务端按订阅消费',
+  desc: '消息中心订阅的业务主题：业务方往这里发事件，系统按订阅接收',
   icon: <ProfileOutlined />,
   group: 'queue',
   hideUpdateTime: true,
@@ -899,7 +899,7 @@ const deliveryQueue: EntityConfig = {
   path: '/msg/delivery-queue',
   name: '投递队列',
   title: '投递队列',
-  desc: '每个渠道一条投递主题，编码固定为 `msg.delivery.<渠道类型>`，服务端会校验前缀与渠道是否存在',
+  desc: '每个渠道对应一条投递主题，名称固定为 msg.delivery.<渠道类型>，系统会校验前缀和渠道是否存在',
   icon: <BarsOutlined />,
   group: 'queue',
   hideUpdateTime: true,
@@ -912,7 +912,7 @@ const deliveryQueue: EntityConfig = {
       required: true,
       searchable: true,
       maxLength: 50,
-      tip: '末段必须等于某个渠道类型，渠道从主题反解，本表不存渠道 ID',
+      tip: '最后一段必须等于某个渠道类型，渠道由主题推断出来，这里不存渠道编号',
     },
     { key: 'name', label: '名称', kind: 'text', width: 200, required: true, searchable: true, maxLength: 50 },
     { key: 'persisted', label: '持久化', kind: 'bool', defaultValue: false, dbDefault: true, inTable: false },

@@ -50,7 +50,7 @@ function parseOptions(text: string): ParsedOptions {
     }
     return { obj: parsed as Record<string, unknown> };
   } catch {
-    return { obj: {}, error: 'JSON 无法解析，请切到「原始 JSON」修正' };
+    return { obj: {}, error: 'JSON 格式不正确，请切到「原始 JSON」修正' };
   }
 }
 
@@ -107,7 +107,7 @@ function JsonObjectField({
       emitted.current = JSON.stringify(parsed, null, 2);
       onChange(parsed);
     } catch {
-      setError('JSON 无法解析');
+      setError('JSON 格式不正确');
     }
   };
 
@@ -248,7 +248,7 @@ export default function ChannelOptionsEditor({
           type="warning"
           showIcon
           title={`类型「${channelType}」没有内置表单`}
-          description="用下面的原始 JSON 配置。后端没有对应发送器时，投递会报「渠道未实现」。"
+          description="用下面的原始 JSON 配置。如果系统还没有对应的发送方式，投递时会提示「渠道未实现」。"
         />
       )}
       {schema && (

@@ -65,7 +65,7 @@ const WEBSOCKET: ChannelOptionSchema = {
       label: '握手令牌',
       kind: 'secret',
       placeholder: '留空表示不校验（联调用）',
-      tip: '大屏连接 `/msg/ws?targetCategory=screen&token=xxx` 时带上；令牌只对「绑定了这条渠道的目标类别」生效，另一种业务的大屏应另建目标类别并另绑一条渠道',
+      tip: '大屏建立长连接时要带上这个令牌；令牌只对绑定了这条渠道的目标类别生效。另一套业务的大屏应另建目标类别，并单独绑一条渠道',
     },
   ],
 };
@@ -88,7 +88,7 @@ const NATS: ChannelOptionSchema = {
 const SMS: ChannelOptionSchema = {
   type: 'sms',
   label: 'sms',
-  desc: '短信网关逐条下发：报文与成功判定都配在这里，换网关不用发版',
+  desc: '短信网关逐条发送：报文和成功判定都在这里配置，换网关不用重新发布',
   fields: [
     {
       key: 'gatewayUrl',
@@ -135,7 +135,7 @@ const SMS: ChannelOptionSchema = {
       label: '成功判定字段',
       kind: 'text',
       placeholder: 'code',
-      tip: '响应里表示结果的字段，支持 data.status 这类点路径；留空表示 HTTP 2xx 即成功',
+      tip: '响应里表示结果的字段，支持 data.status 这类点路径；留空表示只要请求成功即算成功',
     },
     {
       key: 'successValue',
