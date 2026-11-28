@@ -24,5 +24,5 @@ update public.msg_channel
 set payload_template = '@engine: robotech
 {"eventCode":{{eventCode:json}},"data":{{ext:json}},"firstTriggerMs":{{firstTriggerMs:default(null)}},"firstReceiveMs":{{firstReceiveMs:default(null)}},"receiveMs":{{receiveMs:default(null)}},"businessTriggerMs":{{businessTriggerMs:default(null)}},"sendMs":{{sendMs:default(null)}}}',
     update_ms = 1795765500000
-where code = 'websocket'
+where channel_type = 'websocket'
   and payload_template like '%"eventCode":{{eventCode:json}},"data":{{ext:json}}}%';
