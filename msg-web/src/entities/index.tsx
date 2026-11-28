@@ -339,7 +339,7 @@ const channel: EntityConfig = {
       required: true,
       searchable: true,
       options: CHANNEL_TYPES,
-      tip: '渠道类型的唯一标识：决定用哪种方式发送、「渠道配置」里出现哪些项，也决定投递主题的最后一段（msg.delivery.<类型>）。一个类型对应一条渠道，建好后一般不改；业务叫法写在名称里',
+      tip: '渠道类型的唯一标识：决定发送方式、「渠道配置」出现哪些项，也决定投递主题的最后一段。建好后一般不改，业务叫法写在名称里',
     },
     { key: 'name', label: '名称', kind: 'text', width: 160, required: true, searchable: true, maxLength: 50 },
     {
@@ -356,7 +356,7 @@ const channel: EntityConfig = {
       width: 260,
       rows: 8,
       ellipsis: true,
-      tip: '报文模板，保存前会校验 JSON 格式与占位符。通用变量：{{targetId}} {{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；业务协议（如定位卡的 deviceId/code/message）由接入这个渠道的一方在模板里固定写好。字符串变量要写 {{var:json}}（自带引号）；过滤器写法示例 {{title:trim|truncate(20)}}；${var} 等价',
+      tip: '报文模板，保存前会校验 JSON 格式与占位符。常用变量：{{targetId}} {{eventCode}} {{title}} {{content}} {{ext}} {{firstReceiveMs}} {{businessTriggerMs}}；字符串变量要写 {{var:json}}（自带引号），过滤器示例 {{title:trim|truncate(20)}}',
     },
     { key: 'remark', label: '备注', kind: 'text', width: 200, maxLength: 50, ellipsis: true },
     { key: 'enabled', label: '启用', kind: 'bool', width: 90, defaultValue: true, switchable: true, inForm: false },
@@ -409,7 +409,7 @@ const message: EntityConfig = {
       inTable: false,
       templateGroup: true,
       nullable: true,
-      tip: '纯文本模板，变量取自标签与标注。直接写 {{var}}；过滤器写法示例 {{var:trim|truncate(20)}}、{{var:default(未知)}}；${var} 等价；留空则使用发布方给的标题',
+      tip: '纯文本模板。过滤器示例 {{var:trim|truncate(20)}}、{{var:default(未知)}}；${var} 等价；留空用发布方给的标题',
     },
     {
       key: 'contentTemplate',
@@ -419,7 +419,7 @@ const message: EntityConfig = {
       inTable: false,
       templateGroup: true,
       nullable: true,
-      tip: '纯文本模板。过滤器示例 {{amount:fixed(2)}}、{{phone:mask(3,4)}}、{{createAt:time}}；多个过滤器写法示例 {{var:trim|upper}}；${var} 等价；留空则使用发布方给的内容',
+      tip: '纯文本模板。示例 {{amount:fixed(2)}}、{{phone:mask(3,4)}}、{{createAt:time}}；多个过滤器写 {{var:trim|upper}}；留空用发布方给的内容',
     },
     {
       key: 'extTemplate',
@@ -479,7 +479,7 @@ const messageTarget: EntityConfig = {
       searchable: true,
       allowEmptySubmit: true,
       emptyLabel: '全部目标',
-      tip: '用户、角色、组织从平台目录里选择；大屏等动态目标按业务标识填写；如果类别配置了「目标标识键」，标识由事件标签决定，这里填的不生效；留空表示该类别下的全部目标（类别关闭广播时会被跳过）',
+      tip: '用户、角色、组织从平台目录里选；大屏等动态目标按业务标识填；类别配了「目标标识键」时，标识由事件标签决定；留空表示该类别下全部目标',
     },
   ],
 };
