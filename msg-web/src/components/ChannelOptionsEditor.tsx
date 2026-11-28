@@ -248,7 +248,7 @@ export default function ChannelOptionsEditor({
           type="warning"
           showIcon
           title={`类型「${channelType}」没有内置表单`}
-          description="用下面的原始 JSON 配置。如果系统还没有对应的发送方式，投递时会提示「渠道未实现」。"
+          description="用下面的原始 JSON 配置；系统还不支持这种发送方式时，投递会提示「渠道未实现」。"
         />
       )}
       {schema && (
@@ -281,7 +281,7 @@ export default function ChannelOptionsEditor({
         />
       )}
       {error && (
-        <Alert type="error" showIcon title={error} description="图形化表单已停用，避免覆盖坏掉的配置。" />
+        <Alert type="error" showIcon title={error} description="图形化表单暂不可用，避免覆盖已损坏的配置。" />
       )}
 
       {schema && !error && (
