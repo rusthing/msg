@@ -1,6 +1,6 @@
 -- msg_channel
 INSERT INTO public.msg_channel (id, code, name, options, payload_template, remark, enabled, creater_id, create_ms, updater_id, update_ms) VALUES (2, 'websocket', 'websocket', '{"token":""}', '@engine: robotech
-{"eventCode":{{eventCode:json}},"data":{{ext:json}},"firstTriggerMs":{{firstTriggerMs:default(null)}},"firstReceiveMs":{{firstReceiveMs:default(null)}},"receiveMs":{{receiveMs:default(null)}},"businessTriggerMs":{{businessTriggerMs:default(null)}},"sendMs":{{sendMs:default(null)}}}', 'WebSocket长连接', true, 0, 1793976041647, 0, 1793976041647);
+{"eventCode":{{eventCode:json}},"data":{{ext:json}}}', 'WebSocket长连接', true, 0, 1793976041647, 0, 1793976041647);
 INSERT INTO public.msg_channel (id, code, name, options, payload_template, remark, enabled, creater_id, create_ms, updater_id, update_ms) VALUES (3, 'locator', '定位卡渠道', NULL, NULL, '定位卡下行：NATS 转 dtw.card.callback', true, 0, 1793976042413, 0, 1794136800000);
 
 -- 短信渠道：网关参数存 options（运营改渠道表即可换网关，不用重启）
